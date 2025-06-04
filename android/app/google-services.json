@@ -58,6 +58,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "678204431234-damtmhe2vd2q8q5cff32cpatf058psik.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fairshare.fairshare_app",
+            "certificate_hash": "74a69206e4321737dc2c934677cc27b88c882740"
+          }
+        },
+        {
           "client_id": "678204431234-vf2gsquleeu11641q2p00f10hfvfmq73.apps.googleusercontent.com",
           "client_type": 3
         }

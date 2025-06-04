@@ -1,0 +1,1984 @@
+=== lib/core/database/tables/users_table.dart ===
+import 'package:drift/drift.dart';
+
+/// Table definition for users in the FairShare app.
+///
+/// Stores user authentication and profile data with offline-first approach.
+/// Uses non-nullable fields with default values for cleaner code.
+class AppUsers extends Table {
+  /// Unique user ID from Firebase Auth
+  TextColumn get id => text()();
+
+  /// Display name from Google account
+  TextColumn get displayName => text()();
+
+  /// Email from Google account
+  TextColumn get email => text()();
+
+  /// Avatar URL from Google account (empty string if not available)
+  TextColumn get avatarUrl => text().withDefault(const Constant(''))();
+
+  /// Phone number (empty string if not provided)
+  TextColumn get phone => text().withDefault(const Constant(''))();
+
+  /// When the user first signed up
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// Last time user data was updated
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// Whether user data is synced with Firebase
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  String get tableName => 'users'; // Keep database table name as 'users'
+}
+=== lib/core/database/tables/groups_table.dart ===
+import 'package:drift/drift.dart';
+
+/// Table definition for groups in the FairShare app.
+///
+/// Stores group information for expense sharing.
+class AppGroups extends Table {
+  /// Unique group ID (6-digit code)
+  TextColumn get id => text()();
+
+  /// Group display name
+  TextColumn get displayName => text()();
+
+  /// Group avatar URL (empty string if not available)
+  TextColumn get avatarUrl => text().withDefault(const Constant(''))();
+
+  /// Whether to optimize expense sharing (minimize transactions)
+  BoolColumn get optimizeSharing =>
+      boolean().withDefault(const Constant(true))();
+
+  /// Whether group is open for new members to join
+  BoolColumn get isOpen => boolean().withDefault(const Constant(true))();
+
+  /// Whether to auto-convert currencies to default currency
+  BoolColumn get autoExchangeCurrency =>
+      boolean().withDefault(const Constant(false))();
+
+  /// Default currency for the group
+  TextColumn get defaultCurrency => text().withDefault(const Constant('USD'))();
+
+  /// When the group was created
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// Last time group data was updated
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// Whether group data is synced with Firebase
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  String get tableName => 'groups'; // Keep database table name as 'groups'
+}
+
+/// Table definition for group memberships.
+///
+/// Many-to-many relationship between users and groups.
+class AppGroupMembers extends Table {
+  /// Group ID reference
+  TextColumn get groupId => text()();
+
+  /// User ID reference
+  TextColumn get userId => text()();
+
+  /// When the user joined the group
+  DateTimeColumn get joinedAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// Whether membership data is synced with Firebase
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {groupId, userId};
+
+  @override
+  String get tableName => 'group_members'; // Keep database table name as 'group_members'
+}
+=== lib/core/database/tables/expenses_table.dart ===
+import 'package:drift/drift.dart';
+
+/// Table definition for expenses in the FairShare app.
+///
+/// Stores expense information for group sharing.
+class Expenses extends Table {
+  /// Unique expense ID
+  TextColumn get id => text()();
+
+  /// Group this expense belongs to
+  TextColumn get groupId => text()();
+
+  /// Expense title/description
+  TextColumn get title => text()();
+
+  /// Expense amount
+  RealColumn get amount => real()();
+
+  /// Currency code (e.g., USD, EUR)
+  TextColumn get currency => text()();
+
+  /// User ID who paid for this expense
+  TextColumn get paidBy => text()();
+
+  /// Whether expense is shared with everyone in group
+  BoolColumn get shareWithEveryone =>
+      boolean().withDefault(const Constant(true))();
+
+  /// Date when the expense occurred
+  DateTimeColumn get expenseDate => dateTime()();
+
+  /// When the expense was created
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// Last time expense data was updated
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// Whether expense data is synced with Firebase
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Table definition for expense shares.
+///
+/// Stores individual user shares for each expense.
+class ExpenseShares extends Table {
+  /// Expense ID reference
+  TextColumn get expenseId => text()();
+
+  /// User ID who shares this expense
+  TextColumn get userId => text()();
+
+  /// Amount this user owes for the expense
+  RealColumn get shareAmount => real()();
+
+  /// Whether share data is synced with Firebase
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {expenseId, userId};
+}
+=== lib/core/database/tables/sync_table.dart ===
+import 'package:drift/drift.dart';
+
+/// Table definition for sync queue in the FairShare app.
+///
+/// Stores operations performed offline that need to be synced to Firebase.
+class SyncQueue extends Table {
+  /// Auto-incrementing ID for sync operations
+  IntColumn get id => integer().autoIncrement()();
+
+  /// Type of operation: 'create', 'update', 'delete'
+  TextColumn get operation => text()();
+
+  /// Type of entity: 'user', 'group', 'expense', etc.
+  TextColumn get entityType => text()();
+
+  /// ID of the entity being synced
+  TextColumn get entityId => text()();
+
+  /// JSON data for the operation (nullable for delete operations)
+  TextColumn get data => text().nullable()();
+
+  /// When the operation was queued
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// Number of retry attempts
+  IntColumn get retryCount => integer().withDefault(const Constant(0))();
+}
+=== lib/core/database/database_provider.dart ===
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'app_database.dart';
+
+part 'database_provider.g.dart';
+
+@riverpod
+AppDatabase appDatabase(Ref ref) {
+  final database = AppDatabase();
+  ref.onDispose(() => database.close());
+  return database;
+}
+=== lib/core/database/app_database.dart ===
+import 'dart:io';
+
+import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
+import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
+
+import '../../features/auth/domain/entities/user.dart';
+import 'tables/expenses_table.dart';
+import 'tables/groups_table.dart';
+import 'tables/sync_table.dart';
+import 'tables/users_table.dart';
+
+part 'app_database.g.dart';
+
+/// FairShare app database using Drift for offline-first data storage.
+///
+/// Coordinates all table operations and provides high-level database methods.
+/// Focuses on database setup, migrations, and cross-table operations.
+@DriftDatabase(
+  tables: [
+    AppUsers,
+    AppGroups,
+    AppGroupMembers,
+    Expenses,
+    ExpenseShares,
+    SyncQueue,
+  ],
+)
+class AppDatabase extends _$AppDatabase {
+  AppDatabase() : super(_openConnection());
+
+  @override
+  int get schemaVersion => 1;
+
+  @override
+  MigrationStrategy get migration {
+    return MigrationStrategy(
+      onCreate: (Migrator m) async {
+        await m.createAll();
+      },
+    );
+  }
+
+  // === USER OPERATIONS ===
+
+  /// Insert a new user into the database
+  Future<void> insertUser(User user) async {
+    await into(appUsers).insert(
+      AppUsersCompanion(
+        id: Value(user.id),
+        displayName: Value(user.displayName),
+        email: Value(user.email),
+        avatarUrl: Value(user.avatarUrl),
+        phone: Value(user.phone),
+        createdAt: Value(user.createdAt),
+        updatedAt: Value(user.updatedAt),
+        isSynced: Value(user.isSynced),
+      ),
+    );
+  }
+
+  /// Get user by ID
+  Future<User?> getUserById(String id) async {
+    final query = select(appUsers)..where((u) => u.id.equals(id));
+    final result = await query.getSingleOrNull();
+    return result != null ? _userFromDb(result) : null;
+  }
+
+  /// Update existing user
+  Future<void> updateUser(User user) async {
+    await update(appUsers).replace(
+      AppUsersCompanion(
+        id: Value(user.id),
+        displayName: Value(user.displayName),
+        email: Value(user.email),
+        avatarUrl: Value(user.avatarUrl),
+        phone: Value(user.phone),
+        createdAt: Value(user.createdAt),
+        updatedAt: Value(DateTime.now()),
+        isSynced: Value(user.isSynced),
+      ),
+    );
+  }
+
+  /// Delete user by ID
+  Future<void> deleteUser(String id) async {
+    await (delete(appUsers)..where((u) => u.id.equals(id))).go();
+  }
+
+  // === SYNC OPERATIONS ===
+
+  /// Get count of all unsynced items across all tables
+  Future<int> getUnsyncedItemsCount() async {
+    final userCount =
+        await (selectOnly(appUsers)
+              ..addColumns([appUsers.id.count()])
+              ..where(appUsers.isSynced.equals(false)))
+            .getSingle();
+
+    final groupCount =
+        await (selectOnly(appGroups)
+              ..addColumns([appGroups.id.count()])
+              ..where(appGroups.isSynced.equals(false)))
+            .getSingle();
+
+    final expenseCount =
+        await (selectOnly(expenses)
+              ..addColumns([expenses.id.count()])
+              ..where(expenses.isSynced.equals(false)))
+            .getSingle();
+
+    final userCountInt = (userCount.read(appUsers.id.count()) ?? 0).toInt();
+    final groupCountInt = (groupCount.read(appGroups.id.count()) ?? 0).toInt();
+    final expenseCountInt =
+        (expenseCount.read(expenses.id.count()) ?? 0).toInt();
+
+    return userCountInt + groupCountInt + expenseCountInt;
+  }
+
+  /// Clear all data from all tables (used during sign-out)
+  Future<void> clearAllData() async {
+    await transaction(() async {
+      await delete(syncQueue).go();
+      await delete(expenseShares).go();
+      await delete(expenses).go();
+      await delete(appGroupMembers).go();
+      await delete(appGroups).go();
+      await delete(appUsers).go();
+    });
+  }
+
+  // === PRIVATE HELPERS ===
+
+  /// Convert database user row to domain user entity
+  User _userFromDb(AppUser dbUser) {
+    return User(
+      id: dbUser.id,
+      displayName: dbUser.displayName,
+      email: dbUser.email,
+      avatarUrl: dbUser.avatarUrl,
+      phone: dbUser.phone,
+      createdAt: dbUser.createdAt,
+      updatedAt: dbUser.updatedAt,
+      isSynced: dbUser.isSynced,
+    );
+  }
+}
+
+LazyDatabase _openConnection() {
+  return LazyDatabase(() async {
+    final dbFolder = await getApplicationDocumentsDirectory();
+    final file = File(join(dbFolder.path, 'fairshare.db'));
+
+    if (Platform.isAndroid) {
+      await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
+    }
+
+    return NativeDatabase.createInBackground(file);
+  });
+}
+=== lib/core/logging/app_logger.dart ===
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logger/logger.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+part 'app_logger.g.dart';
+
+@riverpod
+Logger appLogger(Ref ref) {
+  return Logger(
+    printer: PrettyPrinter(
+      methodCount: 2,
+      errorMethodCount: 8,
+      lineLength: 120,
+      colors: true,
+      printEmojis: true,
+      dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
+    ),
+  );
+}
+=== lib/features/home/presentation/screens/home_screen.dart ===
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/logging/app_logger.dart';
+import '../../../../shared/theme/app_theme.dart';
+
+// State provider for bottom navigation
+final currentIndexProvider = StateProvider<int>((ref) => 0);
+
+class HomeScreen extends ConsumerWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentIndex = ref.watch(currentIndexProvider);
+    final logger = ref.watch(appLoggerProvider);
+    final appTheme = ref.watch(appThemeProvider.notifier);
+
+    // List of tab widgets
+    final tabs = [
+      const ExpensesTab(),
+      const BalancesTab(),
+      const GroupsTab(),
+      const ProfileTab(),
+    ];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('FairShare'),
+        actions: [
+          // Theme toggle button
+          IconButton(
+            onPressed: () {
+              appTheme.toggleTheme();
+              logger.i('Theme toggled');
+            },
+            icon: Icon(
+              Theme.of(context).brightness == Brightness.light
+                  ? Icons.dark_mode
+                  : Icons.light_mode,
+            ),
+            tooltip: 'Toggle theme',
+          ),
+          // Profile button
+          IconButton(
+            onPressed: () {
+              logger.i('Profile button pressed');
+              context.go('/profile');
+            },
+            icon: const Icon(Icons.account_circle),
+            tooltip: 'Profile',
+          ),
+        ],
+      ),
+      body: IndexedStack(index: currentIndex, children: tabs),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: currentIndex,
+        onDestinationSelected: (index) {
+          ref.read(currentIndexProvider.notifier).state = index;
+          logger.d('Tab changed to index: $index');
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: 'Expenses',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.balance_outlined),
+            selectedIcon: Icon(Icons.balance),
+            label: 'Balances',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.group_outlined),
+            selectedIcon: Icon(Icons.group),
+            label: 'Groups',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+      ),
+      floatingActionButton:
+          currentIndex ==
+                  0 // Show FAB only on Expenses tab
+              ? FloatingActionButton.extended(
+                onPressed: () {
+                  logger.i('Add expense button pressed');
+                  context.go('/expenses/create');
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Add Expense'),
+              )
+              : null,
+    );
+  }
+}
+
+// Tab widgets
+class ExpensesTab extends ConsumerWidget {
+  const ExpensesTab({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.receipt_long, size: 64, color: Colors.grey),
+          SizedBox(height: 16),
+          Text('No expenses yet'),
+          SizedBox(height: 8),
+          Text('Tap the + button to add your first expense'),
+        ],
+      ),
+    );
+  }
+}
+
+class BalancesTab extends ConsumerWidget {
+  const BalancesTab({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.balance, size: 64, color: Colors.grey),
+          SizedBox(height: 16),
+          Text('All settled up!'),
+          SizedBox(height: 8),
+          Text('Add some expenses to see balances'),
+        ],
+      ),
+    );
+  }
+}
+
+class GroupsTab extends ConsumerWidget {
+  const GroupsTab({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final logger = ref.watch(appLoggerProvider);
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.group, size: 64, color: Colors.grey),
+          const SizedBox(height: 16),
+          const Text('No groups yet'),
+          const SizedBox(height: 8),
+          const Text('Create or join a group to start sharing expenses'),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: () {
+              logger.i('Create group button pressed');
+              // TODO: Navigate to create group screen
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Create Group'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () {
+              logger.i('Join group button pressed');
+              // TODO: Navigate to join group screen
+            },
+            icon: const Icon(Icons.group_add),
+            label: const Text('Join Group'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ProfileTab extends ConsumerWidget {
+  const ProfileTab({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final logger = ref.watch(appLoggerProvider);
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircleAvatar(radius: 40, child: Icon(Icons.person, size: 40)),
+          const SizedBox(height: 16),
+          const Text('Guest User'),
+          const SizedBox(height: 8),
+          const Text('Sign in to save your data'),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: () {
+              logger.i('Sign in button pressed from profile');
+              context.go('/auth');
+            },
+            icon: const Icon(Icons.login),
+            label: const Text('Sign In'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+=== lib/features/auth/data/services/firebase_auth_service.dart ===
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:result_dart/result_dart.dart';
+
+import '../../../../core/database/app_database.dart';
+import '../../domain/entities/user.dart';
+import '../../domain/repositories/auth_repository.dart';
+
+/// Firebase implementation of AuthRepository.
+///
+/// Handles Google Sign-In, offline persistence, and data safety for sign-out.
+class FirebaseAuthService implements AuthRepository {
+  final firebase_auth.FirebaseAuth _firebaseAuth;
+  final GoogleSignIn _googleSignIn;
+  final AppDatabase _database;
+  final Connectivity _connectivity;
+
+  FirebaseAuthService({
+    firebase_auth.FirebaseAuth? firebaseAuth,
+    GoogleSignIn? googleSignIn,
+    required AppDatabase database,
+    Connectivity? connectivity,
+  }) : _firebaseAuth = firebaseAuth ?? firebase_auth.FirebaseAuth.instance,
+       _googleSignIn = googleSignIn ?? GoogleSignIn(),
+       _database = database,
+       _connectivity = connectivity ?? Connectivity();
+
+  @override
+  Future<Result<User>> signInWithGoogle() async {
+    try {
+      // Check internet connectivity
+      final connectivityResult = await _connectivity.checkConnectivity();
+      if (connectivityResult.contains(ConnectivityResult.none)) {
+        return Failure(Exception('Internet connection required for sign-in'));
+      }
+
+      // Start Google Sign-In flow
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        return Failure(Exception('Google Sign-In was cancelled'));
+      }
+
+      // Get authentication credentials
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      final credential = firebase_auth.GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Sign in to Firebase
+      final firebase_auth.UserCredential userCredential = await _firebaseAuth
+          .signInWithCredential(credential);
+
+      final firebaseUser = userCredential.user;
+      if (firebaseUser == null) {
+        return Failure(Exception('Failed to get user from Firebase'));
+      }
+
+      // Create domain user
+      final now = DateTime.now();
+      final user = User(
+        id: firebaseUser.uid,
+        displayName: firebaseUser.displayName ?? 'Unknown User',
+        email: firebaseUser.email ?? '',
+        avatarUrl: firebaseUser.photoURL ?? '',
+        createdAt: now,
+        updatedAt: now,
+        isSynced: false, // Will sync after storing locally
+      );
+
+      // Store user in local database
+      await _database.insertUser(user);
+
+      // Mark as synced since we just created it
+      final syncedUser = user.copyWith(isSynced: true);
+      await _database.updateUser(syncedUser);
+
+      return Success(syncedUser);
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      return Failure(Exception('Firebase Auth Error: ${e.message}'));
+    } catch (e) {
+      return Failure(Exception('Sign-in failed: $e'));
+    }
+  }
+
+  @override
+  Future<Result<SignOutRisk>> checkSignOutRisk() async {
+    try {
+      // Check internet connectivity first
+      final connectivityResult = await _connectivity.checkConnectivity();
+      if (connectivityResult.contains(ConnectivityResult.none)) {
+        return const Success(SignOutRisk.offline);
+      }
+
+      // Check for unsynced data
+      final unsyncedCount = await _database.getUnsyncedItemsCount();
+
+      if (unsyncedCount > 0) {
+        return const Success(SignOutRisk.dataLoss);
+      }
+
+      return const Success(SignOutRisk.safe);
+    } catch (e) {
+      return Failure(Exception('Failed to check sign-out risk: $e'));
+    }
+  }
+
+  @override
+  Future<Result<void>> signOut() async {
+    try {
+      // Double-check connectivity
+      final connectivityResult = await _connectivity.checkConnectivity();
+      if (connectivityResult.contains(ConnectivityResult.none)) {
+        return Failure(Exception('Internet connection required for sign-out'));
+      }
+
+      // Sign out from Firebase Auth
+      await _firebaseAuth.signOut();
+
+      // Sign out from Google
+      await _googleSignIn.signOut();
+
+      // Clear all local data
+      await _database.clearAllData();
+
+      return const Success('Signed out and data cleared');
+    } catch (e) {
+      return Failure(Exception('Sign-out failed: $e'));
+    }
+  }
+
+  @override
+  User? getCurrentUser() {
+    final firebaseUser = _firebaseAuth.currentUser;
+    if (firebaseUser == null) return null;
+
+    // Try to get user from local database
+    // Note: This should be called within an async context in real usage
+    // For now, we'll return a basic user structure
+    // The proper implementation would use a FutureOr or require async
+    return User(
+      id: firebaseUser.uid,
+      displayName: firebaseUser.displayName ?? 'Unknown User',
+      email: firebaseUser.email ?? '',
+      avatarUrl: firebaseUser.photoURL ?? '',
+      createdAt: DateTime.now(), // This should come from database
+      updatedAt: DateTime.now(), // This should come from database
+      isSynced: true, // Assume synced if from Firebase
+    );
+  }
+
+  @override
+  Stream<User?> authStateChanges() {
+    return _firebaseAuth.authStateChanges().asyncMap((firebaseUser) async {
+      if (firebaseUser == null) return null;
+
+      // Try to get full user data from local database
+      final localUser = await _database.getUserById(firebaseUser.uid);
+
+      if (localUser != null) {
+        return localUser;
+      }
+
+      // Fallback to Firebase data if not in database
+      return User(
+        id: firebaseUser.uid,
+        displayName: firebaseUser.displayName ?? 'Unknown User',
+        email: firebaseUser.email ?? '',
+        avatarUrl: firebaseUser.photoURL ?? '',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        isSynced: true,
+      );
+    });
+  }
+
+  @override
+  bool get isAuthenticated => _firebaseAuth.currentUser != null;
+}
+=== lib/features/auth/domain/repositories/auth_repository.dart ===
+import 'package:result_dart/result_dart.dart';
+import '../entities/user.dart';
+
+/// Enum representing the risk level of signing out
+enum SignOutRisk {
+  /// All data is synced - safe to sign out with standard warning
+  safe,
+
+  /// Unsynced data exists - requires extra confirmation
+  dataLoss,
+
+  /// No internet connection - cannot sign out safely
+  offline,
+}
+
+/// Repository interface for authentication operations.
+///
+/// Handles Google Sign-In, user state management, and secure sign-out.
+/// Supports offline-first approach with Firebase Auth persistence.
+abstract class AuthRepository {
+  /// Sign in with Google account.
+  ///
+  /// Requires internet connection for initial OAuth flow.
+  /// Returns [User] on success or [Exception] on failure.
+  Future<Result<User>> signInWithGoogle();
+
+  /// Check the risk level of signing out based on sync status.
+  ///
+  /// Returns:
+  /// - [SignOutRisk.safe] if all data is synced
+  /// - [SignOutRisk.dataLoss] if unsynced data exists
+  /// - [SignOutRisk.offline] if no internet connection
+  Future<Result<SignOutRisk>> checkSignOutRisk();
+
+  /// Sign out current user and clear all local data.
+  ///
+  /// Requires internet connection and should only be called after
+  /// risk assessment via [checkSignOutRisk].
+  ///
+  /// WARNING: This permanently deletes all local data!
+  Future<Result<void>> signOut();
+
+  /// Get currently authenticated user from local cache.
+  ///
+  /// Returns null if no user is signed in.
+  /// Works offline using Firebase Auth persistence.
+  User? getCurrentUser();
+
+  /// Stream of authentication state changes.
+  ///
+  /// Emits [User] when signed in, null when signed out.
+  /// Automatically handles token refresh and validation.
+  Stream<User?> authStateChanges();
+
+  /// Whether user is currently authenticated.
+  ///
+  /// Convenience method that checks if [getCurrentUser] returns non-null.
+  bool get isAuthenticated => getCurrentUser() != null;
+}
+=== lib/features/auth/domain/entities/user.dart ===
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'user.freezed.dart';
+part 'user.g.dart';
+
+/// User entity representing an authenticated user in the FairShare app.
+///
+/// Uses default values instead of nullable fields for cleaner code.
+/// All users authenticate via Google Sign-In.
+@freezed
+abstract class User with _$User {
+  const factory User({
+    /// Unique user ID from Firebase Auth
+    required String id,
+
+    /// Display name from Google account
+    required String displayName,
+
+    /// Email from Google account
+    required String email,
+
+    /// Avatar URL from Google account (empty string if not available)
+    @Default('') String avatarUrl,
+
+    /// Phone number (empty string if not provided)
+    @Default('') String phone,
+
+    /// When the user first signed up
+    required DateTime createdAt,
+
+    /// Last time user data was updated
+    required DateTime updatedAt,
+
+    /// Whether user data is synced with Firebase
+    @Default(false) bool isSynced,
+  }) = _User;
+
+  factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
+}
+
+/// Extension methods for User entity
+extension UserX on User {
+  /// Whether user has an avatar image
+  bool get hasAvatar => avatarUrl.isNotEmpty;
+
+  /// Whether user has provided phone number
+  bool get hasPhone => phone.isNotEmpty;
+
+  /// User initials for avatar fallback
+  String get initials {
+    final words = displayName.split(' ');
+    if (words.isEmpty) return '?';
+    if (words.length == 1) return words[0][0].toUpperCase();
+    return '${words[0][0]}${words[1][0]}'.toUpperCase();
+  }
+
+  /// Whether user data needs syncing
+  bool get needsSync => !isSynced;
+}
+=== lib/features/auth/presentation/providers/auth_providers.dart ===
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:result_dart/result_dart.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+import '../../../../core/database/database_provider.dart';
+import '../../../../core/logging/app_logger.dart';
+import '../../data/services/firebase_auth_service.dart';
+import '../../domain/entities/user.dart';
+import '../../domain/repositories/auth_repository.dart';
+
+part 'auth_providers.g.dart';
+
+/// Provider for Firebase Auth instance
+@riverpod
+firebase.FirebaseAuth firebaseAuth(Ref ref) {
+  return firebase.FirebaseAuth.instance;
+}
+
+/// Provider for Google Sign-In instance
+@riverpod
+GoogleSignIn googleSignIn(Ref ref) {
+  return GoogleSignIn(scopes: ['email', 'profile']);
+}
+
+/// Provider for Connectivity instance
+@riverpod
+Connectivity connectivity(Ref ref) {
+  return Connectivity();
+}
+
+/// Provider for AuthRepository implementation
+@riverpod
+AuthRepository authRepository(Ref ref) {
+  return FirebaseAuthService(
+    firebaseAuth: ref.watch(firebaseAuthProvider),
+    googleSignIn: ref.watch(googleSignInProvider),
+    database: ref.watch(appDatabaseProvider),
+    connectivity: ref.watch(connectivityProvider),
+  );
+}
+
+/// Auth state notifier for managing authentication state
+@riverpod
+class AuthNotifier extends _$AuthNotifier {
+  @override
+  Stream<User?> build() {
+    final authRepo = ref.watch(authRepositoryProvider);
+    return authRepo.authStateChanges();
+  }
+
+  /// Sign in with Google
+  Future<Result<User>> signInWithGoogle() async {
+    final logger = ref.read(appLoggerProvider);
+    final authRepo = ref.read(authRepositoryProvider);
+
+    logger.i('🔐 Starting Google Sign-In...');
+
+    final result = await authRepo.signInWithGoogle();
+
+    return result.fold(
+      (user) {
+        logger.i('✅ Sign-in successful: ${user.displayName}');
+        return Success(user);
+      },
+      (error) {
+        logger.e('❌ Sign-in failed: $error');
+        return Failure(error);
+      },
+    );
+  }
+
+  /// Check sign-out risk
+  Future<Result<SignOutRisk>> checkSignOutRisk() async {
+    final authRepo = ref.read(authRepositoryProvider);
+    return authRepo.checkSignOutRisk();
+  }
+
+  /// Sign out with data clearing
+  Future<Result<void>> signOut() async {
+    final logger = ref.read(appLoggerProvider);
+    final authRepo = ref.read(authRepositoryProvider);
+
+    logger.w('🚪 Starting sign-out process...');
+
+    final result = await authRepo.signOut();
+
+    return result.fold(
+      (_) {
+        logger.i('✅ Sign-out successful - all data cleared');
+        return Success('Signed out and data cleared');
+      },
+      (error) {
+        logger.e('❌ Sign-out failed: $error');
+        return Failure(error);
+      },
+    );
+  }
+
+  /// Get current user synchronously
+  User? getCurrentUser() {
+    final authRepo = ref.read(authRepositoryProvider);
+    return authRepo.getCurrentUser();
+  }
+
+  /// Whether user is authenticated
+  bool get isAuthenticated {
+    final authRepo = ref.read(authRepositoryProvider);
+    return authRepo.isAuthenticated;
+  }
+}
+
+/// Convenience provider for current user
+@riverpod
+User? currentUser(Ref ref) {
+  final authState = ref.watch(authNotifierProvider);
+  return authState.whenOrNull(data: (user) => user);
+}
+
+/// Convenience provider for authentication status
+@riverpod
+bool isAuthenticated(Ref ref) {
+  final user = ref.watch(currentUserProvider);
+  return user != null;
+}
+=== lib/features/auth/presentation/screens/auth_screen.dart ===
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../providers/auth_providers.dart';
+
+class AuthScreen extends ConsumerStatefulWidget {
+  const AuthScreen({super.key});
+
+  @override
+  ConsumerState<AuthScreen> createState() => _AuthScreenState();
+}
+
+class _AuthScreenState extends ConsumerState<AuthScreen> {
+  bool _isSigningIn = false;
+
+  Future<void> _handleGoogleSignIn() async {
+    if (_isSigningIn) return;
+
+    setState(() {
+      _isSigningIn = true;
+    });
+
+    final authNotifier = ref.read(authNotifierProvider.notifier);
+    final result = await authNotifier.signInWithGoogle();
+
+    if (mounted) {
+      setState(() {
+        _isSigningIn = false;
+      });
+
+      result.fold(
+        (user) {
+          // Navigation will be handled automatically by router redirect
+          // based on auth state change
+          _showSuccessSnackBar('Welcome, ${user.displayName}!');
+        },
+        (error) {
+          _showErrorSnackBar(error.toString());
+        },
+      );
+    }
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // Listen to auth state changes for automatic navigation
+    ref.listen(authNotifierProvider, (previous, next) {
+      next.whenData((user) {
+        if (user != null && mounted) {
+          context.go('/home');
+        }
+      });
+    });
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('FairShare'),
+        centerTitle: true,
+        elevation: 0,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // App logo/icon
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.account_balance_wallet,
+                  size: 80,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // App title and subtitle
+              Text(
+                'Welcome to FairShare',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Split expenses and settle up with friends',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+
+              // Feature highlights
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      _buildFeatureItem(
+                        icon: Icons.offline_bolt,
+                        title: 'Works Offline',
+                        subtitle: 'Track expenses without internet',
+                      ),
+                      const SizedBox(height: 12),
+                      _buildFeatureItem(
+                        icon: Icons.group,
+                        title: 'Share with Friends',
+                        subtitle: 'Easy group expense management',
+                      ),
+                      const SizedBox(height: 12),
+                      _buildFeatureItem(
+                        icon: Icons.calculate,
+                        title: 'Smart Balancing',
+                        subtitle: 'Minimal transactions to settle up',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 48),
+
+              // Sign in with Google button
+              FilledButton.icon(
+                onPressed: _isSigningIn ? null : _handleGoogleSignIn,
+                icon:
+                    _isSigningIn
+                        ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.login),
+                label: Text(
+                  _isSigningIn ? 'Signing in...' : 'Sign in with Google',
+                ),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  minimumSize: const Size.fromHeight(56),
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Terms and privacy text
+              Text(
+                'By continuing, you agree to our Terms of Service and Privacy Policy.\n\nInternet connection required for initial setup.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Icon(icon, color: theme.colorScheme.primary, size: 24),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+=== lib/features/expenses/presentation/screens/create_expense_screen.dart ===
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/logging/app_logger.dart';
+
+class CreateExpenseScreen extends ConsumerStatefulWidget {
+  const CreateExpenseScreen({super.key});
+
+  @override
+  ConsumerState<CreateExpenseScreen> createState() =>
+      _CreateExpenseScreenState();
+}
+
+class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _amountController = TextEditingController();
+
+  String _selectedCurrency = 'USD';
+  String _selectedPayer = 'You';
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final logger = ref.watch(appLoggerProvider);
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Add Expense'),
+        leading: IconButton(
+          onPressed: () => context.go('/home'),
+          icon: const Icon(Icons.close),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              if (_formKey.currentState?.validate() ?? false) {
+                logger.i(
+                  'Expense created: ${_titleController.text} - ${_amountController.text} $_selectedCurrency',
+                );
+                // TODO: Save expense to database
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Expense created successfully!'),
+                  ),
+                );
+                context.go('/home');
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(24.0),
+          children: [
+            // Title field
+            TextFormField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                labelText: 'What was this expense for?',
+                hintText: 'e.g., Dinner, Gas, Hotel...',
+                prefixIcon: Icon(Icons.receipt),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a title';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 24),
+
+            // Amount and currency row
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: TextFormField(
+                    controller: _amountController,
+                    decoration: const InputDecoration(
+                      labelText: 'Amount',
+                      prefixIcon: Icon(Icons.attach_money),
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter an amount';
+                      }
+                      if (double.tryParse(value) == null) {
+                        return 'Please enter a valid number';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedCurrency,
+                    decoration: const InputDecoration(labelText: 'Currency'),
+                    items:
+                        ['USD', 'EUR', 'GBP', 'PLN'].map((currency) {
+                          return DropdownMenuItem(
+                            value: currency,
+                            child: Text(currency),
+                          );
+                        }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCurrency = value ?? 'USD';
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Paid by field
+            DropdownButtonFormField<String>(
+              value: _selectedPayer,
+              decoration: const InputDecoration(
+                labelText: 'Paid by',
+                prefixIcon: Icon(Icons.person),
+              ),
+              items:
+                  ['You', 'John Doe', 'Jane Smith'].map((payer) {
+                    return DropdownMenuItem(value: payer, child: Text(payer));
+                  }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedPayer = value ?? 'You';
+                });
+              },
+            ),
+            const SizedBox(height: 24),
+
+            // Split options
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Split Options', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 16),
+                    CheckboxListTile(
+                      title: const Text('Split equally'),
+                      value: true,
+                      onChanged: (value) {
+                        // TODO: Implement split logic
+                      },
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    CheckboxListTile(
+                      title: const Text('Share with everyone in group'),
+                      value: true,
+                      onChanged: (value) {
+                        // TODO: Implement group sharing logic
+                      },
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Date picker
+            ListTile(
+              leading: const Icon(Icons.calendar_today),
+              title: const Text('Date'),
+              subtitle: Text(DateTime.now().toString().split(' ')[0]),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                  lastDate: DateTime.now(),
+                );
+                if (date != null) {
+                  logger.i('Date selected: $date');
+                  // TODO: Update date state
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+=== lib/features/profile/presentation/screens/profile_screen.dart ===
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/logging/app_logger.dart';
+
+class ProfileScreen extends ConsumerWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final logger = ref.watch(appLoggerProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profile'),
+        leading: IconButton(
+          onPressed: () => context.go('/home'),
+          icon: const Icon(Icons.arrow_back),
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            // Profile header
+            const CircleAvatar(radius: 50, child: Icon(Icons.person, size: 50)),
+            const SizedBox(height: 16),
+            Text(
+              'Guest User',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            Text(
+              'guest@fairshare.app',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Profile options
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text('Edit Profile'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                logger.i('Edit profile tapped');
+                // TODO: Navigate to edit profile
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_outlined),
+              title: const Text('Notifications'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                logger.i('Notifications tapped');
+                // TODO: Navigate to notifications settings
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.security_outlined),
+              title: const Text('Privacy & Security'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                logger.i('Privacy & Security tapped');
+                // TODO: Navigate to privacy settings
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.help_outline),
+              title: const Text('Help & Support'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                logger.i('Help & Support tapped');
+                // TODO: Navigate to help
+              },
+            ),
+            const Spacer(),
+
+            // Sign out button
+            OutlinedButton.icon(
+              onPressed: () {
+                logger.i('Sign out tapped');
+                // TODO: Implement sign out
+                context.go('/auth');
+              },
+              icon: const Icon(Icons.logout),
+              label: const Text('Sign Out'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+                side: BorderSide(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+=== lib/firebase_options.dart ===
+// File generated by FlutterFire CLI.
+// ignore_for_file: type=lint
+import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+
+/// Default [FirebaseOptions] for use with your Firebase apps.
+///
+/// Example:
+/// ```dart
+/// import 'firebase_options.dart';
+/// // ...
+/// await Firebase.initializeApp(
+///   options: DefaultFirebaseOptions.currentPlatform,
+/// );
+/// ```
+class DefaultFirebaseOptions {
+  static FirebaseOptions get currentPlatform {
+    if (kIsWeb) {
+      throw UnsupportedError(
+        'DefaultFirebaseOptions have not been configured for web - '
+        'you can reconfigure this by running the FlutterFire CLI again.',
+      );
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return android;
+      case TargetPlatform.iOS:
+        return ios;
+      case TargetPlatform.macOS:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
+      case TargetPlatform.windows:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for windows - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
+      case TargetPlatform.linux:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for linux - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
+      default:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions are not supported for this platform.',
+        );
+    }
+  }
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyBmK41s1Kz8mQFpP8CJ90dJEAgGGUWej0E',
+    appId: '1:678204431234:android:3ba519bd88e063b3accd9b',
+    messagingSenderId: '678204431234',
+    projectId: 'friendsfairshare',
+    storageBucket: 'friendsfairshare.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyBa0zij-qN23mWpXvO1f4rY4ZFvo4Lh_Rc',
+    appId: '1:678204431234:ios:a053999abca6d64faccd9b',
+    messagingSenderId: '678204431234',
+    projectId: 'friendsfairshare',
+    storageBucket: 'friendsfairshare.firebasestorage.app',
+    androidClientId: '678204431234-1fmujb2ehsckb6kqr3rfhrduoffdtc88.apps.googleusercontent.com',
+    iosClientId: '678204431234-d95t14gn80j6r6sa42243u79cr9btiph.apps.googleusercontent.com',
+    iosBundleId: 'com.fairshare.fairshareApp',
+  );
+}
+=== lib/shared/theme/app_theme.dart ===
+// lib/shared/theme/app_theme.dart
+import 'package:flex_color_scheme/flex_color_scheme.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+part 'app_theme.g.dart';
+
+/// The [AppTheme] defines light and dark themes for the FairShare app.
+///
+/// Uses FlexColorScheme v8 with indigoM3 color scheme for modern Material 3 design.
+@riverpod
+class AppTheme extends _$AppTheme {
+  @override
+  ThemeData build() {
+    // Return light theme by default
+    return light;
+  }
+
+  // The FlexColorScheme defined light mode ThemeData
+  static ThemeData light = FlexThemeData.light(
+    // Using FlexColorScheme built-in FlexScheme enum based colors
+    scheme: FlexScheme.indigoM3,
+    // Component theme configurations for light mode
+    subThemesData: const FlexSubThemesData(
+      interactionEffects: true,
+      tintedDisabledControls: true,
+      useM2StyleDividerInM3: true,
+      inputDecoratorIsFilled: true,
+      inputDecoratorBorderType: FlexInputBorderType.outline,
+      alignedDropdown: true,
+      navigationRailUseIndicator: true,
+    ),
+    // Direct ThemeData properties
+    visualDensity: FlexColorScheme.comfortablePlatformDensity,
+    cupertinoOverrideTheme: const CupertinoThemeData(applyThemeToAll: true),
+  );
+
+  // The FlexColorScheme defined dark mode ThemeData
+  static ThemeData dark = FlexThemeData.dark(
+    // Using FlexColorScheme built-in FlexScheme enum based colors
+    scheme: FlexScheme.indigoM3,
+    // Component theme configurations for dark mode
+    subThemesData: const FlexSubThemesData(
+      interactionEffects: true,
+      tintedDisabledControls: true,
+      blendOnColors: true,
+      useM2StyleDividerInM3: true,
+      inputDecoratorIsFilled: true,
+      inputDecoratorBorderType: FlexInputBorderType.outline,
+      alignedDropdown: true,
+      navigationRailUseIndicator: true,
+    ),
+    // Direct ThemeData properties
+    visualDensity: FlexColorScheme.comfortablePlatformDensity,
+    cupertinoOverrideTheme: const CupertinoThemeData(applyThemeToAll: true),
+  );
+
+  // Method to switch to dark theme
+  void setDarkMode() {
+    state = dark;
+  }
+
+  // Method to switch to light theme
+  void setLightMode() {
+    state = light;
+  }
+
+  // Method to toggle between themes
+  void toggleTheme() {
+    state = state.brightness == Brightness.light ? dark : light;
+  }
+}
+=== lib/shared/routes/routes.dart ===
+/// Static route definitions for FairShare app.
+///
+/// Centralizes all route paths for better maintainability and type safety.
+/// Prevents typos and makes navigation more discoverable.
+abstract class Routes {
+  // === AUTHENTICATION ===
+  static const String auth = '/auth';
+
+  // === HOME & MAIN NAVIGATION ===
+  static const String home = '/home';
+
+  // === PROFILE ===
+  static const String profile = '/profile';
+  static const String editProfile = '/profile/edit';
+  static const String settings = '/settings';
+
+  // === GROUPS ===
+  static const String groups = '/groups';
+  static const String createGroup = '/groups/create';
+  static const String joinGroup = '/groups/join';
+  static const String groupDetail = '/groups/:groupId';
+  static const String groupSettings = '/groups/:groupId/settings';
+
+  // === EXPENSES ===
+  static const String expenses = '/expenses';
+  static const String createExpense = '/expenses/create';
+  static const String expenseDetail = '/expenses/:expenseId';
+  static const String editExpense = '/expenses/:expenseId/edit';
+
+  // === BALANCES ===
+  static const String balances = '/balances';
+  static const String balanceDetail = '/balances/:groupId';
+
+  // === UTILITY METHODS ===
+
+  /// Generate group detail route with actual groupId
+  static String groupDetailPath(String groupId) => '/groups/$groupId';
+
+  /// Generate group settings route with actual groupId
+  static String groupSettingsPath(String groupId) =>
+      '/groups/$groupId/settings';
+
+  /// Generate expense detail route with actual expenseId
+  static String expenseDetailPath(String expenseId) => '/expenses/$expenseId';
+
+  /// Generate edit expense route with actual expenseId
+  static String editExpensePath(String expenseId) =>
+      '/expenses/$expenseId/edit';
+
+  /// Generate balance detail route with actual groupId
+  static String balanceDetailPath(String groupId) => '/balances/$groupId';
+
+  /// Check if route requires authentication
+  static bool requiresAuth(String route) {
+    return route != auth;
+  }
+
+  /// Get route name for analytics/logging
+  static String getRouteName(String route) {
+    // Remove parameters and return clean name
+    if (route.contains('/groups/') && route.contains('/settings')) {
+      return 'GroupSettings';
+    }
+    if (route.contains('/groups/') && !route.contains('/')) {
+      return 'GroupDetail';
+    }
+    if (route.contains('/expenses/') && route.contains('/edit')) {
+      return 'EditExpense';
+    }
+    if (route.contains('/expenses/') && !route.contains('/')) {
+      return 'ExpenseDetail';
+    }
+    if (route.contains('/balances/')) return 'BalanceDetail';
+
+    switch (route) {
+      case auth:
+        return 'Auth';
+      case home:
+        return 'Home';
+      case profile:
+        return 'Profile';
+      case editProfile:
+        return 'EditProfile';
+      case settings:
+        return 'Settings';
+      case groups:
+        return 'Groups';
+      case createGroup:
+        return 'CreateGroup';
+      case joinGroup:
+        return 'JoinGroup';
+      case expenses:
+        return 'Expenses';
+      case createExpense:
+        return 'CreateExpense';
+      case balances:
+        return 'Balances';
+      default:
+        return 'Unknown';
+    }
+  }
+}
+=== lib/shared/routes/app_router.dart ===
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+import '../../features/auth/presentation/providers/auth_providers.dart';
+import '../../features/auth/presentation/screens/auth_screen.dart';
+import '../../features/expenses/presentation/screens/create_expense_screen.dart';
+import '../../features/home/presentation/screens/home_screen.dart';
+import '../../features/profile/presentation/screens/profile_screen.dart';
+import 'routes.dart';
+
+part 'app_router.g.dart';
+
+@riverpod
+GoRouter appRouter(Ref ref) {
+  return GoRouter(
+    initialLocation: Routes.auth,
+    redirect: (context, state) {
+      // Watch auth state for automatic redirects
+      final isAuthenticated = ref.read(isAuthenticatedProvider);
+      final currentRoute = state.uri.toString();
+
+      // If user is authenticated but on auth page, redirect to home
+      if (isAuthenticated && currentRoute == Routes.auth) {
+        return Routes.home;
+      }
+
+      // If user is not authenticated and not on auth page, redirect to auth
+      if (!isAuthenticated && Routes.requiresAuth(currentRoute)) {
+        return Routes.auth;
+      }
+
+      // No redirect needed
+      return null;
+    },
+    routes: [
+      // === AUTHENTICATION ===
+      GoRoute(
+        path: Routes.auth,
+        name: 'Auth',
+        builder: (context, state) => const AuthScreen(),
+      ),
+
+      // === HOME & MAIN NAVIGATION ===
+      GoRoute(
+        path: Routes.home,
+        name: 'Home',
+        builder: (context, state) => const HomeScreen(),
+      ),
+
+      // === PROFILE ===
+      GoRoute(
+        path: Routes.profile,
+        name: 'Profile',
+        builder: (context, state) => const ProfileScreen(),
+      ),
+
+      // === EXPENSES ===
+      GoRoute(
+        path: Routes.createExpense,
+        name: 'CreateExpense',
+        builder: (context, state) => const CreateExpenseScreen(),
+      ),
+
+      // === FUTURE ROUTES ===
+      // These will be implemented in upcoming phases:
+
+      // GoRoute(
+      //   path: Routes.createGroup,
+      //   name: 'CreateGroup',
+      //   builder: (context, state) => const CreateGroupScreen(),
+      // ),
+
+      // GoRoute(
+      //   path: Routes.joinGroup,
+      //   name: 'JoinGroup',
+      //   builder: (context, state) => const JoinGroupScreen(),
+      // ),
+
+      // GoRoute(
+      //   path: Routes.groupDetail,
+      //   name: 'GroupDetail',
+      //   builder: (context, state) {
+      //     final groupId = state.pathParameters['groupId']!;
+      //     return GroupDetailScreen(groupId: groupId);
+      //   },
+      // ),
+
+      // GoRoute(
+      //   path: Routes.expenseDetail,
+      //   name: 'ExpenseDetail',
+      //   builder: (context, state) {
+      //     final expenseId = state.pathParameters['expenseId']!;
+      //     return ExpenseDetailScreen(expenseId: expenseId);
+      //   },
+      // ),
+    ],
+
+    // Error handling with route name logging
+    errorBuilder: (context, state) {
+      final routeName = Routes.getRouteName(state.uri.toString());
+
+      return Scaffold(
+        appBar: AppBar(title: const Text('Error')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text('Page not found'),
+              const SizedBox(height: 8),
+              Text('Route: $routeName'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => context.go(Routes.home),
+                child: const Text('Go Home'),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+=== lib/main.dart ===
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/logging/app_logger.dart';
+import 'firebase_options.dart';
+import 'shared/routes/app_router.dart';
+import 'shared/theme/app_theme.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Run the app with Riverpod
+  runApp(const ProviderScope(child: FairShareApp()));
+}
+
+class FairShareApp extends ConsumerWidget {
+  const FairShareApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(appRouterProvider);
+    final logger = ref.watch(appLoggerProvider);
+
+    // Log app startup
+    logger.i('🚀 FairShare app starting...');
+
+    return MaterialApp.router(
+      title: 'FairShare',
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.system,
+      routerConfig: router,
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
