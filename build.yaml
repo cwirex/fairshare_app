@@ -1,0 +1,32 @@
+targets:
+  $default:
+    builders:
+      # Riverpod code generation
+      riverpod_generator:
+        generate_for:
+          - lib/**/*.dart
+        options:
+          # Generate providers with proper naming
+          provider_name_prefix: ""
+          
+      # Freezed for immutable data classes
+      freezed:
+        generate_for:
+          - lib/**/*.dart
+        options:
+          # Generate copyWith, toString, ==, hashCode
+          
+      # JSON serialization
+      json_serializable:
+        generate_for:
+          - lib/**/*.dart
+        options:
+          explicit_to_json: true
+          field_rename: snake
+          
+      # Drift database code generation
+      drift_dev:
+        generate_for:
+          - lib/**/*.dart
+        options:
+          store_date_time_values_as_text: true

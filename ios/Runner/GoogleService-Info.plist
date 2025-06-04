@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>678204431234-d95t14gn80j6r6sa42243u79cr9btiph.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.678204431234-d95t14gn80j6r6sa42243u79cr9btiph</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>678204431234-1fmujb2ehsckb6kqr3rfhrduoffdtc88.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyBa0zij-qN23mWpXvO1f4rY4ZFvo4Lh_Rc</string>
+	<key>GCM_SENDER_ID</key>
+	<string>678204431234</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.fairshare.fairshareApp</string>
+	<key>PROJECT_ID</key>
+	<string>friendsfairshare</string>
+	<key>STORAGE_BUCKET</key>
+	<string>friendsfairshare.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:678204431234:ios:a053999abca6d64faccd9b</string>
+</dict>
+</plist>

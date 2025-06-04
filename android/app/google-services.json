@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_number": "678204431234",
+    "project_id": "friendsfairshare",
+    "storage_bucket": "friendsfairshare.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:678204431234:android:54bc64e1c49b8661accd9b",
+        "android_client_info": {
+          "package_name": "com.example.fairshare"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "678204431234-ro2oioclplb0ru96q8ipjv05l65fc4j4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.fairshare",
+            "certificate_hash": "026fbf42fbe0b81af571451bcf1114b6887b3ed4"
+          }
+        },
+        {
+          "client_id": "678204431234-vf2gsquleeu11641q2p00f10hfvfmq73.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmK41s1Kz8mQFpP8CJ90dJEAgGGUWej0E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "678204431234-vf2gsquleeu11641q2p00f10hfvfmq73.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "678204431234-d95t14gn80j6r6sa42243u79cr9btiph.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.fairshare.fairshareApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:678204431234:android:3ba519bd88e063b3accd9b",
+        "android_client_info": {
+          "package_name": "com.fairshare.fairshare_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "678204431234-vf2gsquleeu11641q2p00f10hfvfmq73.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmK41s1Kz8mQFpP8CJ90dJEAgGGUWej0E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "678204431234-vf2gsquleeu11641q2p00f10hfvfmq73.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "678204431234-d95t14gn80j6r6sa42243u79cr9btiph.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.fairshare.fairshareApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
