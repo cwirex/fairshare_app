@@ -7,6 +7,7 @@
 ---
 
 ## Table of Contents
+
 1. [Overview](#overview)
 2. [Complete Schema Diagram](#complete-schema-diagram)
 3. [Local Database (SQLite/Drift)](#local-database-sqlitedrift)
@@ -20,12 +21,14 @@
 ## Overview
 
 ### Architecture Pattern
+
 - **Offline-First**: Local SQLite is the source of truth
 - **Sync Strategy**: Upload queue with bidirectional sync
 - **Conflict Resolution**: Last Write Wins (LWW) using timestamps
 - **Data Integrity**: Foreign key constraints with CASCADE deletes
 
 ### Core Principles
+
 1. **Single Source of Truth**: `group_members` table for memberships (no denormalized `groupIds`)
 2. **Unified Expense Model**: One `ExpenseEntity` for both personal and shared expenses
 3. **Consistent Sync**: All expenses sync (including personal group expenses)
@@ -149,40 +152,44 @@ users                              groups
 ## Local Database (SQLite/Drift)
 
 ### 1. `users` Table
+
 **Purpose**: Store authenticated user profile data
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | TEXT | PRIMARY KEY | Firebase Auth UID |
-| `displayName` | TEXT | NOT NULL | User's display name from Google |
-| `email` | TEXT | NOT NULL | User's email from Google |
-| `avatarUrl` | TEXT | DEFAULT '' | Avatar URL from Google |
-| `phone` | TEXT | NULLABLE | Optional phone number |
-| `lastSyncTimestamp` | DATETIME | NULLABLE | Last successful sync time |
-| `createdAt` | DATETIME | NOT NULL | Account creation timestamp |
-| `updatedAt` | DATETIME | NOT NULL | Last profile update timestamp |
+| Column              | Type     | Constraints | Description                     |
+| ------------------- | -------- | ----------- | ------------------------------- |
+| `id`                | TEXT     | PRIMARY KEY | Firebase Auth UID               |
+| `displayName`       | TEXT     | NOT NULL    | User's display name from Google |
+| `email`             | TEXT     | NOT NULL    | User's email from Google        |
+| `avatarUrl`         | TEXT     | DEFAULT ''  | Avatar URL from Google          |
+| `phone`             | TEXT     | NULLABLE    | Optional phone number           |
+| `lastSyncTimestamp` | DATETIME | NULLABLE    | Last successful sync time       |
+| `createdAt`         | DATETIME | NOT NULL    | Account creation timestamp      |
+| `updatedAt`         | DATETIME | NOT NULL    | Last profile update timestamp   |
 
 **Key Changes**:
+
 - ❌ Removed `groupIds` (was comma-separated string) → Single source of truth is now `group_members` table
 - ✅ Made `phone` nullable (was default empty string)
 
 ---
 
 ### 2. `groups` Table
+
 **Purpose**: Store all groups (both shared and personal)
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | TEXT | PRIMARY KEY | Group ID (6-digit code or `personal_{userId}`) |
-| `displayName` | TEXT | NOT NULL | Group name |
-| `avatarUrl` | TEXT | DEFAULT '' | Group avatar URL |
-| `isPersonal` | BOOLEAN | NOT NULL, DEFAULT FALSE | **Whether this is a personal (local-only) group** |
-| `defaultCurrency` | TEXT | NOT NULL, DEFAULT 'USD' | Default currency for the group |
-| `createdAt` | DATETIME | NOT NULL | Group creation timestamp |
-| `updatedAt` | DATETIME | NOT NULL | Last update timestamp |
-| `deletedAt` | DATETIME | NULLABLE | **Soft delete timestamp** |
+| Column            | Type     | Constraints             | Description                                       |
+| ----------------- | -------- | ----------------------- | ------------------------------------------------- |
+| `id`              | TEXT     | PRIMARY KEY             | Group ID (6-digit code or `personal_{userId}`)    |
+| `displayName`     | TEXT     | NOT NULL                | Group name                                        |
+| `avatarUrl`       | TEXT     | DEFAULT ''              | Group avatar URL                                  |
+| `isPersonal`      | BOOLEAN  | NOT NULL, DEFAULT FALSE | **Whether this is a personal (local-only) group** |
+| `defaultCurrency` | TEXT     | NOT NULL, DEFAULT 'USD' | Default currency for the group                    |
+| `createdAt`       | DATETIME | NOT NULL                | Group creation timestamp                          |
+| `updatedAt`       | DATETIME | NOT NULL                | Last update timestamp                             |
+| `deletedAt`       | DATETIME | NULLABLE                | **Soft delete timestamp**                         |
 
 **Key Changes**:
+
 - ✅ Added `isPersonal` flag (distinguishes personal from shared groups)
 - ✅ Added `deletedAt` for soft deletes
 - ❌ Removed `optimizeSharing`, `isOpen`, `autoExchangeCurrency` (unused complexity)
@@ -192,31 +199,35 @@ users                              groups
 ---
 
 ### 3. `group_members` Table
+
 **Purpose**: Many-to-many relationship between users and groups (THE single source of truth for memberships)
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `groupId` | TEXT | PRIMARY KEY, FK → `groups.id` (CASCADE) | Group reference |
-| `userId` | TEXT | PRIMARY KEY, FK → `users.id` (CASCADE) | User reference |
-| `joinedAt` | DATETIME | NOT NULL | When user joined the group |
+| Column     | Type     | Constraints                             | Description                |
+| ---------- | -------- | --------------------------------------- | -------------------------- |
+| `groupId`  | TEXT     | PRIMARY KEY, FK → `groups.id` (CASCADE) | Group reference            |
+| `userId`   | TEXT     | PRIMARY KEY, FK → `users.id` (CASCADE)  | User reference             |
+| `joinedAt` | DATETIME | NOT NULL                                | When user joined the group |
 
 **Key Changes**:
+
 - ✅ Added foreign key constraints with CASCADE delete
 - ✅ This is now the ONLY source of truth for "which user is in which group"
 
 ---
 
 ### 4. `group_balances` Table ✨ NEW
+
 **Purpose**: Calculated balances for performance (eliminates need to recalculate from all expenses)
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `groupId` | TEXT | PRIMARY KEY, FK → `groups.id` (CASCADE) | Group reference |
-| `userId` | TEXT | PRIMARY KEY, FK → `users.id` (CASCADE) | User reference |
-| `balance` | REAL | NOT NULL, DEFAULT 0.0 | Net balance (positive = owed, negative = owes) |
-| `updatedAt` | DATETIME | NOT NULL | Last balance calculation time |
+| Column      | Type     | Constraints                             | Description                                    |
+| ----------- | -------- | --------------------------------------- | ---------------------------------------------- |
+| `groupId`   | TEXT     | PRIMARY KEY, FK → `groups.id` (CASCADE) | Group reference                                |
+| `userId`    | TEXT     | PRIMARY KEY, FK → `users.id` (CASCADE)  | User reference                                 |
+| `balance`   | REAL     | NOT NULL, DEFAULT 0.0                   | Net balance (positive = owed, negative = owes) |
+| `updatedAt` | DATETIME | NOT NULL                                | Last balance calculation time                  |
 
 **Purpose**:
+
 - Fast balance lookups without scanning all expenses
 - Positive balance = group owes this user
 - Negative balance = user owes the group
@@ -224,23 +235,25 @@ users                              groups
 ---
 
 ### 5. `expenses` Table
+
 **Purpose**: Store ALL expenses (from both shared and personal groups)
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | TEXT | PRIMARY KEY | Expense ID |
-| `groupId` | TEXT | NOT NULL, FK → `groups.id` (CASCADE) | Group reference |
-| `title` | TEXT | NOT NULL | Expense description |
-| `amount` | REAL | NOT NULL | Total amount |
-| `currency` | TEXT | NOT NULL | Currency code (USD, EUR, etc.) |
-| `paidBy` | TEXT | NOT NULL | User ID who paid |
-| `shareWithEveryone` | BOOLEAN | NOT NULL, DEFAULT TRUE | Whether to split equally |
-| `expenseDate` | DATETIME | NOT NULL | When expense occurred |
-| `createdAt` | DATETIME | NOT NULL | Creation timestamp |
-| `updatedAt` | DATETIME | NOT NULL | Last update timestamp |
-| `deletedAt` | DATETIME | NULLABLE | **Soft delete timestamp** |
+| Column              | Type     | Constraints                          | Description                    |
+| ------------------- | -------- | ------------------------------------ | ------------------------------ |
+| `id`                | TEXT     | PRIMARY KEY                          | Expense ID                     |
+| `groupId`           | TEXT     | NOT NULL, FK → `groups.id` (CASCADE) | Group reference                |
+| `title`             | TEXT     | NOT NULL                             | Expense description            |
+| `amount`            | REAL     | NOT NULL                             | Total amount                   |
+| `currency`          | TEXT     | NOT NULL                             | Currency code (USD, EUR, etc.) |
+| `paidBy`            | TEXT     | NOT NULL                             | User ID who paid               |
+| `shareWithEveryone` | BOOLEAN  | NOT NULL, DEFAULT TRUE               | Whether to split equally       |
+| `expenseDate`       | DATETIME | NOT NULL                             | When expense occurred          |
+| `createdAt`         | DATETIME | NOT NULL                             | Creation timestamp             |
+| `updatedAt`         | DATETIME | NOT NULL                             | Last update timestamp          |
+| `deletedAt`         | DATETIME | NULLABLE                             | **Soft delete timestamp**      |
 
 **Key Changes**:
+
 - ✅ Added `deletedAt` for soft deletes
 - ✅ All queries filter `WHERE deletedAt IS NULL`
 - ✅ Foreign key to groups with CASCADE
@@ -250,31 +263,33 @@ users                              groups
 ---
 
 ### 6. `expense_shares` Table
+
 **Purpose**: Custom expense splits (when `shareWithEveryone = false`)
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `expenseId` | TEXT | PRIMARY KEY, FK → `expenses.id` (CASCADE) | Expense reference |
-| `userId` | TEXT | PRIMARY KEY, FK → `users.id` (CASCADE) | User who shares this expense |
-| `shareAmount` | REAL | NOT NULL | Amount this user owes |
+| Column        | Type | Constraints                               | Description                  |
+| ------------- | ---- | ----------------------------------------- | ---------------------------- |
+| `expenseId`   | TEXT | PRIMARY KEY, FK → `expenses.id` (CASCADE) | Expense reference            |
+| `userId`      | TEXT | PRIMARY KEY, FK → `users.id` (CASCADE)    | User who shares this expense |
+| `shareAmount` | REAL | NOT NULL                                  | Amount this user owes        |
 
 **Usage**: Only exists when `expenses.shareWithEveryone = false`
 
 ---
 
 ### 7. `sync_queue` Table
+
 **Purpose**: Track pending sync operations (Option D: Upload Queue strategy)
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | INTEGER | PRIMARY KEY AUTOINCREMENT | Queue entry ID |
-| `entityType` | TEXT | NOT NULL | 'expense', 'group', 'user' |
-| `entityId` | TEXT | NOT NULL | ID of entity to sync |
-| `operationType` | TEXT | NOT NULL | 'create', 'update', 'delete' |
-| `metadata` | TEXT | NULLABLE | JSON context (e.g., groupId for deletes) |
-| `createdAt` | DATETIME | NOT NULL | When queued |
-| `retryCount` | INTEGER | NOT NULL, DEFAULT 0 | Number of retry attempts |
-| `lastError` | TEXT | NULLABLE | Last error message |
+| Column          | Type     | Constraints               | Description                              |
+| --------------- | -------- | ------------------------- | ---------------------------------------- |
+| `id`            | INTEGER  | PRIMARY KEY AUTOINCREMENT | Queue entry ID                           |
+| `entityType`    | TEXT     | NOT NULL                  | 'expense', 'group', 'user'               |
+| `entityId`      | TEXT     | NOT NULL                  | ID of entity to sync                     |
+| `operationType` | TEXT     | NOT NULL                  | 'create', 'update', 'delete'             |
+| `metadata`      | TEXT     | NULLABLE                  | JSON context (e.g., groupId for deletes) |
+| `createdAt`     | DATETIME | NOT NULL                  | When queued                              |
+| `retryCount`    | INTEGER  | NOT NULL, DEFAULT 0       | Number of retry attempts                 |
+| `lastError`     | TEXT     | NULLABLE                  | Last error message                       |
 
 **Unique Constraint**: `(entityType, entityId)` - ensures one operation per entity
 
@@ -283,6 +298,7 @@ users                              groups
 ## Remote Database (Firestore)
 
 ### Collection: `/users/{userId}`
+
 **Purpose**: User profile data
 
 ```json
@@ -299,11 +315,13 @@ users                              groups
 ```
 
 **Key Changes**:
+
 - ❌ No `groupIds` array (removed - use membership queries instead)
 
 ---
 
 ### Collection: `/groups/{groupId}`
+
 **ONLY synced if `isPersonal = false`**
 
 ```json
@@ -324,6 +342,7 @@ users                              groups
 ---
 
 ### Subcollection: `/groups/{groupId}/members/{userId}`
+
 **Purpose**: Group membership (denormalized for query performance)
 
 ```json
@@ -339,14 +358,15 @@ users                              groups
 ---
 
 ### Subcollection: `/groups/{groupId}/expenses/{expenseId}`
+
 **Purpose**: ALL expenses (including from personal groups!)
 
 ```json
 {
   "id": "exp123",
-  "groupId": "ABC123",  // or "personal_user123"
+  "groupId": "ABC123", // or "personal_user123"
   "title": "Hotel",
-  "amount": 150.00,
+  "amount": 150.0,
   "currency": "USD",
   "paidBy": "user123",
   "shareWithEveryone": true,
@@ -358,29 +378,32 @@ users                              groups
 ```
 
 **✨ Key Design**: Personal expenses ARE synced here (for cloud backup), even though their parent group is not!
+
 - Path: `/groups/personal_{userId}/expenses/{expenseId}`
 
 ---
 
 ### Subcollection: `/groups/{groupId}/expenses/{expenseId}/shares/{userId}`
+
 **Purpose**: Custom expense splits
 
 ```json
 {
   "expenseId": "exp123",
   "userId": "user456",
-  "shareAmount": 50.00
+  "shareAmount": 50.0
 }
 ```
 
 ---
 
 ### Subcollection: `/groups/{groupId}/balances/{userId}` ✨ FUTURE
+
 **Purpose**: Pre-calculated balances (Cloud Function will maintain)
 
 ```json
 {
-  "balance": 150.50,
+  "balance": 150.5,
   "updatedAt": "2025-01-15T10:30:00Z"
 }
 ```
@@ -392,15 +415,18 @@ users                              groups
 ### 1. **Why Remove `User.groupIds`?**
 
 **Problem**:
+
 - Denormalized data (duplicates `group_members` table)
 - Array stored as comma-separated string in SQLite (brittle)
 - Gets out of sync with actual memberships
 
 **Solution**:
+
 - Single source of truth: `group_members` join table
 - Query user's groups via JOIN: `SELECT groups WHERE id IN (SELECT groupId FROM group_members WHERE userId = ?)`
 
 **Benefits**:
+
 - ✅ No sync issues
 - ✅ Relational integrity
 - ✅ Simpler logic
@@ -410,16 +436,19 @@ users                              groups
 ### 2. **Why Add `isPersonal` Flag?**
 
 **Problem**:
+
 - Original design used ID prefix `personal_` to identify personal groups
 - String checking is fragile
 - No explicit flag in schema
 
 **Solution**:
+
 - Boolean `isPersonal` field
 - Personal groups: `isPersonal = true`, NOT synced to Firestore
 - Shared groups: `isPersonal = false`, synced to Firestore
 
 **Benefits**:
+
 - ✅ Explicit, type-safe
 - ✅ Database-level distinction
 - ✅ Clear sync logic
@@ -429,16 +458,19 @@ users                              groups
 ### 3. **Why Delete `PersonalExpenseEntity`?**
 
 **Problem**:
+
 - Duplicate expense model
 - More code to maintain
 - Inconsistent handling
 
 **Solution**:
+
 - One unified `ExpenseEntity`
 - Personal expenses = `ExpenseEntity` with `groupId = "personal_{userId}"`
 - All expenses use same sync path: `/groups/{groupId}/expenses/`
 
 **Benefits**:
+
 - ✅ Single expense model
 - ✅ Same sync logic
 - ✅ Less code
@@ -449,16 +481,19 @@ users                              groups
 ### 4. **Why Soft Deletes?**
 
 **Problem**:
+
 - Hard deletes are permanent
 - No undo capability
 - No audit trail
 
 **Solution**:
+
 - Add `deletedAt` timestamp to groups and expenses
 - Filter queries: `WHERE deletedAt IS NULL`
 - Implement `softDelete()` and `restore()` methods
 
 **Benefits**:
+
 - ✅ Undo functionality
 - ✅ Accidental delete recovery
 - ✅ Audit capability
@@ -468,16 +503,19 @@ users                              groups
 ### 5. **Why Foreign Key Constraints?**
 
 **Problem**:
+
 - Orphaned data possible (expense references deleted group)
 - No referential integrity
 
 **Solution**:
+
 - Add FK constraints with CASCADE delete
 - `expenses.groupId` → `groups.id` (CASCADE)
 - `group_members.groupId` → `groups.id` (CASCADE)
 - etc.
 
 **Benefits**:
+
 - ✅ Data integrity at DB level
 - ✅ Automatic cleanup
 - ✅ Prevents orphaned records
@@ -487,20 +525,24 @@ users                              groups
 ### 6. **Why Sync Personal Expenses but Not Personal Groups?**
 
 **Problem**:
+
 - Personal groups shouldn't be visible to other users
 - But personal expenses need cloud backup
 
 **Solution**:
+
 - Personal groups: NOT synced (privacy)
 - Personal expenses: SYNCED to `/groups/personal_{userId}/expenses/` (backup)
 
 **Benefits**:
+
 - ✅ Privacy: Group metadata stays local
 - ✅ Backup: Expenses saved to cloud
 - ✅ Consistency: All expenses use same sync path
 - ✅ Cross-device: Personal expenses available everywhere
 
 **Example**:
+
 ```
 User creates personal expense:
 1. Personal group exists: id="personal_user123", isPersonal=true
@@ -514,6 +556,7 @@ User creates personal expense:
 ## Data Flow & Sync Strategy
 
 ### Write Flow (User Creates Expense)
+
 ```
 1. User creates expense in UI
    ↓
@@ -529,6 +572,7 @@ User creates personal expense:
 ```
 
 ### Read Flow (Bidirectional Sync)
+
 ```
 1. SyncService.syncAll()
    ↓
@@ -544,6 +588,7 @@ User creates personal expense:
 ```
 
 ### Personal Group Flow
+
 ```
 1. User signs in
    ↓
@@ -556,6 +601,7 @@ User creates personal expense:
 ```
 
 ### Sync Queue Logic
+
 ```
 LocalGroupRepository.createGroup(group):
   - Insert to local DB
@@ -574,29 +620,34 @@ LocalExpenseRepository.createExpense(expense):
 ## Key Concepts
 
 ### Concept 1: Personal Groups
+
 - **Definition**: Groups with `isPersonal = true`
 - **ID Format**: `"personal_{userId}"`
 - **Sync Behavior**: Group metadata NOT synced, but expenses ARE synced
 - **Purpose**: Private expense tracking with cloud backup
 
 ### Concept 2: Shared Groups
+
 - **Definition**: Groups with `isPersonal = false`
 - **ID Format**: 6-digit alphanumeric code
 - **Sync Behavior**: Everything synced (group + members + expenses)
 - **Purpose**: Collaborative expense sharing
 
 ### Concept 3: Soft Deletes
+
 - **Implementation**: `deletedAt` timestamp
 - **Active Items**: `WHERE deletedAt IS NULL`
 - **Deleted Items**: `WHERE deletedAt IS NOT NULL`
 - **Restore**: Set `deletedAt = NULL`
 
 ### Concept 4: Last Write Wins (LWW)
+
 - **Conflict Resolution**: Compare `updatedAt` timestamps
 - **Rule**: `if (remote.updatedAt > local.updatedAt) { use remote }`
 - **Bypass**: Sync operations use `upsertFromSync()` to avoid queue loops
 
 ### Concept 5: Upload Queue (Option D)
+
 - **Local Changes**: Tracked in `sync_queue` table
 - **Processing**: Background service checks every 30s
 - **Retry Logic**: Max 3 retries, then manual intervention
@@ -606,15 +657,15 @@ LocalExpenseRepository.createExpense(expense):
 
 ## Summary: What Gets Synced?
 
-| Entity | Condition | Local Storage | Firestore Path | Cloud Backup? |
-|--------|-----------|---------------|----------------|---------------|
-| **User** | Always | `users` table | `/users/{userId}` | ✅ Yes |
-| **Shared Group** | `isPersonal = false` | `groups` table | `/groups/{groupId}` | ✅ Yes |
-| **Personal Group** | `isPersonal = true` | `groups` table | ❌ NOT synced | ❌ No (local only) |
-| **Shared Group Member** | Group is shared | `group_members` table | `/groups/{groupId}/members/{userId}` | ✅ Yes |
-| **Personal Group Member** | Group is personal | `group_members` table | ❌ NOT synced | ❌ No |
-| **Any Expense** | Always | `expenses` table | `/groups/{groupId}/expenses/{expenseId}` | ✅ Yes (even personal!) |
-| **Expense Share** | Always | `expense_shares` table | `/groups/{groupId}/expenses/{expenseId}/shares/{userId}` | ✅ Yes |
+| Entity                    | Condition            | Local Storage          | Firestore Path                                           | Cloud Backup?           |
+| ------------------------- | -------------------- | ---------------------- | -------------------------------------------------------- | ----------------------- |
+| **User**                  | Always               | `users` table          | `/users/{userId}`                                        | ✅ Yes                  |
+| **Shared Group**          | `isPersonal = false` | `groups` table         | `/groups/{groupId}`                                      | ✅ Yes                  |
+| **Personal Group**        | `isPersonal = true`  | `groups` table         | ❌ NOT synced                                            | ❌ No (local only)      |
+| **Shared Group Member**   | Group is shared      | `group_members` table  | `/groups/{groupId}/members/{userId}`                     | ✅ Yes                  |
+| **Personal Group Member** | Group is personal    | `group_members` table  | ❌ NOT synced                                            | ❌ No                   |
+| **Any Expense**           | Always               | `expenses` table       | `/groups/{groupId}/expenses/{expenseId}`                 | ✅ Yes (even personal!) |
+| **Expense Share**         | Always               | `expense_shares` table | `/groups/{groupId}/expenses/{expenseId}/shares/{userId}` | ✅ Yes                  |
 
 ---
 
@@ -655,6 +706,7 @@ LocalExpenseRepository.createExpense(expense):
 **End of Schema Documentation**
 
 This schema provides:
+
 - ✅ **Data Integrity**: Foreign keys, constraints, validation
 - ✅ **Privacy**: Personal groups stay local
 - ✅ **Backup**: All expenses (including personal) backed up

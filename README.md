@@ -43,22 +43,26 @@ FairShare makes group expense management effortless by combining the best of mod
 
 ## Key Features
 
-### Current (Phase 2.2 - Basic Expense & Group Tracking)
+### Current (Phase 2.2 Complete - Basic Expense & Group Tracking)
 - ✅ Google Sign-In authentication
 - ✅ Offline-first local database (SQLite via Drift)
 - ✅ Sign-out risk assessment (warns about unsynced data)
 - ✅ Modern Material 3 UI with theme switching
 - ✅ **Create and save expenses**
 - ✅ **View expense list**
-- ✅ **Auto-created "Personal" group**
-- ✅ **Group list display**
-- ✅ Proper provider lifecycle management
+- ✅ **Auto-created "Personal" group for individual expenses**
+- ✅ **Create and manage shared groups**
+- ✅ **Join groups via 6-digit code**
+- ✅ **Firebase sync with upload queue system**
+- ✅ **Unified data model (personal & shared groups)**
+- ✅ **Soft delete support for undo capability**
+- ✅ **Foreign key constraints for data integrity**
 
 ### Next (Phase 2.3 - Balance Calculations)
 - 🚧 Calculate balances per group
 - 🚧 Display who owes whom
 - 🚧 Show settlement amounts
-- 🚧 Firebase sync for expenses and groups
+- 🚧 Balance tracking table implementation
 
 ### Future (Full Feature Set)
 - 📋 Advanced split options (percentage, exact amounts, unequal)
@@ -174,11 +178,27 @@ flutter run
 
 ## Project Status
 
-Currently in **Phase 2.2 Complete** - Basic expense tracking and group management working end-to-end! Users can create expenses, view them in a list, and they're automatically organized in a "Personal" group. Everything persists offline.
+Currently in **Phase 2.2 Complete** - Full expense tracking, group management, and sync working end-to-end!
 
-**Next**: Phase 2.3 - Balance calculations (who owes whom).
+### What's Working:
+- ✅ Offline-first with SQLite database
+- ✅ Personal groups (local-only, expenses sync to cloud for backup)
+- ✅ Shared groups (full sync with Firestore)
+- ✅ Join groups via 6-digit code
+- ✅ Upload queue system for reliable sync
+- ✅ Soft deletes with restore capability
+- ✅ Firebase authentication with Google Sign-In
 
-See [PLAN.md](PLAN.md) for detailed development roadmap.
+### Recent Major Refactoring:
+- ✅ **Schema v5**: Unified data model, removed denormalized data
+- ✅ **Personal groups**: Marked with `isPersonal: true`, metadata stays local
+- ✅ **Expense sync**: All expenses sync (including personal for cloud backup)
+- ✅ **Data integrity**: Foreign key constraints with cascade deletes
+- ✅ **Balance tracking**: Schema ready (calculation service to be implemented)
+
+**Next**: Phase 2.3 - Balance calculations and display (who owes whom).
+
+See [docs/PLAN.md](docs/PLAN.md) for detailed roadmap and [docs/DATA_SCHEMA_COMPLETE.md](docs/DATA_SCHEMA_COMPLETE.md) for complete schema documentation.
 
 ## License
 

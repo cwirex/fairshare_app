@@ -2,13 +2,23 @@
 
 **Philosophy**: Build minimally, test thoroughly, iterate quickly.
 
-## Current Status: MVP Phase 1 Complete ✅
+## Current Status: Phase 2.2 Complete ✅
 
+### Phase 1: Foundation ✅
 - [x] Firebase Authentication with Google Sign-In
 - [x] Offline-first database (Drift/SQLite)
 - [x] Basic routing and navigation
 - [x] Sign-out risk assessment
 - [x] UI foundation (screens, theme, navigation)
+
+### Phase 2.1 & 2.2: Core Functionality ✅
+- [x] Expense creation and tracking
+- [x] Personal groups (auto-created)
+- [x] Shared groups (create & join)
+- [x] Firebase sync with upload queue
+- [x] Schema v5 refactoring (unified model)
+- [x] Soft delete support
+- [x] Foreign key constraints
 
 ## Phase 2: Minimal Working App 🎯
 
@@ -79,26 +89,35 @@
   - Show calculated balances
   - "All settled up" when balanced
 
-### 2.4 Firebase Sync - Basic Implementation
+### 2.4 Firebase Sync - Basic Implementation ✅ COMPLETE
 **Priority**: Medium - Can work offline for now
 
-- [ ] **Sync expenses to Firestore**
+- [x] **Sync expenses to Firestore**
   - Push unsynced expenses on connectivity
-  - Update isSynced flag
+  - Upload queue system (Option D from sync strategy)
   - Handle simple errors (retry later)
+  - All expenses sync (including personal for backup)
 
-- [ ] **Sync groups to Firestore**
+- [x] **Sync groups to Firestore**
   - Push unsynced groups
+  - Personal groups stay local (metadata only)
   - Basic conflict: last write wins
 
-- [ ] **Pull changes from Firestore**
+- [x] **Pull changes from Firestore**
   - Fetch on app start (if connected)
   - Simple merge: newer timestamp wins
 
-- [ ] **Sync status indicator**
+- [ ] **Sync status indicator** (UI not yet implemented)
   - Show sync icon in app bar
   - Display unsynced count
   - Manual "Sync Now" button
+
+**Key Implementation Details:**
+- Upload queue table tracks pending operations
+- Personal groups: `isPersonal: true` → metadata stays local, expenses sync
+- Shared groups: `isPersonal: false` → everything syncs
+- Repositories check `isPersonal` before enqueueing operations
+- Firestore services handle upload/download with proper checks
 
 ## Phase 3: Multi-User & Collaboration
 
@@ -177,23 +196,54 @@ How we know Phase 2 is complete:
 
 1. ✅ User can create an expense and see it in the list
 2. ✅ User can create a group
-3. ✅ User can see balances for a group
+3. ⏳ User can see balances for a group (schema ready, calculation pending)
 4. ✅ Expenses sync to Firebase when online
 5. ✅ App works completely offline
 6. ✅ No crashes in basic flow
 7. ✅ Can sign out and sign back in without data loss
 
+**Status**: 6 of 7 complete. Only balance calculations remain for Phase 2 completion.
+
+## Recent Accomplishments (2025-10-01)
+
+### Major Schema Refactoring ✅
+- **Removed denormalized data**: Deleted `User.groupIds`, made `group_members` single source of truth
+- **Unified expense model**: Deleted `PersonalExpenseEntity`, use `ExpenseEntity` with `isPersonal` groups
+- **Added soft deletes**: `deletedAt` on groups and expenses with restore capability
+- **Foreign key constraints**: CASCADE deletes for data integrity
+- **Balance tracking**: Created `GroupBalanceEntity` and table (calculation service pending)
+- **Schema migration**: v4 → v5 with all queries updated
+
+### Alignment Fixes ✅
+- Fixed personal group initialization to set `isPersonal: true`
+- Fixed UI group creation to explicitly set `isPersonal: false`
+- Fixed all repository methods to check `isPersonal` before enqueueing
+- Added soft delete filtering to all database queries
+- Updated Firestore upload methods with `isPersonalGroup` parameter
+
+### Documentation ✅
+- Created comprehensive schema documentation
+- Organized all docs into `docs/` folder
+- Removed redundant/historical files
+
 ## Next Immediate Actions
 
 **Start here** 👇
 
-1. Implement Expense entity and repository
-2. Wire up CreateExpenseScreen to save expenses
-3. Create expense list view
-4. Test: Create expense → See in list → Sign out → Sign in → Still there
+### Phase 2.3 - Balance Calculations
+1. Implement balance calculation service
+2. Update balances when expenses change
+3. Display balances in BalancesTab
+4. Add sync for balance data
+
+### Optional Improvements
+- Add sync status indicator UI
+- Implement soft delete UI (undo functionality)
+- Fix profile screen null-safety warnings
+- Add unit tests for new schema
 
 **One feature at a time. Make it work, then make it better.**
 
 ---
 
-Last updated: 2025-09-30
+Last updated: 2025-10-01
