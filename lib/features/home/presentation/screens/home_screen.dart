@@ -1,27 +1,28 @@
-// lib/features/home/presentation/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/logging/app_logger.dart';
-import '../../../../shared/routes/routes.dart';
-import '../../../../shared/theme/app_theme.dart';
-import '../../../auth/presentation/providers/auth_providers.dart';
+import 'package:fairshare_app/core/logging/app_logger.dart';
+import 'package:fairshare_app/shared/routes/routes.dart';
+import 'package:fairshare_app/shared/theme/app_theme.dart';
+import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
+import 'package:fairshare_app/features/home/presentation/widgets/expenses_tab.dart';
+import 'package:fairshare_app/features/home/presentation/widgets/balances_tab.dart';
+import 'package:fairshare_app/features/home/presentation/widgets/groups_tab.dart';
+import 'package:fairshare_app/features/home/presentation/widgets/profile_tab.dart'
+    show ProfileTab, UserExtension;
 
-// State provider for bottom navigation
 final currentIndexProvider = StateProvider<int>((ref) => 0);
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerWidget with LoggerMixin {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(currentIndexProvider);
-    final logger = ref.watch(appLoggerProvider);
     final appTheme = ref.watch(appThemeProvider.notifier);
     final currentUser = ref.watch(currentUserProvider);
 
-    // List of tab widgets
     final tabs = [
       const ExpensesTab(),
       const BalancesTab(),
@@ -33,11 +34,10 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('FairShare'),
         actions: [
-          // Theme toggle button
           IconButton(
             onPressed: () {
               appTheme.toggleTheme();
-              logger.i('Theme toggled');
+              log.i('Theme toggled');
             },
             icon: Icon(
               Theme.of(context).brightness == Brightness.light
@@ -46,10 +46,9 @@ class HomeScreen extends ConsumerWidget {
             ),
             tooltip: 'Toggle theme',
           ),
-          // Profile button
           IconButton(
             onPressed: () {
-              logger.i('Profile button pressed');
+              log.i('Profile button pressed');
               context.go(Routes.profile);
             },
             icon: CircleAvatar(
@@ -77,7 +76,7 @@ class HomeScreen extends ConsumerWidget {
         selectedIndex: currentIndex,
         onDestinationSelected: (index) {
           ref.read(currentIndexProvider.notifier).state = index;
-          logger.d('Tab changed to index: $index');
+          log.d('Tab changed to index: $index');
         },
         destinations: const [
           NavigationDestination(
@@ -102,351 +101,48 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton:
-          currentIndex ==
-                  0 // Show FAB only on Expenses tab
-              ? FloatingActionButton.extended(
-                onPressed: () {
-                  logger.i('Add expense button pressed');
-                  context.go(Routes.createExpense);
-                },
-                icon: const Icon(Icons.add),
-                label: const Text('Add Expense'),
-              )
-              : null,
+      floatingActionButton: _buildFloatingActionButton(currentIndex, context),
     );
   }
-}
 
-// Tab widgets
-class ExpensesTab extends ConsumerWidget {
-  const ExpensesTab({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+  Widget? _buildFloatingActionButton(int currentIndex, BuildContext context) {
+    switch (currentIndex) {
+      case 0: // Expenses tab
+        return FloatingActionButton.extended(
+          onPressed: () {
+            log.i('Add expense button pressed');
+            context.go(Routes.createExpense);
+          },
+          icon: const Icon(Icons.add),
+          label: const Text('Add Expense'),
+        );
+      case 2: // Groups tab
+        return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.receipt_long,
-                size: 64,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No expenses yet',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap the + button to add your first expense',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            FilledButton.icon(
+            FloatingActionButton.extended(
               onPressed: () {
-                context.go(Routes.createExpense);
+                log.i('Join group button pressed');
+                context.go(Routes.joinGroup);
+              },
+              icon: const Icon(Icons.group_add),
+              label: const Text('Join Group'),
+              heroTag: 'join_group',
+            ),
+            const SizedBox(height: 12),
+            FloatingActionButton.extended(
+              onPressed: () {
+                log.i('Create group button pressed');
+                context.go(Routes.createGroup);
               },
               icon: const Icon(Icons.add),
-              label: const Text('Add First Expense'),
+              label: const Text('Create Group'),
+              heroTag: 'create_group',
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class BalancesTab extends ConsumerWidget {
-  const BalancesTab({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.balance,
-                size: 64,
-                color: theme.colorScheme.onPrimaryContainer,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'All settled up!',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Add some expenses to see balances between group members',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class GroupsTab extends ConsumerWidget {
-  const GroupsTab({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final logger = ref.watch(appLoggerProvider);
-    final theme = Theme.of(context);
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.secondaryContainer,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.group,
-                size: 64,
-                color: theme.colorScheme.onSecondaryContainer,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No groups yet',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Create or join a group to start sharing expenses with friends',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      logger.i('Create group button pressed');
-                      // TODO: Navigate to create group screen
-                      // context.go(Routes.createGroup);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Create group coming soon'),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.add),
-                    label: const Text('Create Group'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      logger.i('Join group button pressed');
-                      // TODO: Navigate to join group screen
-                      // context.go(Routes.joinGroup);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Join group coming soon')),
-                      );
-                    },
-                    icon: const Icon(Icons.group_add),
-                    label: const Text('Join Group'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ProfileTab extends ConsumerWidget {
-  final dynamic user;
-
-  const ProfileTab({super.key, required this.user});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-
-    // If we're in the profile tab, just redirect to the full profile screen
-    // This provides a better UX than showing truncated profile info
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // User avatar
-            CircleAvatar(
-              radius: 50,
-              backgroundImage:
-                  user?.avatarUrl?.isNotEmpty == true
-                      ? NetworkImage(user!.avatarUrl!)
-                      : null,
-              child:
-                  user?.avatarUrl?.isEmpty != false
-                      ? Text(
-                        user?.initials ?? '?',
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                      : null,
-            ),
-            const SizedBox(height: 16),
-
-            // User name
-            Text(
-              user?.displayName ?? 'Guest User',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 4),
-
-            // User email
-            Text(
-              user?.email ?? 'guest@fairshare.app',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // Profile action button
-            FilledButton.icon(
-              onPressed: () {
-                context.go(Routes.profile);
-              },
-              icon: const Icon(Icons.settings),
-              label: const Text('Manage Profile'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Quick stats card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    _buildStatRow(
-                      icon: Icons.receipt_long,
-                      label: 'Total Expenses',
-                      value: '0', // TODO: Get actual count
-                      theme: theme,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildStatRow(
-                      icon: Icons.group,
-                      label: 'Groups Joined',
-                      value: '0', // TODO: Get actual count
-                      theme: theme,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildStatRow(
-                      icon: Icons.balance,
-                      label: 'Active Balances',
-                      value: '0', // TODO: Get actual count
-                      theme: theme,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatRow({
-    required IconData icon,
-    required String label,
-    required String value,
-    required ThemeData theme,
-  }) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: theme.colorScheme.primary),
-        const SizedBox(width: 12),
-        Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
-        Text(
-          value,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.primary,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Extension to add initials method to user if not available
-extension UserExtension on dynamic {
-  String get initials {
-    if (this == null) return '?';
-
-    final displayName = this.displayName as String? ?? '';
-    final words = displayName.split(' ');
-
-    if (words.isEmpty || words.first.isEmpty) return '?';
-    if (words.length == 1) return words[0][0].toUpperCase();
-
-    return '${words[0][0]}${words[1][0]}'.toUpperCase();
+        );
+      default:
+        return null;
+    }
   }
 }

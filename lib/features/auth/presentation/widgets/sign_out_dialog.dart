@@ -16,7 +16,7 @@ class SignOutDialog extends ConsumerStatefulWidget {
   ConsumerState<SignOutDialog> createState() => _SignOutDialogState();
 }
 
-class _SignOutDialogState extends ConsumerState<SignOutDialog> {
+class _SignOutDialogState extends ConsumerState<SignOutDialog> with LoggerMixin {
   bool _isCheckingRisk = false;
   SignOutRisk? _riskLevel;
   String? _errorMessage;
@@ -33,24 +33,23 @@ class _SignOutDialogState extends ConsumerState<SignOutDialog> {
       _errorMessage = null;
     });
 
-    final logger = ref.read(appLoggerProvider);
     final authNotifier = ref.read(authNotifierProvider.notifier);
 
-    logger.i('🔍 Checking sign-out risk assessment...');
+    log.i('Checking sign-out risk assessment...');
 
     final result = await authNotifier.checkSignOutRisk();
 
     if (mounted) {
       result.fold(
         (risk) {
-          logger.i('✅ Risk assessment complete: $risk');
+          log.i('Risk assessment complete: $risk');
           setState(() {
             _isCheckingRisk = false;
             _riskLevel = risk;
           });
         },
         (error) {
-          logger.e('❌ Risk assessment failed: $error');
+          log.e('Risk assessment failed', error);
           setState(() {
             _isCheckingRisk = false;
             _errorMessage = error.toString();
@@ -465,55 +464,64 @@ class OfflineWarningDialog extends ConsumerWidget {
   }
 }
 
+/// Helper class for sign-out operations with logging
+class _SignOutHelper with LoggerMixin {
+  /// Perform the actual sign-out with loading state
+  Future<void> performSignOut(BuildContext context, WidgetRef ref) async {
+    final authNotifier = ref.read(authNotifierProvider.notifier);
+
+    // Close the dialog first
+    Navigator.of(context).pop();
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const SignOutProgressDialog(),
+    );
+
+    log.w('Performing sign-out...');
+
+    final result = await authNotifier.signOut();
+
+    // Close loading dialog
+    if (context.mounted) {
+      Navigator.of(context).pop();
+    }
+
+    result.fold(
+      (_) {
+        log.i('Sign-out completed successfully');
+        if (context.mounted) {
+          context.go('/auth');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Signed out successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      },
+      (error) {
+        log.e('Sign-out failed', error);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Sign-out failed: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
+    );
+  }
+}
+
+final _signOutHelper = _SignOutHelper();
+
 /// Perform the actual sign-out with loading state
 Future<void> _performSignOut(BuildContext context, WidgetRef ref) async {
-  final logger = ref.read(appLoggerProvider);
-  final authNotifier = ref.read(authNotifierProvider.notifier);
-
-  // Close the dialog first
-  Navigator.of(context).pop();
-
-  // Show loading indicator
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => const SignOutProgressDialog(),
-  );
-
-  logger.w('🚪 Performing sign-out...');
-
-  final result = await authNotifier.signOut();
-
-  // Close loading dialog
-  if (context.mounted) {
-    Navigator.of(context).pop();
-  }
-
-  result.fold(
-    (_) {
-      logger.i('✅ Sign-out completed successfully');
-      if (context.mounted) {
-        context.go('/auth');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Signed out successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    },
-    (error) {
-      logger.e('❌ Sign-out failed: $error');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Sign-out failed: $error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    },
-  );
+  await _signOutHelper.performSignOut(context, ref);
 }
 
 /// Loading dialog shown during sign-out process

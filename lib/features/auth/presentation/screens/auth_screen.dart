@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../providers/auth_providers.dart';
+import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
+import 'package:fairshare_app/features/groups/presentation/providers/group_providers.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -30,9 +31,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       });
 
       result.fold(
-        (user) {
-          // Navigation will be handled automatically by router redirect
-          // based on auth state change
+        (user) async {
+          final groupInitService =
+              ref.read(groupInitializationServiceProvider);
+          await groupInitService.ensurePersonalGroupExists(user.id);
+
           _showSuccessSnackBar('Welcome, ${user.displayName}!');
         },
         (error) {

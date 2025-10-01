@@ -6,6 +6,9 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/screens/auth_screen.dart';
 import '../../features/expenses/presentation/screens/create_expense_screen.dart';
+import '../../features/groups/presentation/screens/create_group_screen.dart';
+import '../../features/groups/presentation/screens/group_detail_screen.dart';
+import '../../features/groups/presentation/screens/join_group_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import 'routes.dart';
@@ -63,29 +66,29 @@ GoRouter appRouter(Ref ref) {
         builder: (context, state) => const CreateExpenseScreen(),
       ),
 
+      // === GROUPS ===
+      // Note: Specific routes must come before parameterized routes
+      GoRoute(
+        path: Routes.createGroup,
+        name: 'CreateGroup',
+        builder: (context, state) => const CreateGroupScreen(),
+      ),
+      GoRoute(
+        path: Routes.joinGroup,
+        name: 'JoinGroup',
+        builder: (context, state) => const JoinGroupScreen(),
+      ),
+      GoRoute(
+        path: Routes.groupDetail,
+        name: 'GroupDetail',
+        builder: (context, state) {
+          final groupId = state.pathParameters['groupId']!;
+          return GroupDetailScreen(groupId: groupId);
+        },
+      ),
+
       // === FUTURE ROUTES ===
       // These will be implemented in upcoming phases:
-
-      // GoRoute(
-      //   path: Routes.createGroup,
-      //   name: 'CreateGroup',
-      //   builder: (context, state) => const CreateGroupScreen(),
-      // ),
-
-      // GoRoute(
-      //   path: Routes.joinGroup,
-      //   name: 'JoinGroup',
-      //   builder: (context, state) => const JoinGroupScreen(),
-      // ),
-
-      // GoRoute(
-      //   path: Routes.groupDetail,
-      //   name: 'GroupDetail',
-      //   builder: (context, state) {
-      //     final groupId = state.pathParameters['groupId']!;
-      //     return GroupDetailScreen(groupId: groupId);
-      //   },
-      // ),
 
       // GoRoute(
       //   path: Routes.expenseDetail,

@@ -32,7 +32,7 @@ Connectivity connectivity(Ref ref) {
 }
 
 /// Provider for AuthRepository implementation
-@riverpod
+@Riverpod(keepAlive: true)
 AuthRepository authRepository(Ref ref) {
   return FirebaseAuthService(
     firebaseAuth: ref.watch(firebaseAuthProvider),
@@ -44,7 +44,7 @@ AuthRepository authRepository(Ref ref) {
 
 /// Auth state notifier for managing authentication state
 @riverpod
-class AuthNotifier extends _$AuthNotifier {
+class AuthNotifier extends _$AuthNotifier with LoggerMixin {
   @override
   Stream<User?> build() {
     final authRepo = ref.watch(authRepositoryProvider);
@@ -53,20 +53,19 @@ class AuthNotifier extends _$AuthNotifier {
 
   /// Sign in with Google
   Future<Result<User>> signInWithGoogle() async {
-    final logger = ref.read(appLoggerProvider);
     final authRepo = ref.read(authRepositoryProvider);
 
-    logger.i('🔐 Starting Google Sign-In...');
+    log.i('Starting Google Sign-In...');
 
     final result = await authRepo.signInWithGoogle();
 
     return result.fold(
       (user) {
-        logger.i('✅ Sign-in successful: ${user.displayName}');
+        log.i('Sign-in successful: ${user.displayName}');
         return Success(user);
       },
       (error) {
-        logger.e('❌ Sign-in failed: $error');
+        log.e('Sign-in failed', error);
         return Failure(error);
       },
     );
@@ -80,20 +79,19 @@ class AuthNotifier extends _$AuthNotifier {
 
   /// Sign out with data clearing
   Future<Result<void>> signOut() async {
-    final logger = ref.read(appLoggerProvider);
     final authRepo = ref.read(authRepositoryProvider);
 
-    logger.w('🚪 Starting sign-out process...');
+    log.w('Starting sign-out process...');
 
     final result = await authRepo.signOut();
 
     return result.fold(
       (_) {
-        logger.i('✅ Sign-out successful - all data cleared');
+        log.i('Sign-out successful - all data cleared');
         return Success('Signed out and data cleared');
       },
       (error) {
-        logger.e('❌ Sign-out failed: $error');
+        log.e('Sign-out failed', error);
         return Failure(error);
       },
     );
@@ -112,16 +110,16 @@ class AuthNotifier extends _$AuthNotifier {
   }
 }
 
-/// Convenience provider for current user
+/// Convenience provider for current user (synchronous)
 @riverpod
 User? currentUser(Ref ref) {
-  final authState = ref.watch(authNotifierProvider);
-  return authState.whenOrNull(data: (user) => user);
+  final authRepo = ref.watch(authRepositoryProvider);
+  return authRepo.getCurrentUser();
 }
 
 /// Convenience provider for authentication status
 @riverpod
 bool isAuthenticated(Ref ref) {
-  final user = ref.watch(currentUserProvider);
-  return user != null;
+  final authRepo = ref.watch(authRepositoryProvider);
+  return authRepo.isAuthenticated;
 }

@@ -21,8 +21,7 @@ Future<SyncStatusInfo> syncStatus(SyncStatusRef ref) async {
     final result = await authRepo.getSyncStatus();
     return result.fold((syncStatus) => syncStatus, (error) {
       // Log error and return empty sync status
-      final logger = ref.read(appLoggerProvider);
-      logger.e('Failed to get sync status: $error');
+      AppLogger('SyncStatusProvider').e('Failed to get sync status', error);
       return SyncStatusInfo(
         unsyncedUsers: 0,
         unsyncedGroups: 0,
@@ -45,7 +44,7 @@ Future<SyncStatusInfo> syncStatus(SyncStatusRef ref) async {
 
 /// Provider for sync status that updates automatically
 @riverpod
-class SyncStatusNotifier extends _$SyncStatusNotifier {
+class SyncStatusNotifier extends _$SyncStatusNotifier with LoggerMixin {
   Timer? _timer;
 
   @override
@@ -74,22 +73,21 @@ class SyncStatusNotifier extends _$SyncStatusNotifier {
   /// Attempt to sync all unsynced data
   Future<Result<void>> forceSyncAll() async {
     final authRepo = ref.read(authRepositoryProvider);
-    final logger = ref.read(appLoggerProvider);
 
-    logger.i('🔄 Starting forced sync of all data...');
+    log.i('Starting forced sync of all data...');
 
     if (authRepo is FirebaseAuthService) {
       final result = await authRepo.forceSyncAll();
 
       return result.fold(
         (success) {
-          logger.i('✅ Forced sync completed successfully');
+          log.i('Forced sync completed successfully');
           // Refresh sync status after successful sync
           refresh();
           return Success.unit();
         },
         (error) {
-          logger.e('❌ Forced sync failed: $error');
+          log.e('Forced sync failed', error);
           return Failure(error);
         },
       );

@@ -1,10 +1,13 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'core/logging/app_logger.dart';
-import 'firebase_options.dart';
-import 'shared/routes/app_router.dart';
-import 'shared/theme/app_theme.dart';
+
+import 'package:fairshare_app/core/logging/app_logger.dart';
+import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
+import 'package:fairshare_app/features/groups/presentation/providers/group_providers.dart';
+import 'package:fairshare_app/firebase_options.dart';
+import 'package:fairshare_app/shared/routes/app_router.dart';
+import 'package:fairshare_app/shared/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,16 +19,16 @@ void main() async {
   runApp(const ProviderScope(child: FairShareApp()));
 }
 
-class FairShareApp extends ConsumerWidget {
+class FairShareApp extends ConsumerWidget with LoggerMixin {
   const FairShareApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
-    final logger = ref.watch(appLoggerProvider);
 
-    // Log app startup
-    logger.i('🚀 FairShare app starting...');
+    log.i('FairShare app starting...');
+
+    _ensurePersonalGroupExists(ref);
 
     return MaterialApp.router(
       title: 'FairShare',
@@ -35,5 +38,13 @@ class FairShareApp extends ConsumerWidget {
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );
+  }
+
+  void _ensurePersonalGroupExists(WidgetRef ref) {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser != null) {
+      final groupInitService = ref.read(groupInitializationServiceProvider);
+      groupInitService.ensurePersonalGroupExists(currentUser.id);
+    }
   }
 }

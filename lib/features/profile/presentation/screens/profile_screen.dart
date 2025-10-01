@@ -8,12 +8,11 @@ import '../../../../shared/routes/routes.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/widgets/sign_out_dialog.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerWidget with LoggerMixin {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final logger = ref.watch(appLoggerProvider);
     final currentUser = ref.watch(currentUserProvider);
     final theme = Theme.of(context);
 
@@ -34,7 +33,7 @@ class ProfileScreen extends ConsumerWidget {
             const SizedBox(height: 32),
 
             // Profile options
-            _buildProfileOptions(context, logger, theme),
+            _buildProfileOptions(context, theme),
             const SizedBox(height: 32),
 
             // App information
@@ -136,7 +135,7 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildProfileOptions(BuildContext context, logger, ThemeData theme) {
+  Widget _buildProfileOptions(BuildContext context, ThemeData theme) {
     return Card(
       child: Column(
         children: [
@@ -146,7 +145,7 @@ class ProfileScreen extends ConsumerWidget {
             title: 'Edit Profile',
             subtitle: 'Update your name and preferences',
             onTap: () {
-              logger.i('Edit profile tapped');
+              log.i('Edit profile tapped');
               // TODO: Navigate to edit profile
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Edit profile coming soon')),
@@ -160,7 +159,7 @@ class ProfileScreen extends ConsumerWidget {
             title: 'Notifications',
             subtitle: 'Manage notification preferences',
             onTap: () {
-              logger.i('Notifications tapped');
+              log.i('Notifications tapped');
               // TODO: Navigate to notifications settings
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -176,7 +175,7 @@ class ProfileScreen extends ConsumerWidget {
             title: 'Privacy & Security',
             subtitle: 'Data and security settings',
             onTap: () {
-              logger.i('Privacy & Security tapped');
+              log.i('Privacy & Security tapped');
               // TODO: Navigate to privacy settings
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Privacy settings coming soon')),
@@ -190,7 +189,7 @@ class ProfileScreen extends ConsumerWidget {
             title: 'Help & Support',
             subtitle: 'Get help and contact support',
             onTap: () {
-              logger.i('Help & Support tapped');
+              log.i('Help & Support tapped');
               // TODO: Navigate to help
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Help & support coming soon')),
