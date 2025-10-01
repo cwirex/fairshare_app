@@ -20,8 +20,17 @@ abstract class ExpenseEntity with _$ExpenseEntity {
     required DateTime expenseDate,
     required DateTime createdAt,
     required DateTime updatedAt,
+    DateTime? deletedAt,
   }) = _ExpenseEntity;
 
   factory ExpenseEntity.fromJson(Map<String, dynamic> json) =>
       _$ExpenseEntityFromJson(json);
+}
+
+extension ExpenseEntityX on ExpenseEntity {
+  /// Whether this expense has been soft-deleted
+  bool get isDeleted => deletedAt != null;
+
+  /// Whether this expense is active (not deleted)
+  bool get isActive => deletedAt == null;
 }

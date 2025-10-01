@@ -24,6 +24,7 @@ class GroupInitializationService {
     final group = GroupEntity(
       id: personalGroupId,
       displayName: 'Personal Expenses',
+      isPersonal: true,
       defaultCurrency: 'USD',
       createdAt: now,
       updatedAt: now,

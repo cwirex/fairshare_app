@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:fairshare_app/core/database/tables/users_table.dart';
 
 /// Table definition for groups in the FairShare app.
 ///
@@ -13,16 +14,8 @@ class AppGroups extends Table {
   /// Group avatar URL (empty string if not available)
   TextColumn get avatarUrl => text().withDefault(const Constant(''))();
 
-  /// Whether to optimize expense sharing (minimize transactions)
-  BoolColumn get optimizeSharing =>
-      boolean().withDefault(const Constant(true))();
-
-  /// Whether group is open for new members to join
-  BoolColumn get isOpen => boolean().withDefault(const Constant(true))();
-
-  /// Whether to auto-convert currencies to default currency
-  BoolColumn get autoExchangeCurrency =>
-      boolean().withDefault(const Constant(false))();
+  /// Whether this is a personal (local-only) group
+  BoolColumn get isPersonal => boolean().withDefault(const Constant(false))();
 
   /// Default currency for the group
   TextColumn get defaultCurrency => text().withDefault(const Constant('USD'))();
@@ -32,6 +25,9 @@ class AppGroups extends Table {
 
   /// Last time group data was updated
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// When the group was soft-deleted (null if active)
+  DateTimeColumn get deletedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -45,10 +41,10 @@ class AppGroups extends Table {
 /// Many-to-many relationship between users and groups.
 class AppGroupMembers extends Table {
   /// Group ID reference
-  TextColumn get groupId => text()();
+  TextColumn get groupId => text().references(AppGroups, #id, onDelete: KeyAction.cascade)();
 
   /// User ID reference
-  TextColumn get userId => text()();
+  TextColumn get userId => text().references(AppUsers, #id, onDelete: KeyAction.cascade)();
 
   /// When the user joined the group
   DateTimeColumn get joinedAt => dateTime().withDefault(currentDateAndTime)();
@@ -58,4 +54,29 @@ class AppGroupMembers extends Table {
 
   @override
   String get tableName => 'group_members';
+}
+
+/// Table definition for group balances.
+///
+/// Stores calculated balance for each user in a group.
+/// Positive balance means the group owes the user money.
+/// Negative balance means the user owes the group money.
+class AppGroupBalances extends Table {
+  /// Group ID reference
+  TextColumn get groupId => text().references(AppGroups, #id, onDelete: KeyAction.cascade)();
+
+  /// User ID reference
+  TextColumn get userId => text().references(AppUsers, #id, onDelete: KeyAction.cascade)();
+
+  /// Calculated balance for this user in this group
+  RealColumn get balance => real().withDefault(const Constant(0.0))();
+
+  /// When the balance was last updated
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {groupId, userId};
+
+  @override
+  String get tableName => 'group_balances';
 }

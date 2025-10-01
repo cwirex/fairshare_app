@@ -2,15 +2,15 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
-import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
-
 import 'package:fairshare_app/features/auth/domain/entities/user.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_share_entity.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
+import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
+
 import 'tables/expenses_table.dart';
 import 'tables/groups_table.dart';
 import 'tables/sync_table.dart';
@@ -27,6 +27,7 @@ part 'app_database.g.dart';
     AppUsers,
     AppGroups,
     AppGroupMembers,
+    AppGroupBalances,
     Expenses,
     ExpenseShares,
     SyncQueue,
@@ -36,7 +37,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 3; // Updated: Implemented Option D upload queue
+  int get schemaVersion => 5; // Increment when changing tables
 
   @override
   MigrationStrategy get migration {
@@ -45,10 +46,17 @@ class AppDatabase extends _$AppDatabase {
         await m.createAll();
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        if (from < 3) {
-          // Migrate from old sync queue to new upload queue structure
+        if (from < 5) {
+          // Major schema refactoring - drop and recreate all tables
+          // This is acceptable since the user was told all data will be wiped
+          await m.deleteTable('expense_shares');
+          await m.deleteTable('expenses');
+          await m.deleteTable('group_members');
+          await m.deleteTable('groups');
+          await m.deleteTable('users');
           await m.deleteTable('sync_queue');
-          await m.createTable(syncQueue);
+
+          await m.createAll();
         }
       },
     );
@@ -65,7 +73,6 @@ class AppDatabase extends _$AppDatabase {
         email: Value(user.email),
         avatarUrl: Value(user.avatarUrl),
         phone: Value(user.phone),
-        groupIds: Value(user.groupIds.join(',')),
         lastSyncTimestamp: Value(user.lastSyncTimestamp),
         createdAt: Value(user.createdAt),
         updatedAt: Value(user.updatedAt),
@@ -89,7 +96,6 @@ class AppDatabase extends _$AppDatabase {
         email: Value(user.email),
         avatarUrl: Value(user.avatarUrl),
         phone: Value(user.phone),
-        groupIds: Value(user.groupIds.join(',')),
         lastSyncTimestamp: Value(user.lastSyncTimestamp),
         createdAt: Value(user.createdAt),
         updatedAt: Value(DateTime.now()),
@@ -118,23 +124,25 @@ class AppDatabase extends _$AppDatabase {
         expenseDate: Value(expense.expenseDate),
         createdAt: Value(expense.createdAt),
         updatedAt: Value(expense.updatedAt),
-        
+        deletedAt: Value(expense.deletedAt),
       ),
     );
   }
 
   /// Get expense by ID
   Future<ExpenseEntity?> getExpenseById(String id) async {
-    final query = select(expenses)..where((e) => e.id.equals(id));
+    final query = select(expenses)
+      ..where((e) => e.id.equals(id) & e.deletedAt.isNull());
     final result = await query.getSingleOrNull();
     return result != null ? _expenseFromDb(result) : null;
   }
 
   /// Get all expenses for a specific group
   Future<List<ExpenseEntity>> getExpensesByGroup(String groupId) async {
-    final query = select(expenses)
-      ..where((e) => e.groupId.equals(groupId))
-      ..orderBy([(e) => OrderingTerm.desc(e.expenseDate)]);
+    final query =
+        select(expenses)
+          ..where((e) => e.groupId.equals(groupId) & e.deletedAt.isNull())
+          ..orderBy([(e) => OrderingTerm.desc(e.expenseDate)]);
     final results = await query.get();
     return results.map(_expenseFromDb).toList();
   }
@@ -142,6 +150,7 @@ class AppDatabase extends _$AppDatabase {
   /// Get all expenses across all groups
   Future<List<ExpenseEntity>> getAllExpenses() async {
     final query = select(expenses)
+      ..where((e) => e.deletedAt.isNull())
       ..orderBy([(e) => OrderingTerm.desc(e.expenseDate)]);
     final results = await query.get();
     return results.map(_expenseFromDb).toList();
@@ -161,7 +170,7 @@ class AppDatabase extends _$AppDatabase {
         expenseDate: Value(expense.expenseDate),
         createdAt: Value(expense.createdAt),
         updatedAt: Value(DateTime.now()),
-        
+        deletedAt: Value(expense.deletedAt),
       ),
     );
   }
@@ -173,15 +182,17 @@ class AppDatabase extends _$AppDatabase {
 
   /// Watch expenses for a specific group (stream)
   Stream<List<ExpenseEntity>> watchExpensesByGroup(String groupId) {
-    final query = select(expenses)
-      ..where((e) => e.groupId.equals(groupId))
-      ..orderBy([(e) => OrderingTerm.desc(e.expenseDate)]);
+    final query =
+        select(expenses)
+          ..where((e) => e.groupId.equals(groupId) & e.deletedAt.isNull())
+          ..orderBy([(e) => OrderingTerm.desc(e.expenseDate)]);
     return query.watch().map((rows) => rows.map(_expenseFromDb).toList());
   }
 
   /// Watch all expenses (stream)
   Stream<List<ExpenseEntity>> watchAllExpenses() {
     final query = select(expenses)
+      ..where((e) => e.deletedAt.isNull())
       ..orderBy([(e) => OrderingTerm.desc(e.expenseDate)]);
     return query.watch().map((rows) => rows.map(_expenseFromDb).toList());
   }
@@ -194,24 +205,25 @@ class AppDatabase extends _$AppDatabase {
         id: Value(group.id),
         displayName: Value(group.displayName),
         avatarUrl: Value(group.avatarUrl),
-        optimizeSharing: Value(group.optimizeSharing),
-        isOpen: Value(group.isOpen),
-        autoExchangeCurrency: Value(group.autoExchangeCurrency),
+        isPersonal: Value(group.isPersonal),
         defaultCurrency: Value(group.defaultCurrency),
         createdAt: Value(group.createdAt),
         updatedAt: Value(group.updatedAt),
+        deletedAt: Value(group.deletedAt),
       ),
     );
   }
 
   Future<GroupEntity?> getGroupById(String id) async {
-    final query = select(appGroups)..where((g) => g.id.equals(id));
+    final query = select(appGroups)
+      ..where((g) => g.id.equals(id) & g.deletedAt.isNull());
     final result = await query.getSingleOrNull();
     return result != null ? _groupFromDb(result) : null;
   }
 
   Future<List<GroupEntity>> getAllGroups() async {
     final query = select(appGroups)
+      ..where((g) => g.deletedAt.isNull())
       ..orderBy([(g) => OrderingTerm.desc(g.createdAt)]);
     final results = await query.get();
     return results.map(_groupFromDb).toList();
@@ -223,12 +235,11 @@ class AppDatabase extends _$AppDatabase {
         id: Value(group.id),
         displayName: Value(group.displayName),
         avatarUrl: Value(group.avatarUrl),
-        optimizeSharing: Value(group.optimizeSharing),
-        isOpen: Value(group.isOpen),
-        autoExchangeCurrency: Value(group.autoExchangeCurrency),
+        isPersonal: Value(group.isPersonal),
         defaultCurrency: Value(group.defaultCurrency),
         createdAt: Value(group.createdAt),
         updatedAt: Value(DateTime.now()),
+        deletedAt: Value(group.deletedAt),
       ),
     );
   }
@@ -249,8 +260,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> removeGroupMember(String groupId, String userId) async {
     await (delete(appGroupMembers)
-          ..where((m) => m.groupId.equals(groupId) & m.userId.equals(userId)))
-        .go();
+      ..where((m) => m.groupId.equals(groupId) & m.userId.equals(userId))).go();
   }
 
   Future<List<String>> getGroupMembers(String groupId) async {
@@ -261,37 +271,44 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<List<GroupEntity>> getUserGroups(String userId) async {
-    final query = select(appGroups).join([
-      innerJoin(
-        appGroupMembers,
-        appGroupMembers.groupId.equalsExp(appGroups.id),
-      ),
-    ])
-      ..where(appGroupMembers.userId.equals(userId))
-      ..orderBy([OrderingTerm.desc(appGroups.createdAt)]);
+    final query =
+        select(appGroups).join([
+            innerJoin(
+              appGroupMembers,
+              appGroupMembers.groupId.equalsExp(appGroups.id),
+            ),
+          ])
+          ..where(appGroupMembers.userId.equals(userId) & appGroups.deletedAt.isNull())
+          ..orderBy([OrderingTerm.desc(appGroups.createdAt)]);
 
     final results = await query.get();
-    return results.map((row) => _groupFromDb(row.readTable(appGroups))).toList();
+    return results
+        .map((row) => _groupFromDb(row.readTable(appGroups)))
+        .toList();
   }
 
   Stream<List<GroupEntity>> watchAllGroups() {
     final query = select(appGroups)
+      ..where((g) => g.deletedAt.isNull())
       ..orderBy([(g) => OrderingTerm.desc(g.createdAt)]);
     return query.watch().map((rows) => rows.map(_groupFromDb).toList());
   }
 
   Stream<List<GroupEntity>> watchUserGroups(String userId) {
-    final query = select(appGroups).join([
-      innerJoin(
-        appGroupMembers,
-        appGroupMembers.groupId.equalsExp(appGroups.id),
-      ),
-    ])
-      ..where(appGroupMembers.userId.equals(userId))
-      ..orderBy([OrderingTerm.desc(appGroups.createdAt)]);
+    final query =
+        select(appGroups).join([
+            innerJoin(
+              appGroupMembers,
+              appGroupMembers.groupId.equalsExp(appGroups.id),
+            ),
+          ])
+          ..where(appGroupMembers.userId.equals(userId) & appGroups.deletedAt.isNull())
+          ..orderBy([OrderingTerm.desc(appGroups.createdAt)]);
 
-    return query.watch().map((rows) =>
-        rows.map((row) => _groupFromDb(row.readTable(appGroups))).toList());
+    return query.watch().map(
+      (rows) =>
+          rows.map((row) => _groupFromDb(row.readTable(appGroups))).toList(),
+    );
   }
 
   /// Get all group members as entities
@@ -325,8 +342,8 @@ class AppDatabase extends _$AppDatabase {
 
   /// Delete all shares for an expense
   Future<void> deleteExpenseShares(String expenseId) async {
-    await (delete(expenseShares)..where((s) => s.expenseId.equals(expenseId)))
-        .go();
+    await (delete(expenseShares)
+      ..where((s) => s.expenseId.equals(expenseId))).go();
   }
 
   // === SYNC QUEUE OPERATIONS ===
@@ -368,12 +385,11 @@ class AppDatabase extends _$AppDatabase {
           id: Value(group.id),
           displayName: Value(group.displayName),
           avatarUrl: Value(group.avatarUrl),
-          optimizeSharing: Value(group.optimizeSharing),
-          isOpen: Value(group.isOpen),
-          autoExchangeCurrency: Value(group.autoExchangeCurrency),
+          isPersonal: Value(group.isPersonal),
           defaultCurrency: Value(group.defaultCurrency),
           createdAt: Value(group.createdAt),
           updatedAt: Value(group.updatedAt),
+          deletedAt: Value(group.deletedAt),
         ),
       );
     } else {
@@ -383,11 +399,10 @@ class AppDatabase extends _$AppDatabase {
           AppGroupsCompanion(
             displayName: Value(group.displayName),
             avatarUrl: Value(group.avatarUrl),
-            optimizeSharing: Value(group.optimizeSharing),
-            isOpen: Value(group.isOpen),
-            autoExchangeCurrency: Value(group.autoExchangeCurrency),
+            isPersonal: Value(group.isPersonal),
             defaultCurrency: Value(group.defaultCurrency),
             updatedAt: Value(group.updatedAt),
+            deletedAt: Value(group.deletedAt),
           ),
         );
       }
@@ -412,6 +427,7 @@ class AppDatabase extends _$AppDatabase {
           expenseDate: Value(expense.expenseDate),
           createdAt: Value(expense.createdAt),
           updatedAt: Value(expense.updatedAt),
+          deletedAt: Value(expense.deletedAt),
         ),
       );
     } else {
@@ -426,6 +442,7 @@ class AppDatabase extends _$AppDatabase {
             shareWithEveryone: Value(expense.shareWithEveryone),
             expenseDate: Value(expense.expenseDate),
             updatedAt: Value(expense.updatedAt),
+            deletedAt: Value(expense.deletedAt),
           ),
         );
       }
@@ -434,7 +451,8 @@ class AppDatabase extends _$AppDatabase {
 
   /// Get all pending operations from the upload queue
   Future<List<SyncQueueData>> getPendingOperations({int? limit}) async {
-    final query = select(syncQueue)..orderBy([(s) => OrderingTerm.asc(s.createdAt)]);
+    final query = select(syncQueue)
+      ..orderBy([(s) => OrderingTerm.asc(s.createdAt)]);
     if (limit != null) {
       query.limit(limit);
     }
@@ -448,7 +466,8 @@ class AppDatabase extends _$AppDatabase {
 
   /// Increment retry count and update error message for failed operation
   Future<void> markOperationFailed(int id, String errorMessage) async {
-    final current = await (select(syncQueue)..where((s) => s.id.equals(id))).getSingle();
+    final current =
+        await (select(syncQueue)..where((s) => s.id.equals(id))).getSingle();
     await (update(syncQueue)..where((s) => s.id.equals(id))).write(
       SyncQueueCompanion(
         retryCount: Value(current.retryCount + 1),
@@ -470,10 +489,53 @@ class AppDatabase extends _$AppDatabase {
       await delete(syncQueue).go();
       await delete(expenseShares).go();
       await delete(expenses).go();
+      await delete(appGroupBalances).go();
       await delete(appGroupMembers).go();
       await delete(appGroups).go();
       await delete(appUsers).go();
     });
+  }
+
+  // === SOFT DELETE OPERATIONS ===
+
+  /// Soft delete a group (sets deletedAt timestamp)
+  Future<void> softDeleteGroup(String id) async {
+    await (update(appGroups)..where((g) => g.id.equals(id))).write(
+      AppGroupsCompanion(
+        deletedAt: Value(DateTime.now()),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Restore a soft-deleted group (clears deletedAt)
+  Future<void> restoreGroup(String id) async {
+    await (update(appGroups)..where((g) => g.id.equals(id))).write(
+      AppGroupsCompanion(
+        deletedAt: const Value(null),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Soft delete an expense (sets deletedAt timestamp)
+  Future<void> softDeleteExpense(String id) async {
+    await (update(expenses)..where((e) => e.id.equals(id))).write(
+      ExpensesCompanion(
+        deletedAt: Value(DateTime.now()),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Restore a soft-deleted expense (clears deletedAt)
+  Future<void> restoreExpense(String id) async {
+    await (update(expenses)..where((e) => e.id.equals(id))).write(
+      ExpensesCompanion(
+        deletedAt: const Value(null),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   // === PRIVATE HELPERS ===
@@ -486,7 +548,6 @@ class AppDatabase extends _$AppDatabase {
       email: dbUser.email,
       avatarUrl: dbUser.avatarUrl,
       phone: dbUser.phone,
-      groupIds: dbUser.groupIds.isEmpty ? [] : dbUser.groupIds.split(','),
       lastSyncTimestamp: dbUser.lastSyncTimestamp,
       createdAt: dbUser.createdAt,
       updatedAt: dbUser.updatedAt,
@@ -506,6 +567,7 @@ class AppDatabase extends _$AppDatabase {
       expenseDate: dbExpense.expenseDate,
       createdAt: dbExpense.createdAt,
       updatedAt: dbExpense.updatedAt,
+      deletedAt: dbExpense.deletedAt,
     );
   }
 
@@ -514,12 +576,11 @@ class AppDatabase extends _$AppDatabase {
       id: dbGroup.id,
       displayName: dbGroup.displayName,
       avatarUrl: dbGroup.avatarUrl,
-      optimizeSharing: dbGroup.optimizeSharing,
-      isOpen: dbGroup.isOpen,
-      autoExchangeCurrency: dbGroup.autoExchangeCurrency,
+      isPersonal: dbGroup.isPersonal,
       defaultCurrency: dbGroup.defaultCurrency,
       createdAt: dbGroup.createdAt,
       updatedAt: dbGroup.updatedAt,
+      deletedAt: dbGroup.deletedAt,
     );
   }
 

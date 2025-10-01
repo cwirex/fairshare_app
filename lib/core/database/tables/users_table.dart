@@ -17,11 +17,8 @@ class AppUsers extends Table {
   /// Avatar URL from Google account (empty string if not available)
   TextColumn get avatarUrl => text().withDefault(const Constant(''))();
 
-  /// Phone number (empty string if not provided)
-  TextColumn get phone => text().withDefault(const Constant(''))();
-
-  /// List of group IDs the user is a member of (stored as comma-separated string)
-  TextColumn get groupIds => text().withDefault(const Constant(''))();
+  /// Phone number (optional)
+  TextColumn get phone => text().nullable()();
 
   /// Last time user synced data with Firestore
   DateTimeColumn get lastSyncTimestamp => dateTime().nullable()();

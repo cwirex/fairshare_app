@@ -22,11 +22,8 @@ abstract class User with _$User {
     /// Avatar URL from Google account (empty string if not available)
     @Default('') String avatarUrl,
 
-    /// Phone number (empty string if not provided)
-    @Default('') String phone,
-
-    /// List of group IDs the user is a member of
-    @Default([]) List<String> groupIds,
+    /// Phone number (optional)
+    String? phone,
 
     /// Last time user synced data with Firestore
     /// Used to determine which groups need syncing
@@ -48,7 +45,7 @@ extension UserX on User {
   bool get hasAvatar => avatarUrl.isNotEmpty;
 
   /// Whether user has provided phone number
-  bool get hasPhone => phone.isNotEmpty;
+  bool get hasPhone => phone != null && phone!.isNotEmpty;
 
   /// User initials for avatar fallback
   String get initials {
@@ -60,7 +57,4 @@ extension UserX on User {
 
   /// Whether user has ever synced
   bool get hasNeverSynced => lastSyncTimestamp == null;
-
-  /// Whether user is a member of a specific group
-  bool isMemberOf(String groupId) => groupIds.contains(groupId);
 }

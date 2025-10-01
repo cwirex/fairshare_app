@@ -14,11 +14,15 @@ class LocalGroupRepository implements GroupRepository {
     try {
       await _database.transaction(() async {
         await _database.insertGroup(group);
-        await _database.enqueueOperation(
-          entityType: 'group',
-          entityId: group.id,
-          operationType: 'create',
-        );
+
+        // Only enqueue non-personal groups for sync
+        if (!group.isPersonal) {
+          await _database.enqueueOperation(
+            entityType: 'group',
+            entityId: group.id,
+            operationType: 'create',
+          );
+        }
       });
       return Success(group);
     } catch (e) {
@@ -54,11 +58,15 @@ class LocalGroupRepository implements GroupRepository {
     try {
       await _database.transaction(() async {
         await _database.updateGroup(group);
-        await _database.enqueueOperation(
-          entityType: 'group',
-          entityId: group.id,
-          operationType: 'update',
-        );
+
+        // Only enqueue non-personal groups for sync
+        if (!group.isPersonal) {
+          await _database.enqueueOperation(
+            entityType: 'group',
+            entityId: group.id,
+            operationType: 'update',
+          );
+        }
       });
       return Success(group);
     } catch (e) {
@@ -69,12 +77,18 @@ class LocalGroupRepository implements GroupRepository {
   @override
   Future<Result<void>> deleteGroup(String id) async {
     try {
+      // Get group first to check if personal
+      final group = await _database.getGroupById(id);
+
       await _database.transaction(() async {
-        await _database.enqueueOperation(
-          entityType: 'group',
-          entityId: id,
-          operationType: 'delete',
-        );
+        // Only enqueue non-personal groups for sync
+        if (group != null && !group.isPersonal) {
+          await _database.enqueueOperation(
+            entityType: 'group',
+            entityId: id,
+            operationType: 'delete',
+          );
+        }
         await _database.deleteGroup(id);
       });
       return Success.unit();

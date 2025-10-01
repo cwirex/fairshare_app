@@ -14,11 +14,11 @@ class FirestoreGroupService {
   static const String _membersSubcollection = 'members';
 
   /// Upload a group to Firestore.
-  /// Personal groups (id starts with 'personal_') are never synced.
+  /// Personal groups are never synced.
   Future<Result<void>> uploadGroup(GroupEntity group) async {
     try {
       // Skip syncing personal groups - they're local-only
-      if (group.id.startsWith('personal_')) {
+      if (group.isPersonal) {
         return Success.unit();
       }
 
@@ -37,10 +37,10 @@ class FirestoreGroupService {
 
   /// Upload a group member to Firestore.
   /// Personal group members are never synced.
-  Future<Result<void>> uploadGroupMember(GroupMemberEntity member) async {
+  Future<Result<void>> uploadGroupMember(GroupMemberEntity member, {bool isPersonalGroup = false}) async {
     try {
       // Skip syncing personal group members - they're local-only
-      if (member.groupId.startsWith('personal_')) {
+      if (isPersonalGroup) {
         return Success.unit();
       }
 

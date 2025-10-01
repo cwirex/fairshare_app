@@ -18,11 +18,11 @@ This file provides context about the FairShare project for AI assistants and new
 - ✅ User profile management
 - ✅ Sign-out risk assessment (warns about unsynced data)
 - ✅ Modern Material 3 UI with dark mode
+- ✅ **Upload Queue Sync System (Option D)** - Full bidirectional sync
 
 ### In Progress
 - 🚧 Group management (UI ready, logic pending)
 - 🚧 Balance calculations (UI ready, logic pending)
-- 🚧 Firebase sync mechanism (structure ready, sync pending)
 
 ### Not Started
 - ❌ Expense splitting logic (equal/custom splits)
@@ -61,11 +61,15 @@ lib/
 
 ## Key Design Decisions
 
-### 1. Offline-First
+### 1. Offline-First with Upload Queue (Option D)
 - Local SQLite database is the source of truth
-- All operations work offline
-- Changes queued for sync when online
-- `isSynced` flag tracks sync status
+- All operations work offline indefinitely
+- **Upload Queue**: Separate table tracks pending operations (create/update/delete)
+- **Bidirectional Sync**: Upload local changes → Download remote changes
+- **Conflict Resolution**: Last Write Wins using `updatedAt` timestamps
+- **Real-time**: 30-second queue watcher when online
+- **Transactional**: Changes + queue updates in single transaction
+- **No Loops**: Bypass methods prevent server changes from enqueueing
 
 ### 2. Clean Architecture
 - **Domain Layer**: Pure data entities, repository interfaces
@@ -92,7 +96,11 @@ lib/
 - **AppGroupMembers**: Many-to-many relationship
 - **Expenses**: Individual expenses
 - **ExpenseShares**: Who owes what for each expense
-- **SyncQueue**: Tracks pending sync operations
+- **SyncQueue**: Upload queue for pending operations
+  - Tracks entityType, entityId, operationType (create/update/delete)
+  - Stores metadata (e.g., groupId for deletes)
+  - UNIQUE constraint on (entityType, entityId) ensures one operation per entity
+  - Retry count and error tracking for failed operations
 
 ## Development Workflow
 
@@ -140,17 +148,42 @@ dart run build_runner build --delete-conflicting-outputs
 
 - **PLAN.md**: Development roadmap and task breakdown
 - **README.md**: Project overview and setup instructions
+- **SYNC_STRATEGY.md**: Detailed sync implementation documentation
 - **.claude/coding-standards.md**: Code quality requirements
 - **lib/main.dart**: App entry point
 - **lib/core/database/app_database.dart**: Database definition
+- **lib/core/sync/upload_queue_service.dart**: Upload queue processor
+- **lib/core/sync/sync_service.dart**: Bidirectional sync coordinator
+
+## Sync System Architecture
+
+### How It Works (Lifecycle)
+
+**When user creates an expense:**
+1. Repository wraps in transaction: insert to DB + enqueue to sync_queue
+2. If online: Queue watcher (30s timer) detects pending operation
+3. UploadQueueService processes queue: reads expense, uploads to Firestore
+4. On success: removes from queue; On failure: increments retry count (max 3)
+5. Download phase: fetches remote changes, uses `upsertFromSync()` to bypass queue
+
+**Key Methods:**
+- `repository.createExpense()` → enqueues operation
+- `database.enqueueOperation()` → adds to sync_queue with UNIQUE constraint
+- `uploadQueueService.processQueue()` → batch processes pending ops
+- `database.upsertExpenseFromSync()` → applies server changes without enqueueing
+
+### TODO: Sync Improvements
+- [ ] Pass current user ID to `_downloadRemoteChanges()`
+- [ ] Add Firestore real-time listeners for instant updates (optional)
+- [ ] Reduce queue watcher interval for faster sync (optional)
 
 ## Next Steps
 
 See **PLAN.md** for the current development plan. Current focus:
 1. Complete Phase 2.1: Basic expense tracking ✅
-2. Phase 2.2: Group creation (simple, local-only)
-3. Phase 2.3: Balance calculations (simple sum)
-4. Phase 2.4: Firebase sync (basic push/pull)
+2. Complete Phase 2.4: Firebase sync (bidirectional) ✅
+3. Phase 2.2: Group creation (simple, local-only)
+4. Phase 2.3: Balance calculations (simple sum)
 
 ## Notes for AI Assistants
 

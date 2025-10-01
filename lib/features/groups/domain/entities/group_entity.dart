@@ -13,12 +13,11 @@ abstract class GroupEntity with _$GroupEntity {
     required String id,
     required String displayName,
     @Default('') String avatarUrl,
-    @Default(true) bool optimizeSharing,
-    @Default(true) bool isOpen,
-    @Default(false) bool autoExchangeCurrency,
+    @Default(false) bool isPersonal,
     @Default('USD') String defaultCurrency,
     required DateTime createdAt,
     required DateTime updatedAt,
+    DateTime? deletedAt,
   }) = _GroupEntity;
 
   factory GroupEntity.fromJson(Map<String, dynamic> json) =>
@@ -26,9 +25,12 @@ abstract class GroupEntity with _$GroupEntity {
 }
 
 extension GroupEntityX on GroupEntity {
-  /// Whether this is a personal (local-only) group
-  bool get isPersonal => id.startsWith('personal_');
-
   /// Whether this group should be synced to Firestore
   bool get shouldSync => !isPersonal;
+
+  /// Whether this group has been soft-deleted
+  bool get isDeleted => deletedAt != null;
+
+  /// Whether this group is active (not deleted)
+  bool get isActive => deletedAt == null;
 }

@@ -15,6 +15,8 @@ class LocalExpenseRepository implements ExpenseRepository {
     try {
       await _database.transaction(() async {
         await _database.insertExpense(expense);
+
+        // All expenses are synced (personal group expenses too - for backup)
         await _database.enqueueOperation(
           entityType: 'expense',
           entityId: expense.id,
@@ -65,6 +67,8 @@ class LocalExpenseRepository implements ExpenseRepository {
     try {
       await _database.transaction(() async {
         await _database.updateExpense(expense);
+
+        // All expenses are synced (personal group expenses too - for backup)
         await _database.enqueueOperation(
           entityType: 'expense',
           entityId: expense.id,
@@ -85,12 +89,14 @@ class LocalExpenseRepository implements ExpenseRepository {
         final expense = await _database.getExpenseById(id);
         final metadata = expense != null ? '{"groupId":"${expense.groupId}"}' : null;
 
+        // All expenses are synced (personal group expenses too - for backup)
         await _database.enqueueOperation(
           entityType: 'expense',
           entityId: id,
           operationType: 'delete',
           metadata: metadata,
         );
+
         await _database.deleteExpense(id);
       });
       return Success.unit();

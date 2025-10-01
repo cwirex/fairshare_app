@@ -1,4 +1,5 @@
 // lib/features/profile/presentation/screens/profile_screen.dart
+import 'package:fairshare_app/features/auth/domain/entities/user.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,6 +16,12 @@ class ProfileScreen extends ConsumerWidget with LoggerMixin {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = ref.watch(currentUserProvider);
     final theme = Theme.of(context);
+
+    if (currentUser == null) {
+      return ErrorWidget.withDetails(
+        message: 'No user is currently signed in.',
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -48,20 +55,20 @@ class ProfileScreen extends ConsumerWidget with LoggerMixin {
     );
   }
 
-  Widget _buildProfileHeader(dynamic currentUser, ThemeData theme) {
+  Widget _buildProfileHeader(User currentUser, ThemeData theme) {
     return Column(
       children: [
         // Avatar
         CircleAvatar(
           radius: 50,
           backgroundImage:
-              currentUser?.avatarUrl?.isNotEmpty == true
-                  ? NetworkImage(currentUser!.avatarUrl!)
+              currentUser.avatarUrl.isNotEmpty == true
+                  ? NetworkImage(currentUser.avatarUrl)
                   : null,
           child:
-              currentUser?.avatarUrl?.isEmpty != false
+              currentUser.avatarUrl.isEmpty != false
                   ? Text(
-                    currentUser?.initials ?? '?',
+                    currentUser.initials ?? '?',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -72,7 +79,7 @@ class ProfileScreen extends ConsumerWidget with LoggerMixin {
 
         // Name
         Text(
-          currentUser?.displayName ?? 'Guest User',
+          currentUser.displayName ?? 'Guest User',
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w600,
           ),
@@ -81,14 +88,14 @@ class ProfileScreen extends ConsumerWidget with LoggerMixin {
 
         // Email
         Text(
-          currentUser?.email ?? 'guest@fairshare.app',
+          currentUser.email ?? 'guest@fairshare.app',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
 
         // Sync status indicator
-        if (currentUser != null) ...[
+        ...[
           const SizedBox(height: 8),
           _buildSyncStatusChip(currentUser, theme),
         ],
@@ -96,8 +103,8 @@ class ProfileScreen extends ConsumerWidget with LoggerMixin {
     );
   }
 
-  Widget _buildSyncStatusChip(dynamic user, ThemeData theme) {
-    final bool isSynced = user.isSynced ?? true;
+  Widget _buildSyncStatusChip(User user, ThemeData theme) {
+    final bool isSynced = true; // TODO: Replace with actual sync status
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

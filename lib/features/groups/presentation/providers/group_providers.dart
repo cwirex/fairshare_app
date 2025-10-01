@@ -57,6 +57,7 @@ class GroupNotifier extends _$GroupNotifier {
       id: groupId,
       displayName: displayName,
       avatarUrl: avatarUrl ?? '',
+      isPersonal: false, // Explicitly mark as shared group (not personal)
       defaultCurrency: defaultCurrency,
       createdAt: now,
       updatedAt: now,

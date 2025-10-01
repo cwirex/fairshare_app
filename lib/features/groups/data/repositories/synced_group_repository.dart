@@ -130,8 +130,12 @@ class SyncedGroupRepository implements GroupRepository {
       // Add to local database first
       await _database.addGroupMember(member);
 
-      // Try to sync to Firestore in the background
-      _firestoreService.uploadGroupMember(member);
+      // Try to sync to Firestore in the background (check if personal group)
+      final group = await _database.getGroupById(member.groupId);
+      _firestoreService.uploadGroupMember(
+        member,
+        isPersonalGroup: group?.isPersonal ?? false,
+      );
 
       return Success.unit();
     } catch (e) {
@@ -223,7 +227,8 @@ class SyncedGroupRepository implements GroupRepository {
           );
 
           await _database.addGroupMember(newMember);
-          await _firestoreService.uploadGroupMember(newMember);
+          // Joined groups are never personal
+          await _firestoreService.uploadGroupMember(newMember, isPersonalGroup: false);
 
           // Download expenses for this group
           final expensesResult =
