@@ -8,7 +8,8 @@ class GroupInitializationService {
   GroupInitializationService(this._repository);
 
   Future<void> ensurePersonalGroupExists(String userId) async {
-    final result = await _repository.getGroupById('personal');
+    final personalGroupId = 'personal_$userId';
+    final result = await _repository.getGroupById(personalGroupId);
 
     await result.fold(
       (_) async {},
@@ -18,17 +19,18 @@ class GroupInitializationService {
 
   Future<void> _createPersonalGroup(String userId) async {
     final now = DateTime.now();
+    final personalGroupId = 'personal_$userId';
 
     final group = GroupEntity(
-      id: 'personal',
-      displayName: 'Personal',
+      id: personalGroupId,
+      displayName: 'Personal Expenses',
       defaultCurrency: 'USD',
       createdAt: now,
       updatedAt: now,
     );
 
     final member = GroupMemberEntity(
-      groupId: 'personal',
+      groupId: personalGroupId,
       userId: userId,
       joinedAt: now,
     );

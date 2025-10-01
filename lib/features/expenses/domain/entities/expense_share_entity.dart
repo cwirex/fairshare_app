@@ -10,7 +10,6 @@ abstract class ExpenseShareEntity with _$ExpenseShareEntity {
     required String expenseId,
     required String userId,
     required double shareAmount,
-    @Default(false) bool isSynced,
   }) = _ExpenseShareEntity;
 
   factory ExpenseShareEntity.fromJson(Map<String, dynamic> json) =>

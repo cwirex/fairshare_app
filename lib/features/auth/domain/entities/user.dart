@@ -5,7 +5,7 @@ part 'user.g.dart';
 
 /// User entity representing an authenticated user in the FairShare app.
 ///
-/// Uses default values instead of nullable fields for cleaner code.
+/// Uses timestamp-based sync tracking instead of boolean flags.
 /// All users authenticate via Google Sign-In.
 @freezed
 abstract class User with _$User {
@@ -25,14 +25,18 @@ abstract class User with _$User {
     /// Phone number (empty string if not provided)
     @Default('') String phone,
 
+    /// List of group IDs the user is a member of
+    @Default([]) List<String> groupIds,
+
+    /// Last time user synced data with Firestore
+    /// Used to determine which groups need syncing
+    DateTime? lastSyncTimestamp,
+
     /// When the user first signed up
     required DateTime createdAt,
 
     /// Last time user data was updated
     required DateTime updatedAt,
-
-    /// Whether user data is synced with Firebase
-    @Default(false) bool isSynced,
   }) = _User;
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
@@ -54,6 +58,9 @@ extension UserX on User {
     return '${words[0][0]}${words[1][0]}'.toUpperCase();
   }
 
-  /// Whether user data needs syncing
-  bool get needsSync => !isSynced;
+  /// Whether user has ever synced
+  bool get hasNeverSynced => lastSyncTimestamp == null;
+
+  /// Whether user is a member of a specific group
+  bool isMemberOf(String groupId) => groupIds.contains(groupId);
 }

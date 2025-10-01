@@ -6,6 +6,7 @@ part 'expense_entity.g.dart';
 /// Shared expense in a group.
 ///
 /// Pure data model. Use ExpenseFormatter for display logic.
+/// Sync is handled by comparing expense.updatedAt with group.lastUpdateTimestamp.
 @freezed
 abstract class ExpenseEntity with _$ExpenseEntity {
   const factory ExpenseEntity({
@@ -19,7 +20,6 @@ abstract class ExpenseEntity with _$ExpenseEntity {
     required DateTime expenseDate,
     required DateTime createdAt,
     required DateTime updatedAt,
-    @Default(false) bool isSynced,
   }) = _ExpenseEntity;
 
   factory ExpenseEntity.fromJson(Map<String, dynamic> json) =>

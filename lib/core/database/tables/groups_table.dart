@@ -2,9 +2,9 @@ import 'package:drift/drift.dart';
 
 /// Table definition for groups in the FairShare app.
 ///
-/// Stores group information for expense sharing.
+/// Stores group information for expense sharing with timestamp-based sync.
 class AppGroups extends Table {
-  /// Unique group ID (6-digit code)
+  /// Unique group ID (6-digit code or personal_{userId})
   TextColumn get id => text()();
 
   /// Group display name
@@ -33,14 +33,11 @@ class AppGroups extends Table {
   /// Last time group data was updated
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
-  /// Whether group data is synced with Firebase
-  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
-
   @override
   Set<Column> get primaryKey => {id};
 
   @override
-  String get tableName => 'groups'; // Keep database table name as 'groups'
+  String get tableName => 'groups';
 }
 
 /// Table definition for group memberships.
@@ -56,12 +53,9 @@ class AppGroupMembers extends Table {
   /// When the user joined the group
   DateTimeColumn get joinedAt => dateTime().withDefault(currentDateAndTime)();
 
-  /// Whether membership data is synced with Firebase
-  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
-
   @override
   Set<Column> get primaryKey => {groupId, userId};
 
   @override
-  String get tableName => 'group_members'; // Keep database table name as 'group_members'
+  String get tableName => 'group_members';
 }

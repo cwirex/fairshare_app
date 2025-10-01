@@ -25,12 +25,6 @@ abstract class ExpenseRepository {
   /// Delete an expense
   Future<Result<void>> deleteExpense(String id);
 
-  /// Get all unsynced expenses
-  Future<Result<List<ExpenseEntity>>> getUnsyncedExpenses();
-
-  /// Mark expense as synced
-  Future<Result<void>> markAsSynced(String id);
-
   /// Watch expense changes (stream)
   Stream<List<ExpenseEntity>> watchExpensesByGroup(String groupId);
 

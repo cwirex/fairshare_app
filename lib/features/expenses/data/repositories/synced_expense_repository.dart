@@ -1,26 +1,26 @@
 import 'package:result_dart/result_dart.dart';
 
 import 'package:fairshare_app/core/database/app_database.dart';
+import 'package:fairshare_app/features/expenses/data/services/firestore_expense_service.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 import 'package:fairshare_app/features/expenses/domain/repositories/expense_repository.dart';
 
-/// Local implementation of ExpenseRepository using Drift database.
-class LocalExpenseRepository implements ExpenseRepository {
+/// Expense repository that syncs with both local database and Firestore.
+class SyncedExpenseRepository implements ExpenseRepository {
   final AppDatabase _database;
+  final FirestoreExpenseService _firestoreService;
 
-  LocalExpenseRepository(this._database);
+  SyncedExpenseRepository(this._database, this._firestoreService);
 
   @override
   Future<Result<ExpenseEntity>> createExpense(ExpenseEntity expense) async {
     try {
-      await _database.transaction(() async {
-        await _database.insertExpense(expense);
-        await _database.enqueueOperation(
-          entityType: 'expense',
-          entityId: expense.id,
-          operationType: 'create',
-        );
-      });
+      // Save to local database first (offline-first)
+      await _database.insertExpense(expense);
+
+      // Try to sync to Firestore in the background
+      _firestoreService.uploadExpense(expense);
+
       return Success(expense);
     } catch (e) {
       return Failure(Exception('Failed to create expense: $e'));
@@ -63,14 +63,12 @@ class LocalExpenseRepository implements ExpenseRepository {
   @override
   Future<Result<ExpenseEntity>> updateExpense(ExpenseEntity expense) async {
     try {
-      await _database.transaction(() async {
-        await _database.updateExpense(expense);
-        await _database.enqueueOperation(
-          entityType: 'expense',
-          entityId: expense.id,
-          operationType: 'update',
-        );
-      });
+      // Update local database first
+      await _database.updateExpense(expense);
+
+      // Try to sync to Firestore in the background
+      _firestoreService.uploadExpense(expense);
+
       return Success(expense);
     } catch (e) {
       return Failure(Exception('Failed to update expense: $e'));
@@ -80,19 +78,17 @@ class LocalExpenseRepository implements ExpenseRepository {
   @override
   Future<Result<void>> deleteExpense(String id) async {
     try {
-      await _database.transaction(() async {
-        // Get expense to retrieve groupId before deleting
-        final expense = await _database.getExpenseById(id);
-        final metadata = expense != null ? '{"groupId":"${expense.groupId}"}' : null;
+      // Get the expense to find its groupId
+      final expense = await _database.getExpenseById(id);
 
-        await _database.enqueueOperation(
-          entityType: 'expense',
-          entityId: id,
-          operationType: 'delete',
-          metadata: metadata,
-        );
-        await _database.deleteExpense(id);
-      });
+      // Delete from local database first
+      await _database.deleteExpense(id);
+
+      // Try to delete from Firestore in the background
+      if (expense != null) {
+        _firestoreService.deleteExpense(expense.groupId, id);
+      }
+
       return Success.unit();
     } catch (e) {
       return Failure(Exception('Failed to delete expense: $e'));

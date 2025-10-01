@@ -9,6 +9,7 @@ import 'package:result_dart/result_dart.dart';
 import '../../../../core/database/app_database.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
+import 'firestore_user_service.dart';
 
 /// Detailed sync status information for risk assessment
 class SyncStatusInfo {
@@ -75,16 +76,19 @@ class FirebaseAuthService implements AuthRepository {
   final firebase_auth.FirebaseAuth _firebaseAuth;
   final GoogleSignIn _googleSignIn;
   final AppDatabase _database;
+  final FirestoreUserService _userService;
   final Connectivity _connectivity;
 
   FirebaseAuthService({
     firebase_auth.FirebaseAuth? firebaseAuth,
     GoogleSignIn? googleSignIn,
     required AppDatabase database,
+    required FirestoreUserService userService,
     Connectivity? connectivity,
   }) : _firebaseAuth = firebaseAuth ?? firebase_auth.FirebaseAuth.instance,
        _googleSignIn = googleSignIn ?? GoogleSignIn(),
        _database = database,
+       _userService = userService,
        _connectivity = connectivity ?? Connectivity();
 
   @override
@@ -123,14 +127,16 @@ class FirebaseAuthService implements AuthRepository {
         avatarUrl: firebaseUser.photoURL ?? '',
         createdAt: now,
         updatedAt: now,
-        isSynced: false, // Will sync after storing locally
       );
 
       // Store user in local database
       await _database.insertUser(user);
 
-      // Mark as synced since we just created it from Firebase
-      final syncedUser = user.copyWith(isSynced: true);
+      // Upload user to Firestore
+      await _userService.uploadUser(user);
+
+      // Mark as synced since we just uploaded to Firestore
+      final syncedUser = user.copyWith(lastSyncTimestamp: now);
       await _database.updateUser(syncedUser);
 
       return Success(syncedUser);
@@ -162,20 +168,13 @@ class FirebaseAuthService implements AuthRepository {
 
   /// Get detailed sync status information for risk assessment
   Future<SyncStatusInfo> _getDetailedSyncStatus() async {
-    // TODO: Implement actual unsynced item counting per table
-    // For now, using the existing getUnsyncedItemsCount method
-    final totalUnsynced = await _database.getUnsyncedItemsCount();
+    // TODO: Implement timestamp-based sync status checking
+    // For now, return zero counts since we removed isSynced tracking
+    final totalUnsynced = 0;
 
-    // In a real implementation, you would query each table separately:
-    // final unsyncedUsers = await _database.getUnsyncedUsersCount();
-    // final unsyncedGroups = await _database.getUnsyncedGroupsCount();
-    // final unsyncedExpenses = await _database.getUnsyncedExpensesCount();
-    // etc.
-
-    // For demo purposes, distribute the count across different types
-    final unsyncedExpenses = (totalUnsynced * 0.6).round();
-    final unsyncedGroups = (totalUnsynced * 0.2).round();
-    final unsyncedUsers = totalUnsynced - unsyncedExpenses - unsyncedGroups;
+    final unsyncedExpenses = 0;
+    final unsyncedGroups = 0;
+    final unsyncedUsers = 0;
 
     return SyncStatusInfo(
       unsyncedUsers: unsyncedUsers,
@@ -247,7 +246,6 @@ class FirebaseAuthService implements AuthRepository {
       avatarUrl: firebaseUser.photoURL ?? '',
       createdAt: DateTime.now(), // This should come from database
       updatedAt: DateTime.now(), // This should come from database
-      isSynced: true, // Assume synced if from Firebase
     );
   }
 
@@ -271,7 +269,6 @@ class FirebaseAuthService implements AuthRepository {
         avatarUrl: firebaseUser.photoURL ?? '',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
-        isSynced: true,
       );
     });
   }

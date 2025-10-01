@@ -1,20 +1,12 @@
+import 'package:fairshare_app/core/sync/sync_providers.dart';
+import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
+import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:fairshare_app/core/database/database_provider.dart';
-import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
-import 'package:fairshare_app/features/expenses/data/repositories/local_expense_repository.dart';
-import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
-import 'package:fairshare_app/features/expenses/domain/repositories/expense_repository.dart';
-
 part 'expense_providers.g.dart';
 
-/// Provider for expense repository
-@Riverpod(keepAlive: true)
-ExpenseRepository expenseRepository(ExpenseRepositoryRef ref) {
-  final database = ref.watch(appDatabaseProvider);
-  return LocalExpenseRepository(database);
-}
+// Expense repository is now provided by sync_providers.dart
 
 /// Provider to watch all expenses
 @riverpod
@@ -75,7 +67,6 @@ class ExpenseNotifier extends _$ExpenseNotifier {
       expenseDate: expenseDate ?? now,
       createdAt: now,
       updatedAt: now,
-      isSynced: false,
     );
 
     final repository = ref.read(expenseRepositoryProvider);
@@ -97,10 +88,7 @@ class ExpenseNotifier extends _$ExpenseNotifier {
 
     final repository = ref.read(expenseRepositoryProvider);
     final result = await repository.updateExpense(
-      expense.copyWith(
-        updatedAt: DateTime.now(),
-        isSynced: false,
-      ),
+      expense.copyWith(updatedAt: DateTime.now()),
     );
 
     result.fold(

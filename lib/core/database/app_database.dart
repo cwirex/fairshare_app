@@ -8,6 +8,7 @@ import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
 import 'package:fairshare_app/features/auth/domain/entities/user.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
+import 'package:fairshare_app/features/expenses/domain/entities/expense_share_entity.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
 import 'tables/expenses_table.dart';
@@ -35,13 +36,20 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3; // Updated: Implemented Option D upload queue
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
         await m.createAll();
+      },
+      onUpgrade: (Migrator m, int from, int to) async {
+        if (from < 3) {
+          // Migrate from old sync queue to new upload queue structure
+          await m.deleteTable('sync_queue');
+          await m.createTable(syncQueue);
+        }
       },
     );
   }
@@ -57,9 +65,10 @@ class AppDatabase extends _$AppDatabase {
         email: Value(user.email),
         avatarUrl: Value(user.avatarUrl),
         phone: Value(user.phone),
+        groupIds: Value(user.groupIds.join(',')),
+        lastSyncTimestamp: Value(user.lastSyncTimestamp),
         createdAt: Value(user.createdAt),
         updatedAt: Value(user.updatedAt),
-        isSynced: Value(user.isSynced),
       ),
     );
   }
@@ -80,9 +89,10 @@ class AppDatabase extends _$AppDatabase {
         email: Value(user.email),
         avatarUrl: Value(user.avatarUrl),
         phone: Value(user.phone),
+        groupIds: Value(user.groupIds.join(',')),
+        lastSyncTimestamp: Value(user.lastSyncTimestamp),
         createdAt: Value(user.createdAt),
         updatedAt: Value(DateTime.now()),
-        isSynced: Value(user.isSynced),
       ),
     );
   }
@@ -108,7 +118,7 @@ class AppDatabase extends _$AppDatabase {
         expenseDate: Value(expense.expenseDate),
         createdAt: Value(expense.createdAt),
         updatedAt: Value(expense.updatedAt),
-        isSynced: Value(expense.isSynced),
+        
       ),
     );
   }
@@ -151,7 +161,7 @@ class AppDatabase extends _$AppDatabase {
         expenseDate: Value(expense.expenseDate),
         createdAt: Value(expense.createdAt),
         updatedAt: Value(DateTime.now()),
-        isSynced: Value(expense.isSynced),
+        
       ),
     );
   }
@@ -159,20 +169,6 @@ class AppDatabase extends _$AppDatabase {
   /// Delete expense by ID
   Future<void> deleteExpense(String id) async {
     await (delete(expenses)..where((e) => e.id.equals(id))).go();
-  }
-
-  /// Get all unsynced expenses
-  Future<List<ExpenseEntity>> getUnsyncedExpenses() async {
-    final query = select(expenses)
-      ..where((e) => e.isSynced.equals(false));
-    final results = await query.get();
-    return results.map(_expenseFromDb).toList();
-  }
-
-  /// Mark expense as synced
-  Future<void> markExpenseAsSynced(String id) async {
-    await (update(expenses)..where((e) => e.id.equals(id)))
-        .write(const ExpensesCompanion(isSynced: Value(true)));
   }
 
   /// Watch expenses for a specific group (stream)
@@ -204,7 +200,6 @@ class AppDatabase extends _$AppDatabase {
         defaultCurrency: Value(group.defaultCurrency),
         createdAt: Value(group.createdAt),
         updatedAt: Value(group.updatedAt),
-        isSynced: Value(group.isSynced),
       ),
     );
   }
@@ -234,7 +229,6 @@ class AppDatabase extends _$AppDatabase {
         defaultCurrency: Value(group.defaultCurrency),
         createdAt: Value(group.createdAt),
         updatedAt: Value(DateTime.now()),
-        isSynced: Value(group.isSynced),
       ),
     );
   }
@@ -249,7 +243,6 @@ class AppDatabase extends _$AppDatabase {
         groupId: Value(member.groupId),
         userId: Value(member.userId),
         joinedAt: Value(member.joinedAt),
-        isSynced: Value(member.isSynced),
       ),
     );
   }
@@ -301,34 +294,174 @@ class AppDatabase extends _$AppDatabase {
         rows.map((row) => _groupFromDb(row.readTable(appGroups))).toList());
   }
 
-  // === SYNC OPERATIONS ===
+  /// Get all group members as entities
+  Future<List<GroupMemberEntity>> getAllGroupMembers(String groupId) async {
+    final query = select(appGroupMembers)
+      ..where((m) => m.groupId.equals(groupId));
+    final results = await query.get();
+    return results.map(_groupMemberFromDb).toList();
+  }
 
-  /// Get count of all unsynced items across all tables
-  Future<int> getUnsyncedItemsCount() async {
-    final userCount =
-        await (selectOnly(appUsers)
-              ..addColumns([appUsers.id.count()])
-              ..where(appUsers.isSynced.equals(false)))
-            .getSingle();
+  // === EXPENSE SHARE OPERATIONS ===
 
-    final groupCount =
-        await (selectOnly(appGroups)
-              ..addColumns([appGroups.id.count()])
-              ..where(appGroups.isSynced.equals(false)))
-            .getSingle();
+  /// Insert a new expense share
+  Future<void> insertExpenseShare(ExpenseShareEntity share) async {
+    await into(expenseShares).insert(
+      ExpenseSharesCompanion(
+        expenseId: Value(share.expenseId),
+        userId: Value(share.userId),
+        shareAmount: Value(share.shareAmount),
+      ),
+    );
+  }
 
-    final expenseCount =
-        await (selectOnly(expenses)
-              ..addColumns([expenses.id.count()])
-              ..where(expenses.isSynced.equals(false)))
-            .getSingle();
+  /// Get all shares for an expense
+  Future<List<ExpenseShareEntity>> getExpenseShares(String expenseId) async {
+    final query = select(expenseShares)
+      ..where((s) => s.expenseId.equals(expenseId));
+    final results = await query.get();
+    return results.map(_expenseShareFromDb).toList();
+  }
 
-    final userCountInt = (userCount.read(appUsers.id.count()) ?? 0).toInt();
-    final groupCountInt = (groupCount.read(appGroups.id.count()) ?? 0).toInt();
-    final expenseCountInt =
-        (expenseCount.read(expenses.id.count()) ?? 0).toInt();
+  /// Delete all shares for an expense
+  Future<void> deleteExpenseShares(String expenseId) async {
+    await (delete(expenseShares)..where((s) => s.expenseId.equals(expenseId)))
+        .go();
+  }
 
-    return userCountInt + groupCountInt + expenseCountInt;
+  // === SYNC QUEUE OPERATIONS ===
+
+  /// Enqueue an operation to the upload queue
+  /// Uses INSERT OR REPLACE to ensure only one operation per entity
+  Future<void> enqueueOperation({
+    required String entityType,
+    required String entityId,
+    required String operationType,
+    String? metadata,
+  }) async {
+    await into(syncQueue).insertOnConflictUpdate(
+      SyncQueueCompanion(
+        entityType: Value(entityType),
+        entityId: Value(entityId),
+        operationType: Value(operationType),
+        metadata: Value(metadata),
+        createdAt: Value(DateTime.now()),
+        retryCount: Value(0),
+        lastError: const Value(null),
+      ),
+    );
+  }
+
+  // === SYNC-SAFE INSERT/UPDATE OPERATIONS ===
+  // These methods are used by the sync service to apply remote changes
+  // without triggering new upload queue operations.
+  // They bypass repositories and write directly to the database.
+
+  /// Insert or update a group from remote sync (bypasses queue)
+  Future<void> upsertGroupFromSync(GroupEntity group) async {
+    final existing = await getGroupById(group.id);
+
+    if (existing == null) {
+      // New group from server - insert directly
+      await into(appGroups).insert(
+        AppGroupsCompanion(
+          id: Value(group.id),
+          displayName: Value(group.displayName),
+          avatarUrl: Value(group.avatarUrl),
+          optimizeSharing: Value(group.optimizeSharing),
+          isOpen: Value(group.isOpen),
+          autoExchangeCurrency: Value(group.autoExchangeCurrency),
+          defaultCurrency: Value(group.defaultCurrency),
+          createdAt: Value(group.createdAt),
+          updatedAt: Value(group.updatedAt),
+        ),
+      );
+    } else {
+      // Only update if remote version is newer (Last Write Wins)
+      if (group.updatedAt.isAfter(existing.updatedAt)) {
+        await (update(appGroups)..where((g) => g.id.equals(group.id))).write(
+          AppGroupsCompanion(
+            displayName: Value(group.displayName),
+            avatarUrl: Value(group.avatarUrl),
+            optimizeSharing: Value(group.optimizeSharing),
+            isOpen: Value(group.isOpen),
+            autoExchangeCurrency: Value(group.autoExchangeCurrency),
+            defaultCurrency: Value(group.defaultCurrency),
+            updatedAt: Value(group.updatedAt),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Insert or update an expense from remote sync (bypasses queue)
+  Future<void> upsertExpenseFromSync(ExpenseEntity expense) async {
+    final existing = await getExpenseById(expense.id);
+
+    if (existing == null) {
+      // New expense from server - insert directly
+      await into(expenses).insert(
+        ExpensesCompanion(
+          id: Value(expense.id),
+          groupId: Value(expense.groupId),
+          title: Value(expense.title),
+          amount: Value(expense.amount),
+          currency: Value(expense.currency),
+          paidBy: Value(expense.paidBy),
+          shareWithEveryone: Value(expense.shareWithEveryone),
+          expenseDate: Value(expense.expenseDate),
+          createdAt: Value(expense.createdAt),
+          updatedAt: Value(expense.updatedAt),
+        ),
+      );
+    } else {
+      // Only update if remote version is newer (Last Write Wins)
+      if (expense.updatedAt.isAfter(existing.updatedAt)) {
+        await (update(expenses)..where((e) => e.id.equals(expense.id))).write(
+          ExpensesCompanion(
+            title: Value(expense.title),
+            amount: Value(expense.amount),
+            currency: Value(expense.currency),
+            paidBy: Value(expense.paidBy),
+            shareWithEveryone: Value(expense.shareWithEveryone),
+            expenseDate: Value(expense.expenseDate),
+            updatedAt: Value(expense.updatedAt),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Get all pending operations from the upload queue
+  Future<List<SyncQueueData>> getPendingOperations({int? limit}) async {
+    final query = select(syncQueue)..orderBy([(s) => OrderingTerm.asc(s.createdAt)]);
+    if (limit != null) {
+      query.limit(limit);
+    }
+    return query.get();
+  }
+
+  /// Remove an operation from the queue after successful upload
+  Future<void> removeQueuedOperation(int id) async {
+    await (delete(syncQueue)..where((s) => s.id.equals(id))).go();
+  }
+
+  /// Increment retry count and update error message for failed operation
+  Future<void> markOperationFailed(int id, String errorMessage) async {
+    final current = await (select(syncQueue)..where((s) => s.id.equals(id))).getSingle();
+    await (update(syncQueue)..where((s) => s.id.equals(id))).write(
+      SyncQueueCompanion(
+        retryCount: Value(current.retryCount + 1),
+        lastError: Value(errorMessage),
+      ),
+    );
+  }
+
+  /// Get count of pending operations
+  Future<int> getPendingOperationCount() async {
+    final query = selectOnly(syncQueue)..addColumns([syncQueue.id.count()]);
+    final result = await query.getSingle();
+    return result.read(syncQueue.id.count()) ?? 0;
   }
 
   /// Clear all data from all tables (used during sign-out)
@@ -353,9 +486,10 @@ class AppDatabase extends _$AppDatabase {
       email: dbUser.email,
       avatarUrl: dbUser.avatarUrl,
       phone: dbUser.phone,
+      groupIds: dbUser.groupIds.isEmpty ? [] : dbUser.groupIds.split(','),
+      lastSyncTimestamp: dbUser.lastSyncTimestamp,
       createdAt: dbUser.createdAt,
       updatedAt: dbUser.updatedAt,
-      isSynced: dbUser.isSynced,
     );
   }
 
@@ -372,7 +506,6 @@ class AppDatabase extends _$AppDatabase {
       expenseDate: dbExpense.expenseDate,
       createdAt: dbExpense.createdAt,
       updatedAt: dbExpense.updatedAt,
-      isSynced: dbExpense.isSynced,
     );
   }
 
@@ -387,7 +520,22 @@ class AppDatabase extends _$AppDatabase {
       defaultCurrency: dbGroup.defaultCurrency,
       createdAt: dbGroup.createdAt,
       updatedAt: dbGroup.updatedAt,
-      isSynced: dbGroup.isSynced,
+    );
+  }
+
+  GroupMemberEntity _groupMemberFromDb(AppGroupMember dbMember) {
+    return GroupMemberEntity(
+      groupId: dbMember.groupId,
+      userId: dbMember.userId,
+      joinedAt: dbMember.joinedAt,
+    );
+  }
+
+  ExpenseShareEntity _expenseShareFromDb(ExpenseShare dbShare) {
+    return ExpenseShareEntity(
+      expenseId: dbShare.expenseId,
+      userId: dbShare.userId,
+      shareAmount: dbShare.shareAmount,
     );
   }
 }

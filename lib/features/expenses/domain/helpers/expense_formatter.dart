@@ -12,10 +12,6 @@ class ExpenseFormatter {
     return expense.expenseDate.toString().split(' ')[0];
   }
 
-  static bool needsSync(ExpenseEntity expense) {
-    return !expense.isSynced;
-  }
-
   static bool isRecent(ExpenseEntity expense) {
     return DateTime.now().difference(expense.expenseDate).inDays < 7;
   }

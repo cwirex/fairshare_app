@@ -1,21 +1,15 @@
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'dart:math';
 
-import 'package:fairshare_app/core/database/database_provider.dart';
+import 'package:fairshare_app/core/sync/sync_providers.dart';
 import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
-import 'package:fairshare_app/features/groups/data/repositories/local_group_repository.dart';
 import 'package:fairshare_app/features/groups/data/services/group_initialization_service.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
-import 'package:fairshare_app/features/groups/domain/repositories/group_repository.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'group_providers.g.dart';
 
-@Riverpod(keepAlive: true)
-GroupRepository groupRepository(GroupRepositoryRef ref) {
-  final database = ref.watch(appDatabaseProvider);
-  return LocalGroupRepository(database);
-}
+// Group repository is now provided by sync_providers.dart
 
 @Riverpod(keepAlive: true)
 GroupInitializationService groupInitializationService(
@@ -77,16 +71,13 @@ class GroupNotifier extends _$GroupNotifier {
     final repository = ref.read(groupRepositoryProvider);
     final groupResult = await repository.createGroup(group);
 
-    await groupResult.fold(
-      (success) async {
-        final memberResult = await repository.addMember(member);
-        memberResult.fold(
-          (_) => state = const AsyncData(null),
-          (error) => state = AsyncError(error, StackTrace.current),
-        );
-      },
-      (error) => state = AsyncError(error, StackTrace.current),
-    );
+    groupResult.fold((success) async {
+      final memberResult = await repository.addMember(member);
+      memberResult.fold(
+        (_) => state = const AsyncData(null),
+        (error) => state = AsyncError(error, StackTrace.current),
+      );
+    }, (error) => state = AsyncError(error, StackTrace.current));
   }
 
   /// Join an existing group by code
@@ -104,30 +95,12 @@ class GroupNotifier extends _$GroupNotifier {
 
     final repository = ref.read(groupRepositoryProvider);
 
-    // Check if group exists
-    final groupResult = await repository.getGroupById(groupCode);
+    // Use the new joinGroupByCode method that handles everything
+    final result = await repository.joinGroupByCode(groupCode, currentUser.id);
 
-    await groupResult.fold(
-      (group) async {
-        // Add current user as member
-        final member = GroupMemberEntity(
-          groupId: groupCode,
-          userId: currentUser.id,
-          joinedAt: DateTime.now(),
-        );
-
-        final memberResult = await repository.addMember(member);
-        memberResult.fold(
-          (_) => state = const AsyncData(null),
-          (error) => state = AsyncError(error, StackTrace.current),
-        );
-      },
-      (error) {
-        state = AsyncError(
-          Exception('Group not found. Please check the code and try again.'),
-          StackTrace.current,
-        );
-      },
+    result.fold(
+      (_) => state = const AsyncData(null),
+      (error) => state = AsyncError(error, StackTrace.current),
     );
   }
 

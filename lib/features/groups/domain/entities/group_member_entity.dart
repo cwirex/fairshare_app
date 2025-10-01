@@ -10,7 +10,6 @@ abstract class GroupMemberEntity with _$GroupMemberEntity {
     required String groupId,
     required String userId,
     required DateTime joinedAt,
-    @Default(false) bool isSynced,
   }) = _GroupMemberEntity;
 
   factory GroupMemberEntity.fromJson(Map<String, dynamic> json) =>

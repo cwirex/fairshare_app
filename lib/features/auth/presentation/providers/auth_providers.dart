@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../../core/database/database_provider.dart';
 import '../../../../core/logging/app_logger.dart';
 import '../../data/services/firebase_auth_service.dart';
+import '../../data/services/firestore_user_service.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
@@ -31,6 +33,12 @@ Connectivity connectivity(Ref ref) {
   return Connectivity();
 }
 
+/// Provider for Firestore User Service
+@riverpod
+FirestoreUserService firestoreUserService(Ref ref) {
+  return FirestoreUserService(FirebaseFirestore.instance);
+}
+
 /// Provider for AuthRepository implementation
 @Riverpod(keepAlive: true)
 AuthRepository authRepository(Ref ref) {
@@ -38,6 +46,7 @@ AuthRepository authRepository(Ref ref) {
     firebaseAuth: ref.watch(firebaseAuthProvider),
     googleSignIn: ref.watch(googleSignInProvider),
     database: ref.watch(appDatabaseProvider),
+    userService: ref.watch(firestoreUserServiceProvider),
     connectivity: ref.watch(connectivityProvider),
   );
 }

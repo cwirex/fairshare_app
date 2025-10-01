@@ -1,9 +1,9 @@
+import 'package:fairshare_app/core/sync/sync_providers.dart';
+import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
+import 'package:fairshare_app/features/groups/presentation/providers/group_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
-import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
-import 'package:fairshare_app/features/groups/presentation/providers/group_providers.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -32,13 +32,33 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
       result.fold(
         (user) async {
-          final groupInitService =
-              ref.read(groupInitializationServiceProvider);
+          // Read all providers before async operations (to avoid disposed ref)
+          final groupInitService = ref.read(groupInitializationServiceProvider);
+          final syncService = ref.read(syncServiceProvider);
+          final repository = ref.read(groupRepositoryProvider);
+
+          // Ensure personal group exists
           await groupInitService.ensurePersonalGroupExists(user.id);
 
+          // Initialize sync service and download user's data from Firestore
+          await syncService.downloadUserGroups(user.id);
+
+          // Download expenses for all user's groups
+          final groupsResult = await repository.getUserGroups(user.id);
+          await groupsResult.fold(
+            (groups) async {
+              for (final group in groups) {
+                await syncService.downloadGroupExpenses(group.id);
+              }
+            },
+            (_) async {},
+          );
+
+          if (!mounted) return;
           _showSuccessSnackBar('Welcome, ${user.displayName}!');
         },
         (error) {
+          if (!mounted) return;
           _showErrorSnackBar(error.toString());
         },
       );

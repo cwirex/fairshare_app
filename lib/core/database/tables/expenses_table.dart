@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 /// Table definition for expenses in the FairShare app.
 ///
 /// Stores expense information for group sharing.
+/// Sync is managed by comparing with group.lastUpdateTimestamp.
 class Expenses extends Table {
   /// Unique expense ID
   TextColumn get id => text()();
@@ -35,9 +36,6 @@ class Expenses extends Table {
   /// Last time expense data was updated
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
-  /// Whether expense data is synced with Firebase
-  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
-
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -54,9 +52,6 @@ class ExpenseShares extends Table {
 
   /// Amount this user owes for the expense
   RealColumn get shareAmount => real()();
-
-  /// Whether share data is synced with Firebase
-  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {expenseId, userId};

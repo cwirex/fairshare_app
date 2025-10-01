@@ -13,10 +13,7 @@ import '../providers/group_providers.dart';
 class GroupDetailScreen extends ConsumerStatefulWidget {
   final String groupId;
 
-  const GroupDetailScreen({
-    required this.groupId,
-    super.key,
-  });
+  const GroupDetailScreen({required this.groupId, super.key});
 
   @override
   ConsumerState<GroupDetailScreen> createState() => _GroupDetailScreenState();
@@ -38,77 +35,82 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
     super.dispose();
   }
 
-  void _showGroupCodeDialog(BuildContext context, GroupEntity group, ThemeData theme) {
+  void _showGroupCodeDialog(
+    BuildContext context,
+    GroupEntity group,
+    ThemeData theme,
+  ) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.qr_code, color: theme.colorScheme.primary),
-            const SizedBox(width: 12),
-            const Text('Group Code'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Share this code with others to invite them:',
-              style: theme.textTheme.bodyMedium,
-              textAlign: TextAlign.center,
+      builder:
+          (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.qr_code, color: theme.colorScheme.primary),
+                const SizedBox(width: 12),
+                const Text('Group Code'),
+              ],
             ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: theme.colorScheme.primary,
-                  width: 2,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Share this code with others to invite them:',
+                  style: theme.textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
                 ),
-              ),
-              child: Text(
-                group.id,
-                style: theme.textTheme.displaySmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 8,
-                  color: theme.colorScheme.onPrimaryContainer,
-                  fontFamily: 'monospace',
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: theme.colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                  child: Text(
+                    group.id,
+                    style: theme.textTheme.displaySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 8,
+                      color: theme.colorScheme.onPrimaryContainer,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 16),
+                Text(
+                  group.displayName,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              group.displayName,
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+              FilledButton.icon(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: group.id));
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Group code copied to clipboard'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.copy),
+                label: const Text('Copy Code'),
+              ),
+            ],
           ),
-          FilledButton.icon(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: group.id));
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Group code copied to clipboard'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            icon: const Icon(Icons.copy),
-            label: const Text('Copy Code'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -173,51 +175,58 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
               _GroupMembersTab(group: group),
             ],
           ),
-          floatingActionButton: _tabController.index == 0
-              ? FloatingActionButton.extended(
-                  onPressed: () {
-                    log.i('Add expense to group ${group.displayName}');
-                    context.go(Routes.createExpense);
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Expense'),
-                )
-              : null,
+          floatingActionButton:
+              _tabController.index == 0
+                  ? FloatingActionButton.extended(
+                    onPressed: () {
+                      log.i('Add expense to group ${group.displayName}');
+                      context.go(Routes.createExpense);
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Expense'),
+                  )
+                  : null,
         );
       },
-      loading: () => Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.go(Routes.home),
-          ),
-        ),
-        body: const Center(child: CircularProgressIndicator()),
-      ),
-      error: (error, stack) => Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.go(Routes.home),
-          ),
-          title: const Text('Error'),
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: theme.colorScheme.error),
-              const SizedBox(height: 16),
-              Text('Failed to load group: $error'),
-              const SizedBox(height: 16),
-              FilledButton(
+      loading:
+          () => Scaffold(
+            appBar: AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
                 onPressed: () => context.go(Routes.home),
-                child: const Text('Go Back'),
               ),
-            ],
+            ),
+            body: const Center(child: CircularProgressIndicator()),
           ),
-        ),
-      ),
+      error:
+          (error, stack) => Scaffold(
+            appBar: AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => context.go(Routes.home),
+              ),
+              title: const Text('Error'),
+            ),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: theme.colorScheme.error,
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Failed to load group: $error'),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: () => context.go(Routes.home),
+                    child: const Text('Go Back'),
+                  ),
+                ],
+              ),
+            ),
+          ),
     );
   }
 }
@@ -329,7 +338,9 @@ class _GroupExpensesTab extends ConsumerWidget with LoggerMixin {
                         log.d('Expense tapped: ${expense.id}');
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Expense details for ${expense.title}'),
+                            content: Text(
+                              'Expense details for ${expense.title}',
+                            ),
                           ),
                         );
                       },
@@ -342,16 +353,21 @@ class _GroupExpensesTab extends ConsumerWidget with LoggerMixin {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: theme.colorScheme.error),
-            const SizedBox(height: 16),
-            Text('Failed to load expenses: $error'),
-          ],
-        ),
-      ),
+      error:
+          (error, stack) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: theme.colorScheme.error,
+                ),
+                const SizedBox(height: 16),
+                Text('Failed to load expenses: $error'),
+              ],
+            ),
+          ),
     );
   }
 
@@ -476,17 +492,19 @@ class _GroupMembersTab extends ConsumerWidget with LoggerMixin {
           Card(
             child: ListTile(
               leading: CircleAvatar(
-                backgroundImage: currentUser.avatarUrl.isNotEmpty
-                    ? NetworkImage(currentUser.avatarUrl)
-                    : null,
-                child: currentUser.avatarUrl.isEmpty
-                    ? Text(
-                        _getInitials(currentUser.displayName),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
+                backgroundImage:
+                    currentUser.avatarUrl.isNotEmpty
+                        ? NetworkImage(currentUser.avatarUrl)
+                        : null,
+                child:
+                    currentUser.avatarUrl.isEmpty
+                        ? Text(
+                          _getInitials(currentUser.displayName),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                        : null,
               ),
               title: Row(
                 children: [
@@ -498,7 +516,10 @@ class _GroupMembersTab extends ConsumerWidget with LoggerMixin {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primaryContainer,
                       borderRadius: BorderRadius.circular(8),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fairshare_app/core/logging/app_logger.dart';
+import 'package:fairshare_app/core/sync/sync_providers.dart';
 import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:fairshare_app/features/groups/presentation/providers/group_providers.dart';
 import 'package:fairshare_app/firebase_options.dart';
@@ -45,6 +46,13 @@ class FairShareApp extends ConsumerWidget with LoggerMixin {
     if (currentUser != null) {
       final groupInitService = ref.read(groupInitializationServiceProvider);
       groupInitService.ensurePersonalGroupExists(currentUser.id);
+
+      // Initialize sync service to start syncing with Firestore
+      ref.read(syncServiceProvider);
+
+      // Download user's groups from Firestore when they log in
+      final syncService = ref.read(syncServiceProvider);
+      syncService.downloadUserGroups(currentUser.id);
     }
   }
 }
