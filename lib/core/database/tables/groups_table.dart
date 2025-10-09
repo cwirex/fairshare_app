@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart';
-import 'package:fairshare_app/core/database/tables/users_table.dart';
 
 /// Table definition for groups in the FairShare app.
 ///
@@ -26,6 +25,11 @@ class AppGroups extends Table {
   /// Last time group data was updated
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
+  /// Last time there was activity in this group (expense added, member joined, etc.)
+  /// Used for smart refresh detection in hybrid listener strategy
+  DateTimeColumn get lastActivityAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
   /// When the group was soft-deleted (null if active)
   DateTimeColumn get deletedAt => dateTime().nullable()();
 
@@ -34,49 +38,4 @@ class AppGroups extends Table {
 
   @override
   String get tableName => 'groups';
-}
-
-/// Table definition for group memberships.
-///
-/// Many-to-many relationship between users and groups.
-class AppGroupMembers extends Table {
-  /// Group ID reference
-  TextColumn get groupId => text().references(AppGroups, #id, onDelete: KeyAction.cascade)();
-
-  /// User ID reference
-  TextColumn get userId => text().references(AppUsers, #id, onDelete: KeyAction.cascade)();
-
-  /// When the user joined the group
-  DateTimeColumn get joinedAt => dateTime().withDefault(currentDateAndTime)();
-
-  @override
-  Set<Column> get primaryKey => {groupId, userId};
-
-  @override
-  String get tableName => 'group_members';
-}
-
-/// Table definition for group balances.
-///
-/// Stores calculated balance for each user in a group.
-/// Positive balance means the group owes the user money.
-/// Negative balance means the user owes the group money.
-class AppGroupBalances extends Table {
-  /// Group ID reference
-  TextColumn get groupId => text().references(AppGroups, #id, onDelete: KeyAction.cascade)();
-
-  /// User ID reference
-  TextColumn get userId => text().references(AppUsers, #id, onDelete: KeyAction.cascade)();
-
-  /// Calculated balance for this user in this group
-  RealColumn get balance => real().withDefault(const Constant(0.0))();
-
-  /// When the balance was last updated
-  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
-
-  @override
-  Set<Column> get primaryKey => {groupId, userId};
-
-  @override
-  String get tableName => 'group_balances';
 }

@@ -17,6 +17,7 @@ abstract class GroupEntity with _$GroupEntity {
     @Default('USD') String defaultCurrency,
     required DateTime createdAt,
     required DateTime updatedAt,
+    required DateTime lastActivityAt,
     DateTime? deletedAt,
   }) = _GroupEntity;
 

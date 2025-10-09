@@ -47,7 +47,12 @@ dev_dependencies:
   freezed: ^3.0.6
   json_serializable: ^6.9.5
   drift_dev: ^2.26.1
-  
+
+  # Testing
+  flutter_test:
+    sdk: flutter
+  mockito: ^5.4.4
+
   # Analysis & Linting
   riverpod_lint: ^2.6.5
   flutter_lints: ^5.0.0

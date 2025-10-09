@@ -1,47 +1,39 @@
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
-import 'package:fairshare_app/features/expenses/data/services/firestore_expense_service.dart';
-import 'package:fairshare_app/features/groups/data/services/firestore_group_service.dart';
+import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
 import 'package:fairshare_app/features/groups/domain/repositories/group_repository.dart';
 import 'package:result_dart/result_dart.dart';
 
-/// Group repository that syncs with both local database and Firestore.
-class SyncedGroupRepository implements GroupRepository {
+/// Group repository that coordinates local database and upload queue.
+///
+/// **Clean Architecture Compliance:**
+/// - ONLY interacts with local database and queue
+/// - NO Firestore calls (handled by sync services)
+/// - NO connectivity checks (handled by SyncService)
+/// - Uses atomic transactions for data integrity
+class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   final AppDatabase _database;
-  final FirestoreGroupService _firestoreService;
-  final FirestoreExpenseService _expenseService;
-  final Connectivity _connectivity;
 
-  SyncedGroupRepository(
-    this._database,
-    this._firestoreService,
-    this._expenseService, {
-    Connectivity? connectivity,
-  }) : _connectivity = connectivity ?? Connectivity();
-
-  /// Check if device is online
-  Future<bool> _isOnline() async {
-    final results = await _connectivity.checkConnectivity();
-    return results.any((result) => result != ConnectivityResult.none);
-  }
+  SyncedGroupRepository(this._database);
 
   @override
   Future<Result<GroupEntity>> createGroup(GroupEntity group) async {
     try {
-      // Save to local database first (offline-first)
-      await _database.insertGroup(group);
+      // Atomic transaction: DB write + Queue entry (all or nothing)
+      await _database.transaction(() async {
+        await _database.insertGroup(group);
+        await _database.enqueueOperation(
+          entityType: 'group',
+          entityId: group.id,
+          operationType: 'create',
+        );
+      });
 
-      // Enqueue for sync to Firestore (including personal groups for backup)
-      await _database.enqueueOperation(
-        entityType: 'group',
-        entityId: group.id,
-        operationType: 'create',
-      );
-
+      log.d('Created group: ${group.displayName}');
       return Success(group);
     } catch (e) {
+      log.e('Failed to create group: $e');
       return Failure(Exception('Failed to create group: $e'));
     }
   }
@@ -49,36 +41,13 @@ class SyncedGroupRepository implements GroupRepository {
   @override
   Future<Result<GroupEntity>> getGroupById(String id) async {
     try {
-      // First check local database
       final group = await _database.getGroupById(id);
       if (group != null) {
         return Success(group);
       }
-
-      // If not found locally and device is online, try Firestore
-      final isOnline = await _isOnline();
-      if (isOnline) {
-        final firestoreResult = await _firestoreService.downloadGroup(id);
-        return await firestoreResult.fold((remoteGroup) async {
-          // Save to local database for offline access
-          await _database.insertGroup(remoteGroup);
-
-          // Download and save members too
-          final membersResult = await _firestoreService.downloadGroupMembers(
-            id,
-          );
-          await membersResult.fold((members) async {
-            for (final member in members) {
-              await _database.addGroupMember(member);
-            }
-          }, (_) async {});
-
-          return Success(remoteGroup);
-        }, (error) => Failure(error));
-      }
-
       return Failure(Exception('Group not found: $id'));
     } catch (e) {
+      log.e('Failed to get group $id: $e');
       return Failure(Exception('Failed to get group: $e'));
     }
   }
@@ -89,6 +58,7 @@ class SyncedGroupRepository implements GroupRepository {
       final groups = await _database.getAllGroups();
       return Success(groups);
     } catch (e) {
+      log.e('Failed to get all groups: $e');
       return Failure(Exception('Failed to get all groups: $e'));
     }
   }
@@ -96,18 +66,20 @@ class SyncedGroupRepository implements GroupRepository {
   @override
   Future<Result<GroupEntity>> updateGroup(GroupEntity group) async {
     try {
-      // Update local database first
-      await _database.updateGroup(group);
+      // Atomic transaction: DB update + Queue entry
+      await _database.transaction(() async {
+        await _database.updateGroup(group);
+        await _database.enqueueOperation(
+          entityType: 'group',
+          entityId: group.id,
+          operationType: 'update',
+        );
+      });
 
-      // Enqueue for sync to Firestore
-      await _database.enqueueOperation(
-        entityType: 'group',
-        entityId: group.id,
-        operationType: 'update',
-      );
-
+      log.d('Updated group: ${group.displayName}');
       return Success(group);
     } catch (e) {
+      log.e('Failed to update group ${group.id}: $e');
       return Failure(Exception('Failed to update group: $e'));
     }
   }
@@ -115,18 +87,20 @@ class SyncedGroupRepository implements GroupRepository {
   @override
   Future<Result<void>> deleteGroup(String id) async {
     try {
-      // Delete from local database first
-      await _database.deleteGroup(id);
+      // Atomic transaction: Soft delete + Queue entry
+      await _database.transaction(() async {
+        await _database.softDeleteGroup(id);
+        await _database.enqueueOperation(
+          entityType: 'group',
+          entityId: id,
+          operationType: 'delete',
+        );
+      });
 
-      // Enqueue for sync to Firestore
-      await _database.enqueueOperation(
-        entityType: 'group',
-        entityId: id,
-        operationType: 'delete',
-      );
-
+      log.d('Deleted group: $id');
       return Success.unit();
     } catch (e) {
+      log.e('Failed to delete group $id: $e');
       return Failure(Exception('Failed to delete group: $e'));
     }
   }
@@ -134,19 +108,21 @@ class SyncedGroupRepository implements GroupRepository {
   @override
   Future<Result<void>> addMember(GroupMemberEntity member) async {
     try {
-      // Add to local database first
-      await _database.addGroupMember(member);
+      // Atomic transaction: Add member + Queue entry
+      await _database.transaction(() async {
+        await _database.addGroupMember(member);
+        await _database.enqueueOperation(
+          entityType: 'group_member',
+          entityId: '${member.groupId}_${member.userId}',
+          operationType: 'create',
+          metadata: member.groupId,
+        );
+      });
 
-      // Enqueue for sync to Firestore (all members including personal groups)
-      await _database.enqueueOperation(
-        entityType: 'group_member',
-        entityId: '${member.groupId}_${member.userId}',
-        operationType: 'create',
-        metadata: member.groupId, // Store groupId as metadata for upload processing
-      );
-
+      log.d('Added member ${member.userId} to group ${member.groupId}');
       return Success.unit();
     } catch (e) {
+      log.e('Failed to add member: $e');
       return Failure(Exception('Failed to add member: $e'));
     }
   }
@@ -154,104 +130,34 @@ class SyncedGroupRepository implements GroupRepository {
   @override
   Future<Result<void>> removeMember(String groupId, String userId) async {
     try {
-      // Remove from local database first
-      await _database.removeGroupMember(groupId, userId);
+      // Atomic transaction: Remove member + Queue entry
+      await _database.transaction(() async {
+        await _database.removeGroupMember(groupId, userId);
+        await _database.enqueueOperation(
+          entityType: 'group_member',
+          entityId: '${groupId}_$userId',
+          operationType: 'delete',
+          metadata: groupId,
+        );
+      });
 
-      // Enqueue for sync to Firestore
-      await _database.enqueueOperation(
-        entityType: 'group_member',
-        entityId: '${groupId}_$userId',
-        operationType: 'delete',
-      );
-
+      log.d('Removed member $userId from group $groupId');
       return Success.unit();
     } catch (e) {
+      log.e('Failed to remove member: $e');
       return Failure(Exception('Failed to remove member: $e'));
-    }
-  }
-
-  @override
-  Future<Result<List<String>>> getGroupMembers(String groupId) async {
-    try {
-      final members = await _database.getGroupMembers(groupId);
-      return Success(members);
-    } catch (e) {
-      return Failure(Exception('Failed to get group members: $e'));
     }
   }
 
   @override
   Future<Result<List<GroupEntity>>> getUserGroups(String userId) async {
     try {
-      // If online, sync from Firestore to get latest data
-      final isOnline = await _isOnline();
-      if (isOnline) {
-        await _syncUserGroupsFromFirestore(userId);
-      }
-
-      // Return groups from local database (which now includes synced data)
       final groups = await _database.getUserGroups(userId);
       return Success(groups);
     } catch (e) {
+      log.e('Failed to get user groups: $e');
       return Failure(Exception('Failed to get user groups: $e'));
     }
-  }
-
-  /// Sync user's groups from Firestore to local database
-  Future<Result<void>> _syncUserGroupsFromFirestore(String userId) async {
-    try {
-      final result = await _firestoreService.downloadUserGroups(userId);
-
-      return await result.fold(
-        (groups) async {
-          for (final group in groups) {
-            // Save to local database
-            await _database.insertGroup(group);
-
-            // Download and save members for this group
-            final membersResult = await _firestoreService.downloadGroupMembers(
-              group.id,
-            );
-            await membersResult.fold((members) async {
-              for (final member in members) {
-                await _database.addGroupMember(member);
-              }
-            }, (_) async {});
-
-            // Download and save expenses for this group
-            final expensesResult = await _expenseService.downloadGroupExpenses(
-              group.id,
-            );
-            await expensesResult.fold((expenses) async {
-              for (final expense in expenses) {
-                await _database.insertExpense(expense);
-
-                // Download and save shares for this expense
-                final sharesResult = await _expenseService.downloadExpenseShares(
-                  group.id,
-                  expense.id,
-                );
-                await sharesResult.fold((shares) async {
-                  for (final share in shares) {
-                    await _database.insertExpenseShare(share);
-                  }
-                }, (_) async {});
-              }
-            }, (_) async {});
-          }
-
-          return Success.unit();
-        },
-        (error) => Failure(error),
-      );
-    } catch (e) {
-      return Failure(Exception('Failed to sync user groups: $e'));
-    }
-  }
-
-  @override
-  Stream<List<GroupEntity>> watchAllGroups() {
-    return _database.watchAllGroups();
   }
 
   @override
@@ -260,71 +166,30 @@ class SyncedGroupRepository implements GroupRepository {
   }
 
   @override
-  Future<Result<GroupEntity>> joinGroupByCode(
-    String groupCode,
-    String userId,
-  ) async {
+  Stream<List<GroupEntity>> watchAllGroups() {
+    return _database.watchAllGroups();
+  }
+
+  @override
+  Future<Result<List<String>>> getGroupMembers(String groupId) async {
     try {
-      // Try to download the group from Firestore
-      final firestoreResult = await _firestoreService.downloadGroup(groupCode);
-
-      return await firestoreResult.fold(
-        (group) async {
-          // Group exists in Firestore, save it locally
-          await _database.insertGroup(group);
-
-          // Download existing members
-          final membersResult = await _firestoreService.downloadGroupMembers(
-            groupCode,
-          );
-          await membersResult.fold((members) async {
-            for (final member in members) {
-              await _database.addGroupMember(member);
-            }
-          }, (_) async {});
-
-          // Add the current user as a member
-          final newMember = GroupMemberEntity(
-            groupId: groupCode,
-            userId: userId,
-            joinedAt: DateTime.now(),
-          );
-
-          await _database.addGroupMember(newMember);
-          // Joined groups are never personal
-          await _firestoreService.uploadGroupMember(
-            newMember,
-            isPersonalGroup: false,
-          );
-
-          // Download expenses for this group
-          final expensesResult = await _expenseService.downloadGroupExpenses(
-            groupCode,
-          );
-          await expensesResult.fold((expenses) async {
-            for (final expense in expenses) {
-              await _database.insertExpense(expense);
-
-              // Download and save shares for this expense
-              final sharesResult = await _expenseService.downloadExpenseShares(
-                groupCode,
-                expense.id,
-              );
-              await sharesResult.fold((shares) async {
-                for (final share in shares) {
-                  await _database.insertExpenseShare(share);
-                }
-              }, (_) async {});
-            }
-          }, (_) async {});
-
-          return Success(group);
-        },
-        (error) => Failure(
-          Exception('Group not found. Please check the code and try again.'),
-        ),
-      );
+      final members = await _database.getGroupMembers(groupId);
+      return Success(members);
     } catch (e) {
+      log.e('Failed to get group members: $e');
+      return Failure(Exception('Failed to get group members: $e'));
+    }
+  }
+
+  @override
+  Future<Result<GroupEntity>> joinGroupByCode(String code, String userId) async {
+    try {
+      // This is a special case - we need to fetch from Firestore first
+      // This will be handled by a separate service, not the repository
+      // For now, return a failure
+      return Failure(Exception('Join group by code not implemented yet'));
+    } catch (e) {
+      log.e('Failed to join group: $e');
       return Failure(Exception('Failed to join group: $e'));
     }
   }

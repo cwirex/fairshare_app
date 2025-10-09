@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
-
 import 'package:fairshare_app/core/database/database_provider.dart';
+import 'package:fairshare_app/core/sync/realtime_sync_service.dart';
 import 'package:fairshare_app/core/sync/sync_service.dart';
 import 'package:fairshare_app/core/sync/upload_queue_service.dart';
 import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
@@ -11,6 +10,7 @@ import 'package:fairshare_app/features/expenses/domain/repositories/expense_repo
 import 'package:fairshare_app/features/groups/data/repositories/synced_group_repository.dart';
 import 'package:fairshare_app/features/groups/data/services/firestore_group_service.dart';
 import 'package:fairshare_app/features/groups/domain/repositories/group_repository.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'sync_providers.g.dart';
 
@@ -30,26 +30,24 @@ FirestoreGroupService firestoreGroupService(FirestoreGroupServiceRef ref) {
 /// Firestore expense service provider
 @riverpod
 FirestoreExpenseService firestoreExpenseService(
-    FirestoreExpenseServiceRef ref) {
+  FirestoreExpenseServiceRef ref,
+) {
   final firestore = ref.watch(firestoreProvider);
   return FirestoreExpenseService(firestore);
 }
 
-/// Synced group repository provider
+/// Synced group repository provider (clean architecture - DB + Queue only)
 @riverpod
 GroupRepository groupRepository(GroupRepositoryRef ref) {
   final database = ref.watch(appDatabaseProvider);
-  final firestoreService = ref.watch(firestoreGroupServiceProvider);
-  final expenseService = ref.watch(firestoreExpenseServiceProvider);
-  return SyncedGroupRepository(database, firestoreService, expenseService);
+  return SyncedGroupRepository(database);
 }
 
-/// Synced expense repository provider
+/// Synced expense repository provider (clean architecture - DB + Queue only)
 @riverpod
 ExpenseRepository expenseRepository(ExpenseRepositoryRef ref) {
   final database = ref.watch(appDatabaseProvider);
-  final firestoreService = ref.watch(firestoreExpenseServiceProvider);
-  return SyncedExpenseRepository(database, firestoreService);
+  return SyncedExpenseRepository(database);
 }
 
 /// Upload queue service provider
@@ -58,27 +56,42 @@ UploadQueueService uploadQueueService(UploadQueueServiceRef ref) {
   final database = ref.watch(appDatabaseProvider);
   final expenseService = ref.watch(firestoreExpenseServiceProvider);
   final groupService = ref.watch(firestoreGroupServiceProvider);
+  final firestore = ref.watch(firestoreProvider);
+
   return UploadQueueService(
     database: database,
     expenseService: expenseService,
     groupService: groupService,
+    firestore: firestore,
   );
 }
 
-/// Sync service provider
+/// Realtime sync service provider
 @riverpod
-SyncService syncService(SyncServiceRef ref) {
+RealtimeSyncService realtimeSyncService(RealtimeSyncServiceRef ref) {
   final database = ref.watch(appDatabaseProvider);
   final groupService = ref.watch(firestoreGroupServiceProvider);
   final expenseService = ref.watch(firestoreExpenseServiceProvider);
+
+  return RealtimeSyncService(
+    database: database,
+    groupService: groupService,
+    expenseService: expenseService,
+  );
+}
+
+/// Sync service provider (orchestrator)
+@riverpod
+SyncService syncService(SyncServiceRef ref) {
+  final database = ref.watch(appDatabaseProvider);
   final uploadQueueService = ref.watch(uploadQueueServiceProvider);
+  final realtimeSyncService = ref.watch(realtimeSyncServiceProvider);
   final currentUser = ref.watch(currentUserProvider);
 
   final service = SyncService(
     database: database,
-    groupService: groupService,
-    expenseService: expenseService,
     uploadQueueService: uploadQueueService,
+    realtimeSyncService: realtimeSyncService,
   );
 
   // Start auto-sync when the service is created, passing userId

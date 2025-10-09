@@ -79,6 +79,7 @@ class GroupNotifier extends _$GroupNotifier {
       defaultCurrency: defaultCurrency,
       createdAt: now,
       updatedAt: now,
+      lastActivityAt: now,
     );
 
     final member = GroupMemberEntity(

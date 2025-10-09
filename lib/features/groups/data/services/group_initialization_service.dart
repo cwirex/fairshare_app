@@ -28,6 +28,7 @@ class GroupInitializationService {
       defaultCurrency: 'USD',
       createdAt: now,
       updatedAt: now,
+      lastActivityAt: now,
     );
 
     final member = GroupMemberEntity(

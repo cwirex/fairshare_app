@@ -1,11 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:result_dart/result_dart.dart';
 
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
 
 /// Firestore service for syncing groups with remote database.
-class FirestoreGroupService {
+class FirestoreGroupService with LoggerMixin {
   final FirebaseFirestore _firestore;
 
   FirestoreGroupService(this._firestore);
@@ -13,19 +14,24 @@ class FirestoreGroupService {
   static const String _groupsCollection = 'groups';
   static const String _membersSubcollection = 'members';
 
-  /// Upload a group to Firestore.
+  /// Upload a group to Firestore with server timestamp.
   /// All groups including personal groups are synced for backup.
   Future<Result<void>> uploadGroup(GroupEntity group) async {
     try {
       final groupData = group.toJson();
+      // Use server timestamp for accurate conflict resolution
+      groupData['updatedAt'] = FieldValue.serverTimestamp();
+      groupData['lastActivityAt'] = FieldValue.serverTimestamp();
 
       await _firestore
           .collection(_groupsCollection)
           .doc(group.id)
           .set(groupData, SetOptions(merge: true));
 
+      log.d('Uploaded group: ${group.id}');
       return Success.unit();
     } catch (e) {
+      log.e('Failed to upload group ${group.id}: $e');
       return Failure(Exception('Failed to upload group: $e'));
     }
   }
@@ -72,7 +78,7 @@ class FirestoreGroupService {
   /// Download all groups that the user is a member of.
   Future<Result<List<GroupEntity>>> downloadUserGroups(String userId) async {
     try {
-      print('🔍 Firestore: Querying groups for user: $userId');
+      log.d('Querying groups for user: $userId');
 
       // Query all groups where user is a member
       final querySnapshot = await _firestore
@@ -80,38 +86,33 @@ class FirestoreGroupService {
           .where('userId', isEqualTo: userId)
           .get();
 
-      print('🔍 Firestore: Found ${querySnapshot.docs.length} member documents');
+      log.d('Found ${querySnapshot.docs.length} member documents');
 
       final groupIds = querySnapshot.docs
-          .map((doc) {
-            final groupId = doc.reference.parent.parent!.id;
-            print('   - Member doc path: ${doc.reference.path} → groupId: $groupId');
-            return groupId;
-          })
+          .map((doc) => doc.reference.parent.parent!.id)
           .toSet()
           .toList();
 
-      print('🔍 Firestore: Extracted ${groupIds.length} unique group IDs');
+      log.d('Extracted ${groupIds.length} unique group IDs');
 
       final groups = <GroupEntity>[];
       for (final groupId in groupIds) {
-        print('🔍 Firestore: Downloading group: $groupId');
         final result = await downloadGroup(groupId);
         await result.fold(
           (group) async {
-            print('   ✅ Downloaded: ${group.displayName}');
+            log.d('Downloaded group: ${group.displayName}');
             groups.add(group);
           },
           (error) async {
-            print('   ❌ Failed: $error');
+            log.w('Failed to download group $groupId: $error');
           },
         );
       }
 
-      print('🔍 Firestore: Returning ${groups.length} groups total');
+      log.i('Downloaded ${groups.length} groups for user $userId');
       return Success(groups);
     } catch (e) {
-      print('🔍 Firestore: Query failed: $e');
+      log.e('Failed to query user groups: $e');
       return Failure(Exception('Failed to download user groups: $e'));
     }
   }

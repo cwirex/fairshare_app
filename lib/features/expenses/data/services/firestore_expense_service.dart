@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:result_dart/result_dart.dart';
 
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
@@ -6,7 +7,7 @@ import 'package:fairshare_app/features/expenses/domain/entities/expense_share_en
 
 /// Firestore service for syncing expenses with remote database.
 /// Expenses are stored as subcollection under groups: groups/{groupId}/expenses/{expenseId}
-class FirestoreExpenseService {
+class FirestoreExpenseService with LoggerMixin {
   final FirebaseFirestore _firestore;
 
   FirestoreExpenseService(this._firestore);
@@ -15,11 +16,13 @@ class FirestoreExpenseService {
   static const String _expensesSubcollection = 'expenses';
   static const String _sharesSubcollection = 'shares';
 
-  /// Upload an expense to Firestore under its group.
+  /// Upload an expense to Firestore under its group with server timestamp.
   /// Personal expenses ARE synced for backup, but personal groups are NOT synced.
   Future<Result<void>> uploadExpense(ExpenseEntity expense) async {
     try {
       final expenseData = expense.toJson();
+      // Use server timestamp for accurate conflict resolution
+      expenseData['updatedAt'] = FieldValue.serverTimestamp();
 
       await _firestore
           .collection(_groupsCollection)
@@ -28,8 +31,16 @@ class FirestoreExpenseService {
           .doc(expense.id)
           .set(expenseData, SetOptions(merge: true));
 
+      // Update group's lastActivityAt
+      await _firestore
+          .collection(_groupsCollection)
+          .doc(expense.groupId)
+          .update({'lastActivityAt': FieldValue.serverTimestamp()});
+
+      log.d('Uploaded expense: ${expense.id}');
       return Success.unit();
     } catch (e) {
+      log.e('Failed to upload expense ${expense.id}: $e');
       return Failure(Exception('Failed to upload expense: $e'));
     }
   }
