@@ -34,27 +34,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         (user) async {
           // Read all providers before async operations (to avoid disposed ref)
           final groupInitService = ref.read(groupInitializationServiceProvider);
-          final syncService = ref.read(syncServiceProvider);
-          final repository = ref.read(groupRepositoryProvider);
 
-          // Ensure personal group exists
+          // Ensure personal group exists BEFORE navigation
           await groupInitService.ensurePersonalGroupExists(user.id);
 
-          // Initialize sync service and download user's data from Firestore
-          await syncService.downloadUserGroups(user.id);
-
-          // Download expenses for all user's groups
-          final groupsResult = await repository.getUserGroups(user.id);
-          await groupsResult.fold(
-            (groups) async {
-              for (final group in groups) {
-                await syncService.downloadGroupExpenses(group.id);
-              }
-            },
-            (_) async {},
-          );
-
           if (!mounted) return;
+
+          // Navigate to home after personal group is ready
+          context.go('/home');
+
           _showSuccessSnackBar('Welcome, ${user.displayName}!');
         },
         (error) {
@@ -91,13 +79,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final theme = Theme.of(context);
 
     // Listen to auth state changes for automatic navigation
-    ref.listen(authNotifierProvider, (previous, next) {
-      next.whenData((user) {
-        if (user != null && mounted) {
-          context.go('/home');
-        }
-      });
-    });
+    // NOTE: Navigation is handled in the sign-in handler below, not here
+    // to ensure personal group is created before navigating
 
     return Scaffold(
       appBar: AppBar(

@@ -47,12 +47,10 @@ class FairShareApp extends ConsumerWidget with LoggerMixin {
       final groupInitService = ref.read(groupInitializationServiceProvider);
       groupInitService.ensurePersonalGroupExists(currentUser.id);
 
-      // Initialize sync service to start syncing with Firestore
+      // Initialize sync service to start auto-sync
+      // The sync service will automatically start monitoring connectivity
+      // and sync when online. It receives userId from the provider.
       ref.read(syncServiceProvider);
-
-      // Download user's groups from Firestore when they log in
-      final syncService = ref.read(syncServiceProvider);
-      syncService.downloadUserGroups(currentUser.id);
     }
   }
 }

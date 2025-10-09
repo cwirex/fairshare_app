@@ -16,14 +16,9 @@ class FirestoreExpenseService {
   static const String _sharesSubcollection = 'shares';
 
   /// Upload an expense to Firestore under its group.
-  /// Personal group expenses are never synced.
+  /// Personal expenses ARE synced for backup, but personal groups are NOT synced.
   Future<Result<void>> uploadExpense(ExpenseEntity expense) async {
     try {
-      // Skip syncing personal group expenses - they're local-only
-      if (expense.groupId.startsWith('personal_')) {
-        return Success.unit();
-      }
-
       final expenseData = expense.toJson();
 
       await _firestore

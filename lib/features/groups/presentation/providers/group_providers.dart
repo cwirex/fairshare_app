@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/core/sync/sync_providers.dart';
 import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:fairshare_app/features/groups/data/services/group_initialization_service.dart';
@@ -19,14 +20,31 @@ GroupInitializationService groupInitializationService(
   return GroupInitializationService(repository);
 }
 
-@riverpod
-Stream<List<GroupEntity>> userGroups(UserGroupsRef ref) {
+@Riverpod(keepAlive: true)
+Stream<List<GroupEntity>> userGroups(UserGroupsRef ref) async* {
+  final log = AppLogger('UserGroupsProvider');
   final currentUser = ref.watch(currentUserProvider);
+
   if (currentUser == null) {
-    return Stream.value([]);
+    log.w('No current user, yielding empty list');
+    yield [];
+    return;
   }
+
   final repository = ref.watch(groupRepositoryProvider);
-  return repository.watchUserGroups(currentUser.id);
+  final syncService = ref.watch(syncServiceProvider);
+
+  log.i('Starting sync for user: ${currentUser.id}');
+  // Trigger full bidirectional sync and AWAIT it before watching
+  // This ensures Firestore data is downloaded before UI renders
+  await syncService.syncAll(currentUser.id);
+  log.i('Sync completed, now watching local DB');
+
+  // Watch and yield updates from local database (which now has synced data)
+  await for (final groups in repository.watchUserGroups(currentUser.id)) {
+    log.i('Local DB emitted ${groups.length} groups');
+    yield groups;
+  }
 }
 
 @riverpod

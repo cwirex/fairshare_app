@@ -18,8 +18,13 @@ class SyncedExpenseRepository implements ExpenseRepository {
       // Save to local database first (offline-first)
       await _database.insertExpense(expense);
 
-      // Try to sync to Firestore in the background
-      _firestoreService.uploadExpense(expense);
+      // Enqueue for sync to Firestore
+      await _database.enqueueOperation(
+        entityType: 'expense',
+        entityId: expense.id,
+        operationType: 'create',
+        metadata: expense.groupId,
+      );
 
       return Success(expense);
     } catch (e) {
@@ -66,8 +71,13 @@ class SyncedExpenseRepository implements ExpenseRepository {
       // Update local database first
       await _database.updateExpense(expense);
 
-      // Try to sync to Firestore in the background
-      _firestoreService.uploadExpense(expense);
+      // Enqueue for sync to Firestore
+      await _database.enqueueOperation(
+        entityType: 'expense',
+        entityId: expense.id,
+        operationType: 'update',
+        metadata: expense.groupId,
+      );
 
       return Success(expense);
     } catch (e) {
@@ -84,9 +94,14 @@ class SyncedExpenseRepository implements ExpenseRepository {
       // Delete from local database first
       await _database.deleteExpense(id);
 
-      // Try to delete from Firestore in the background
+      // Enqueue for sync to Firestore
       if (expense != null) {
-        _firestoreService.deleteExpense(expense.groupId, id);
+        await _database.enqueueOperation(
+          entityType: 'expense',
+          entityId: id,
+          operationType: 'delete',
+          metadata: expense.groupId,
+        );
       }
 
       return Success.unit();

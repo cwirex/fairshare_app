@@ -66,6 +66,8 @@ class UploadQueueService {
 
   /// Process a single operation from the queue
   Future<void> _processOperation(SyncQueueData operation) async {
+    print('⚙️ Processing: ${operation.entityType}/${operation.entityId} (${operation.operationType})');
+
     switch (operation.entityType) {
       case 'expense':
         await _processExpenseOperation(operation);
@@ -73,9 +75,14 @@ class UploadQueueService {
       case 'group':
         await _processGroupOperation(operation);
         break;
+      case 'group_member':
+        await _processGroupMemberOperation(operation);
+        break;
       default:
         throw Exception('Unknown entity type: ${operation.entityType}');
     }
+
+    print('✅ Processed successfully: ${operation.entityType}/${operation.entityId}');
   }
 
   /// Process an expense operation
@@ -136,6 +143,47 @@ class UploadQueueService {
           (error) => throw error,
         );
         break;
+      default:
+        throw Exception('Unknown operation type: ${operation.operationType}');
+    }
+  }
+
+  /// Process a group member operation
+  Future<void> _processGroupMemberOperation(SyncQueueData operation) async {
+    // entityId format: "groupId_userId"
+    final parts = operation.entityId.split('_');
+    if (parts.length != 2) {
+      throw Exception('Invalid group member entityId format: ${operation.entityId}');
+    }
+
+    final groupId = parts[0];
+    final userId = parts[1];
+
+    switch (operation.operationType) {
+      case 'create':
+        // Get the member from local DB
+        final members = await _database.getAllGroupMembers(groupId);
+        final member = members.firstWhere(
+          (m) => m.userId == userId,
+          orElse: () => throw Exception('Group member not found: $groupId/$userId'),
+        );
+
+        // Upload to Firestore
+        final result = await _groupService.uploadGroupMember(member);
+        result.fold(
+          (_) => null,
+          (error) => throw error,
+        );
+        break;
+
+      case 'delete':
+        final result = await _groupService.removeGroupMember(groupId, userId);
+        result.fold(
+          (_) => null,
+          (error) => throw error,
+        );
+        break;
+
       default:
         throw Exception('Unknown operation type: ${operation.operationType}');
     }

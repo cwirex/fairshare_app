@@ -14,14 +14,9 @@ class FirestoreGroupService {
   static const String _membersSubcollection = 'members';
 
   /// Upload a group to Firestore.
-  /// Personal groups are never synced.
+  /// All groups including personal groups are synced for backup.
   Future<Result<void>> uploadGroup(GroupEntity group) async {
     try {
-      // Skip syncing personal groups - they're local-only
-      if (group.isPersonal) {
-        return Success.unit();
-      }
-
       final groupData = group.toJson();
 
       await _firestore
@@ -36,14 +31,9 @@ class FirestoreGroupService {
   }
 
   /// Upload a group member to Firestore.
-  /// Personal group members are never synced.
+  /// All members including personal group members are synced for backup.
   Future<Result<void>> uploadGroupMember(GroupMemberEntity member, {bool isPersonalGroup = false}) async {
     try {
-      // Skip syncing personal group members - they're local-only
-      if (isPersonalGroup) {
-        return Success.unit();
-      }
-
       final memberData = member.toJson();
 
       await _firestore
@@ -82,30 +72,46 @@ class FirestoreGroupService {
   /// Download all groups that the user is a member of.
   Future<Result<List<GroupEntity>>> downloadUserGroups(String userId) async {
     try {
+      print('🔍 Firestore: Querying groups for user: $userId');
+
       // Query all groups where user is a member
       final querySnapshot = await _firestore
           .collectionGroup(_membersSubcollection)
           .where('userId', isEqualTo: userId)
           .get();
 
+      print('🔍 Firestore: Found ${querySnapshot.docs.length} member documents');
+
       final groupIds = querySnapshot.docs
-          .map((doc) => doc.reference.parent.parent!.id)
+          .map((doc) {
+            final groupId = doc.reference.parent.parent!.id;
+            print('   - Member doc path: ${doc.reference.path} → groupId: $groupId');
+            return groupId;
+          })
           .toSet()
           .toList();
 
+      print('🔍 Firestore: Extracted ${groupIds.length} unique group IDs');
+
       final groups = <GroupEntity>[];
       for (final groupId in groupIds) {
+        print('🔍 Firestore: Downloading group: $groupId');
         final result = await downloadGroup(groupId);
         await result.fold(
           (group) async {
+            print('   ✅ Downloaded: ${group.displayName}');
             groups.add(group);
           },
-          (_) async {},
+          (error) async {
+            print('   ❌ Failed: $error');
+          },
         );
       }
 
+      print('🔍 Firestore: Returning ${groups.length} groups total');
       return Success(groups);
     } catch (e) {
+      print('🔍 Firestore: Query failed: $e');
       return Failure(Exception('Failed to download user groups: $e'));
     }
   }

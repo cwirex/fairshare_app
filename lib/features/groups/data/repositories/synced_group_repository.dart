@@ -33,8 +33,12 @@ class SyncedGroupRepository implements GroupRepository {
       // Save to local database first (offline-first)
       await _database.insertGroup(group);
 
-      // Try to sync to Firestore in the background
-      _firestoreService.uploadGroup(group);
+      // Enqueue for sync to Firestore (including personal groups for backup)
+      await _database.enqueueOperation(
+        entityType: 'group',
+        entityId: group.id,
+        operationType: 'create',
+      );
 
       return Success(group);
     } catch (e) {
@@ -55,27 +59,22 @@ class SyncedGroupRepository implements GroupRepository {
       final isOnline = await _isOnline();
       if (isOnline) {
         final firestoreResult = await _firestoreService.downloadGroup(id);
-        return await firestoreResult.fold(
-          (remoteGroup) async {
-            // Save to local database for offline access
-            await _database.insertGroup(remoteGroup);
+        return await firestoreResult.fold((remoteGroup) async {
+          // Save to local database for offline access
+          await _database.insertGroup(remoteGroup);
 
-            // Download and save members too
-            final membersResult =
-                await _firestoreService.downloadGroupMembers(id);
-            await membersResult.fold(
-              (members) async {
-                for (final member in members) {
-                  await _database.addGroupMember(member);
-                }
-              },
-              (_) async {},
-            );
+          // Download and save members too
+          final membersResult = await _firestoreService.downloadGroupMembers(
+            id,
+          );
+          await membersResult.fold((members) async {
+            for (final member in members) {
+              await _database.addGroupMember(member);
+            }
+          }, (_) async {});
 
-            return Success(remoteGroup);
-          },
-          (error) => Failure(error),
-        );
+          return Success(remoteGroup);
+        }, (error) => Failure(error));
       }
 
       return Failure(Exception('Group not found: $id'));
@@ -100,8 +99,12 @@ class SyncedGroupRepository implements GroupRepository {
       // Update local database first
       await _database.updateGroup(group);
 
-      // Try to sync to Firestore in the background
-      _firestoreService.uploadGroup(group);
+      // Enqueue for sync to Firestore
+      await _database.enqueueOperation(
+        entityType: 'group',
+        entityId: group.id,
+        operationType: 'update',
+      );
 
       return Success(group);
     } catch (e) {
@@ -115,8 +118,12 @@ class SyncedGroupRepository implements GroupRepository {
       // Delete from local database first
       await _database.deleteGroup(id);
 
-      // Try to delete from Firestore in the background
-      _firestoreService.deleteGroup(id);
+      // Enqueue for sync to Firestore
+      await _database.enqueueOperation(
+        entityType: 'group',
+        entityId: id,
+        operationType: 'delete',
+      );
 
       return Success.unit();
     } catch (e) {
@@ -130,11 +137,12 @@ class SyncedGroupRepository implements GroupRepository {
       // Add to local database first
       await _database.addGroupMember(member);
 
-      // Try to sync to Firestore in the background (check if personal group)
-      final group = await _database.getGroupById(member.groupId);
-      _firestoreService.uploadGroupMember(
-        member,
-        isPersonalGroup: group?.isPersonal ?? false,
+      // Enqueue for sync to Firestore (all members including personal groups)
+      await _database.enqueueOperation(
+        entityType: 'group_member',
+        entityId: '${member.groupId}_${member.userId}',
+        operationType: 'create',
+        metadata: member.groupId, // Store groupId as metadata for upload processing
       );
 
       return Success.unit();
@@ -149,8 +157,12 @@ class SyncedGroupRepository implements GroupRepository {
       // Remove from local database first
       await _database.removeGroupMember(groupId, userId);
 
-      // Try to remove from Firestore in the background
-      _firestoreService.removeGroupMember(groupId, userId);
+      // Enqueue for sync to Firestore
+      await _database.enqueueOperation(
+        entityType: 'group_member',
+        entityId: '${groupId}_$userId',
+        operationType: 'delete',
+      );
 
       return Success.unit();
     } catch (e) {
@@ -171,10 +183,69 @@ class SyncedGroupRepository implements GroupRepository {
   @override
   Future<Result<List<GroupEntity>>> getUserGroups(String userId) async {
     try {
+      // If online, sync from Firestore to get latest data
+      final isOnline = await _isOnline();
+      if (isOnline) {
+        await _syncUserGroupsFromFirestore(userId);
+      }
+
+      // Return groups from local database (which now includes synced data)
       final groups = await _database.getUserGroups(userId);
       return Success(groups);
     } catch (e) {
       return Failure(Exception('Failed to get user groups: $e'));
+    }
+  }
+
+  /// Sync user's groups from Firestore to local database
+  Future<Result<void>> _syncUserGroupsFromFirestore(String userId) async {
+    try {
+      final result = await _firestoreService.downloadUserGroups(userId);
+
+      return await result.fold(
+        (groups) async {
+          for (final group in groups) {
+            // Save to local database
+            await _database.insertGroup(group);
+
+            // Download and save members for this group
+            final membersResult = await _firestoreService.downloadGroupMembers(
+              group.id,
+            );
+            await membersResult.fold((members) async {
+              for (final member in members) {
+                await _database.addGroupMember(member);
+              }
+            }, (_) async {});
+
+            // Download and save expenses for this group
+            final expensesResult = await _expenseService.downloadGroupExpenses(
+              group.id,
+            );
+            await expensesResult.fold((expenses) async {
+              for (final expense in expenses) {
+                await _database.insertExpense(expense);
+
+                // Download and save shares for this expense
+                final sharesResult = await _expenseService.downloadExpenseShares(
+                  group.id,
+                  expense.id,
+                );
+                await sharesResult.fold((shares) async {
+                  for (final share in shares) {
+                    await _database.insertExpenseShare(share);
+                  }
+                }, (_) async {});
+              }
+            }, (_) async {});
+          }
+
+          return Success.unit();
+        },
+        (error) => Failure(error),
+      );
+    } catch (e) {
+      return Failure(Exception('Failed to sync user groups: $e'));
     }
   }
 
@@ -190,15 +261,10 @@ class SyncedGroupRepository implements GroupRepository {
 
   @override
   Future<Result<GroupEntity>> joinGroupByCode(
-      String groupCode, String userId) async {
+    String groupCode,
+    String userId,
+  ) async {
     try {
-      // Check if online first
-      final isOnline = await _isOnline();
-      if (!isOnline) {
-        return Failure(Exception(
-            'Internet connection required to join a group. Please check your connection and try again.'));
-      }
-
       // Try to download the group from Firestore
       final firestoreResult = await _firestoreService.downloadGroup(groupCode);
 
@@ -208,16 +274,14 @@ class SyncedGroupRepository implements GroupRepository {
           await _database.insertGroup(group);
 
           // Download existing members
-          final membersResult =
-              await _firestoreService.downloadGroupMembers(groupCode);
-          await membersResult.fold(
-            (members) async {
-              for (final member in members) {
-                await _database.addGroupMember(member);
-              }
-            },
-            (_) async {},
+          final membersResult = await _firestoreService.downloadGroupMembers(
+            groupCode,
           );
+          await membersResult.fold((members) async {
+            for (final member in members) {
+              await _database.addGroupMember(member);
+            }
+          }, (_) async {});
 
           // Add the current user as a member
           final newMember = GroupMemberEntity(
@@ -228,24 +292,37 @@ class SyncedGroupRepository implements GroupRepository {
 
           await _database.addGroupMember(newMember);
           // Joined groups are never personal
-          await _firestoreService.uploadGroupMember(newMember, isPersonalGroup: false);
+          await _firestoreService.uploadGroupMember(
+            newMember,
+            isPersonalGroup: false,
+          );
 
           // Download expenses for this group
-          final expensesResult =
-              await _expenseService.downloadGroupExpenses(groupCode);
-          await expensesResult.fold(
-            (expenses) async {
-              for (final expense in expenses) {
-                await _database.insertExpense(expense);
-              }
-            },
-            (_) async {},
+          final expensesResult = await _expenseService.downloadGroupExpenses(
+            groupCode,
           );
+          await expensesResult.fold((expenses) async {
+            for (final expense in expenses) {
+              await _database.insertExpense(expense);
+
+              // Download and save shares for this expense
+              final sharesResult = await _expenseService.downloadExpenseShares(
+                groupCode,
+                expense.id,
+              );
+              await sharesResult.fold((shares) async {
+                for (final share in shares) {
+                  await _database.insertExpenseShare(share);
+                }
+              }, (_) async {});
+            }
+          }, (_) async {});
 
           return Success(group);
         },
         (error) => Failure(
-            Exception('Group not found. Please check the code and try again.')),
+          Exception('Group not found. Please check the code and try again.'),
+        ),
       );
     } catch (e) {
       return Failure(Exception('Failed to join group: $e'));

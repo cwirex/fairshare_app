@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:fairshare_app/core/database/database_provider.dart';
 import 'package:fairshare_app/core/sync/sync_service.dart';
 import 'package:fairshare_app/core/sync/upload_queue_service.dart';
+import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:fairshare_app/features/expenses/data/repositories/synced_expense_repository.dart';
 import 'package:fairshare_app/features/expenses/data/services/firestore_expense_service.dart';
 import 'package:fairshare_app/features/expenses/domain/repositories/expense_repository.dart';
@@ -71,6 +72,7 @@ SyncService syncService(SyncServiceRef ref) {
   final groupService = ref.watch(firestoreGroupServiceProvider);
   final expenseService = ref.watch(firestoreExpenseServiceProvider);
   final uploadQueueService = ref.watch(uploadQueueServiceProvider);
+  final currentUser = ref.watch(currentUserProvider);
 
   final service = SyncService(
     database: database,
@@ -79,8 +81,8 @@ SyncService syncService(SyncServiceRef ref) {
     uploadQueueService: uploadQueueService,
   );
 
-  // Start auto-sync when the service is created
-  service.startAutoSync();
+  // Start auto-sync when the service is created, passing userId
+  service.startAutoSync(currentUser?.id);
 
   // Dispose when the provider is disposed
   ref.onDispose(() {

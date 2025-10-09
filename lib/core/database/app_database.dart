@@ -200,18 +200,31 @@ class AppDatabase extends _$AppDatabase {
   // === GROUP OPERATIONS ===
 
   Future<void> insertGroup(GroupEntity group) async {
-    await into(appGroups).insert(
-      AppGroupsCompanion(
-        id: Value(group.id),
-        displayName: Value(group.displayName),
-        avatarUrl: Value(group.avatarUrl),
-        isPersonal: Value(group.isPersonal),
-        defaultCurrency: Value(group.defaultCurrency),
-        createdAt: Value(group.createdAt),
-        updatedAt: Value(group.updatedAt),
-        deletedAt: Value(group.deletedAt),
-      ),
-    );
+    try {
+      await into(appGroups).insert(
+        AppGroupsCompanion(
+          id: Value(group.id),
+          displayName: Value(group.displayName),
+          avatarUrl: Value(group.avatarUrl),
+          isPersonal: Value(group.isPersonal),
+          defaultCurrency: Value(group.defaultCurrency),
+          createdAt: Value(group.createdAt),
+          updatedAt: Value(group.updatedAt),
+          deletedAt: Value(group.deletedAt),
+        ),
+      );
+      print('✅ Inserted group: ${group.id} (${group.displayName})');
+    } catch (e) {
+      print('❌ Failed to insert group ${group.id}: $e');
+      // Check if it already exists
+      final existing = await getGroupById(group.id);
+      if (existing != null) {
+        print('⚠️ Group ${group.id} already exists, updating instead');
+        await updateGroup(group);
+      } else {
+        rethrow;
+      }
+    }
   }
 
   Future<GroupEntity?> getGroupById(String id) async {
@@ -249,13 +262,20 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> addGroupMember(GroupMemberEntity member) async {
-    await into(appGroupMembers).insert(
-      AppGroupMembersCompanion(
-        groupId: Value(member.groupId),
-        userId: Value(member.userId),
-        joinedAt: Value(member.joinedAt),
-      ),
-    );
+    try {
+      await into(appGroupMembers).insert(
+        AppGroupMembersCompanion(
+          groupId: Value(member.groupId),
+          userId: Value(member.userId),
+          joinedAt: Value(member.joinedAt),
+        ),
+      );
+      print('✅ Added member: ${member.userId} to group ${member.groupId}');
+    } catch (e) {
+      print('❌ Failed to add member: $e');
+      print('   Group: ${member.groupId}, User: ${member.userId}');
+      rethrow;
+    }
   }
 
   Future<void> removeGroupMember(String groupId, String userId) async {
@@ -282,9 +302,16 @@ class AppDatabase extends _$AppDatabase {
           ..orderBy([OrderingTerm.desc(appGroups.createdAt)]);
 
     final results = await query.get();
-    return results
+    final groups = results
         .map((row) => _groupFromDb(row.readTable(appGroups)))
         .toList();
+
+    print('📊 getUserGroups($userId): Found ${groups.length} groups');
+    for (final group in groups) {
+      print('   - ${group.displayName} (${group.id})');
+    }
+
+    return groups;
   }
 
   Stream<List<GroupEntity>> watchAllGroups() {
@@ -295,6 +322,8 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Stream<List<GroupEntity>> watchUserGroups(String userId) {
+    print('🔄 watchUserGroups($userId): Starting stream');
+
     final query =
         select(appGroups).join([
             innerJoin(
@@ -306,8 +335,14 @@ class AppDatabase extends _$AppDatabase {
           ..orderBy([OrderingTerm.desc(appGroups.createdAt)]);
 
     return query.watch().map(
-      (rows) =>
-          rows.map((row) => _groupFromDb(row.readTable(appGroups))).toList(),
+      (rows) {
+        final groups = rows.map((row) => _groupFromDb(row.readTable(appGroups))).toList();
+        print('🔄 watchUserGroups($userId): Emitting ${groups.length} groups');
+        for (final group in groups) {
+          print('   - ${group.displayName} (${group.id})');
+        }
+        return groups;
+      },
     );
   }
 
@@ -356,17 +391,40 @@ class AppDatabase extends _$AppDatabase {
     required String operationType,
     String? metadata,
   }) async {
-    await into(syncQueue).insertOnConflictUpdate(
-      SyncQueueCompanion(
-        entityType: Value(entityType),
-        entityId: Value(entityId),
-        operationType: Value(operationType),
-        metadata: Value(metadata),
-        createdAt: Value(DateTime.now()),
-        retryCount: Value(0),
-        lastError: const Value(null),
-      ),
-    );
+    print('📤 Enqueueing: $entityType/$entityId ($operationType)');
+
+    // Check if already exists
+    final existing = await (select(syncQueue)
+          ..where((q) => q.entityType.equals(entityType) & q.entityId.equals(entityId)))
+        .getSingleOrNull();
+
+    if (existing != null) {
+      // Update existing entry
+      await (update(syncQueue)..where((q) => q.id.equals(existing.id))).write(
+        SyncQueueCompanion(
+          operationType: Value(operationType),
+          metadata: Value(metadata),
+          createdAt: Value(DateTime.now()),
+          retryCount: Value(0),
+          lastError: const Value(null),
+        ),
+      );
+      print('✅ Updated existing queue entry');
+    } else {
+      // Insert new entry
+      await into(syncQueue).insert(
+        SyncQueueCompanion(
+          entityType: Value(entityType),
+          entityId: Value(entityId),
+          operationType: Value(operationType),
+          metadata: Value(metadata),
+          createdAt: Value(DateTime.now()),
+          retryCount: Value(0),
+          lastError: const Value(null),
+        ),
+      );
+      print('✅ Enqueued successfully');
+    }
   }
 
   // === SYNC-SAFE INSERT/UPDATE OPERATIONS ===
