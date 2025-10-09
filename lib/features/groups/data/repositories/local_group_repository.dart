@@ -13,11 +13,11 @@ class LocalGroupRepository implements GroupRepository {
   Future<Result<GroupEntity>> createGroup(GroupEntity group) async {
     try {
       await _database.transaction(() async {
-        await _database.insertGroup(group);
+        await _database.groupsDao.insertGroup(group);
 
         // Only enqueue non-personal groups for sync
         if (!group.isPersonal) {
-          await _database.enqueueOperation(
+          await _database.syncDao.enqueueOperation(
             entityType: 'group',
             entityId: group.id,
             operationType: 'create',
@@ -33,7 +33,7 @@ class LocalGroupRepository implements GroupRepository {
   @override
   Future<Result<GroupEntity>> getGroupById(String id) async {
     try {
-      final group = await _database.getGroupById(id);
+      final group = await _database.groupsDao.getGroupById(id);
       if (group == null) {
         return Failure(Exception('Group not found LOCAL: $id'));
       }
@@ -46,7 +46,7 @@ class LocalGroupRepository implements GroupRepository {
   @override
   Future<Result<List<GroupEntity>>> getAllGroups() async {
     try {
-      final groups = await _database.getAllGroups();
+      final groups = await _database.groupsDao.getAllGroups();
       return Success(groups);
     } catch (e) {
       return Failure(Exception('Failed to get all groups: $e'));
@@ -57,11 +57,11 @@ class LocalGroupRepository implements GroupRepository {
   Future<Result<GroupEntity>> updateGroup(GroupEntity group) async {
     try {
       await _database.transaction(() async {
-        await _database.updateGroup(group);
+        await _database.groupsDao.updateGroup(group);
 
         // Only enqueue non-personal groups for sync
         if (!group.isPersonal) {
-          await _database.enqueueOperation(
+          await _database.syncDao.enqueueOperation(
             entityType: 'group',
             entityId: group.id,
             operationType: 'update',
@@ -78,18 +78,18 @@ class LocalGroupRepository implements GroupRepository {
   Future<Result<void>> deleteGroup(String id) async {
     try {
       // Get group first to check if personal
-      final group = await _database.getGroupById(id);
+      final group = await _database.groupsDao.getGroupById(id);
 
       await _database.transaction(() async {
         // Only enqueue non-personal groups for sync
         if (group != null && !group.isPersonal) {
-          await _database.enqueueOperation(
+          await _database.syncDao.enqueueOperation(
             entityType: 'group',
             entityId: id,
             operationType: 'delete',
           );
         }
-        await _database.deleteGroup(id);
+        await _database.groupsDao.deleteGroup(id);
       });
       return Success.unit();
     } catch (e) {
@@ -100,7 +100,7 @@ class LocalGroupRepository implements GroupRepository {
   @override
   Future<Result<void>> addMember(GroupMemberEntity member) async {
     try {
-      await _database.addGroupMember(member);
+      await _database.groupsDao.addGroupMember(member);
       return Success.unit();
     } catch (e) {
       return Failure(Exception('Failed to add member: $e'));
@@ -110,7 +110,7 @@ class LocalGroupRepository implements GroupRepository {
   @override
   Future<Result<void>> removeMember(String groupId, String userId) async {
     try {
-      await _database.removeGroupMember(groupId, userId);
+      await _database.groupsDao.removeGroupMember(groupId, userId);
       return Success.unit();
     } catch (e) {
       return Failure(Exception('Failed to remove member: $e'));
@@ -120,7 +120,7 @@ class LocalGroupRepository implements GroupRepository {
   @override
   Future<Result<List<String>>> getGroupMembers(String groupId) async {
     try {
-      final members = await _database.getGroupMembers(groupId);
+      final members = await _database.groupsDao.getGroupMembers(groupId);
       return Success(members);
     } catch (e) {
       return Failure(Exception('Failed to get group members: $e'));
@@ -130,7 +130,7 @@ class LocalGroupRepository implements GroupRepository {
   @override
   Future<Result<List<GroupEntity>>> getUserGroups(String userId) async {
     try {
-      final groups = await _database.getUserGroups(userId);
+      final groups = await _database.groupsDao.getUserGroups(userId);
       return Success(groups);
     } catch (e) {
       return Failure(Exception('Failed to get user groups: $e'));
@@ -139,19 +139,24 @@ class LocalGroupRepository implements GroupRepository {
 
   @override
   Stream<List<GroupEntity>> watchAllGroups() {
-    return _database.watchAllGroups();
+    return _database.groupsDao.watchAllGroups();
   }
 
   @override
   Stream<List<GroupEntity>> watchUserGroups(String userId) {
-    return _database.watchUserGroups(userId);
+    return _database.groupsDao.watchUserGroups(userId);
   }
 
   @override
   Future<Result<GroupEntity>> joinGroupByCode(
-      String groupCode, String userId) async {
+    String groupCode,
+    String userId,
+  ) async {
     // Local repository doesn't support joining remote groups
-    return Failure(Exception(
-        'Cannot join remote groups in offline mode. Please check your internet connection.'));
+    return Failure(
+      Exception(
+        'Cannot join remote groups in offline mode. Please check your internet connection.',
+      ),
+    );
   }
 }

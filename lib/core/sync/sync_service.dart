@@ -37,10 +37,10 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
     required UploadQueueService uploadQueueService,
     required RealtimeSyncService realtimeSyncService,
     Connectivity? connectivity,
-  })  : _database = database,
-        _uploadQueueService = uploadQueueService,
-        _realtimeSyncService = realtimeSyncService,
-        _connectivity = connectivity ?? Connectivity();
+  }) : _database = database,
+       _uploadQueueService = uploadQueueService,
+       _realtimeSyncService = realtimeSyncService,
+       _connectivity = connectivity ?? Connectivity();
 
   /// Start auto-sync monitoring
   void startAutoSync(String? userId) {
@@ -56,8 +56,9 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
 
     // Listen to connectivity changes
-    _connectivitySubscription =
-        _connectivity.onConnectivityChanged.listen((results) {
+    _connectivitySubscription = _connectivity.onConnectivityChanged.listen((
+      results,
+    ) {
       final wasOnline = _isOnline;
       _isOnline = results.any((r) => r != ConnectivityResult.none);
 
@@ -164,7 +165,7 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
 
   /// Get pending upload count (for UI badges)
   Future<int> getPendingUploadCount() async {
-    return await _database.getPendingOperationCount();
+    return await _database.syncDao.getPendingOperationCount();
   }
 
   /// Get sync status (for debugging)

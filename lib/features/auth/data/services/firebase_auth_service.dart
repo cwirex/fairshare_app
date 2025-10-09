@@ -130,14 +130,14 @@ class FirebaseAuthService implements AuthRepository {
       );
 
       // Store user in local database
-      await _database.insertUser(user);
+      await _database.userDao.insertUser(user);
 
       // Upload user to Firestore
       await _userService.uploadUser(user);
 
       // Mark as synced since we just uploaded to Firestore
       final syncedUser = user.copyWith(lastSyncTimestamp: now);
-      await _database.updateUser(syncedUser);
+      await _database.userDao.updateUser(syncedUser);
 
       return Success(syncedUser);
     } on firebase_auth.FirebaseAuthException catch (e) {
@@ -255,7 +255,7 @@ class FirebaseAuthService implements AuthRepository {
       if (firebaseUser == null) return null;
 
       // Try to get full user data from local database
-      final localUser = await _database.getUserById(firebaseUser.uid);
+      final localUser = await _database.userDao.getUserById(firebaseUser.uid);
 
       if (localUser != null) {
         return localUser;

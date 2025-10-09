@@ -7,7 +7,6 @@ import 'package:fairshare_app/features/expenses/data/services/firestore_expense_
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 import 'package:fairshare_app/features/groups/data/services/firestore_group_service.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
-import 'package:result_dart/result_dart.dart';
 
 /// Manages real-time Firestore listeners for sync with hybrid strategy.
 ///
@@ -39,9 +38,9 @@ class RealtimeSyncService with LoggerMixin {
     required AppDatabase database,
     required FirestoreGroupService groupService,
     required FirestoreExpenseService expenseService,
-  })  : _database = database,
-        _groupService = groupService,
-        _expenseService = expenseService;
+  }) : _database = database,
+       _groupService = groupService,
+       _expenseService = expenseService;
 
   /// Start real-time sync for user (Tier 1 - Global Listener)
   Future<void> startRealtimeSync(String userId) async {
@@ -55,7 +54,9 @@ class RealtimeSyncService with LoggerMixin {
 
     log.i('🔥 Starting real-time sync for user: $userId');
 
-    _globalGroupsListener = _groupService.watchUserGroups(userId).listen(
+    _globalGroupsListener = _groupService
+        .watchUserGroups(userId)
+        .listen(
           _onGroupsChanged,
           onError: (e) {
             log.e('Groups listener error: $e');
@@ -142,7 +143,7 @@ class RealtimeSyncService with LoggerMixin {
 
     for (final remoteGroup in remoteGroups) {
       try {
-        final local = await _database.getGroupById(remoteGroup.id);
+        final local = await _database.groupsDao.getGroupById(remoteGroup.id);
 
         // Check if lastActivityAt changed for inactive groups (Tier 3 detection)
         if (local != null &&
@@ -154,7 +155,7 @@ class RealtimeSyncService with LoggerMixin {
         }
 
         // Upsert group (bypasses queue)
-        await _database.upsertGroupFromSync(remoteGroup);
+        await _database.groupsDao.upsertGroupFromSync(remoteGroup);
 
         // Sync members
         await _syncGroupMembers(remoteGroup.id);
@@ -183,7 +184,7 @@ class RealtimeSyncService with LoggerMixin {
 
     for (final expense in remoteExpenses) {
       try {
-        await _database.upsertExpenseFromSync(expense);
+        await _database.expensesDao.upsertExpenseFromSync(expense);
         await _syncExpenseShares(groupId, expense.id);
         SyncMetrics.instance.recordSyncSuccess();
       } catch (e) {
@@ -196,48 +197,41 @@ class RealtimeSyncService with LoggerMixin {
   /// Sync group members
   Future<void> _syncGroupMembers(String groupId) async {
     final result = await _groupService.downloadGroupMembers(groupId);
-    result.fold(
-      (members) async {
-        for (final member in members) {
-          await _database.upsertGroupMemberFromSync(member);
-        }
-        log.d('Synced ${members.length} members for group $groupId');
-      },
-      (error) => log.w('Failed to sync members for $groupId: $error'),
-    );
+    result.fold((members) async {
+      for (final member in members) {
+        await _database.groupsDao.upsertGroupMemberFromSync(member);
+      }
+      log.d('Synced ${members.length} members for group $groupId');
+    }, (error) => log.w('Failed to sync members for $groupId: $error'));
   }
 
   /// Sync expense shares
   Future<void> _syncExpenseShares(String groupId, String expenseId) async {
-    final result =
-        await _expenseService.downloadExpenseShares(groupId, expenseId);
-    result.fold(
-      (shares) async {
-        // Delete existing shares and insert new ones to ensure consistency
-        _database.deleteExpenseShares(expenseId);
-        for (final share in shares) {
-          await _database.insertExpenseShare(share);
-        }
-        log.d('Synced ${shares.length} shares for expense $expenseId');
-      },
-      (error) => log.w('Failed to sync shares for $expenseId: $error'),
+    final result = await _expenseService.downloadExpenseShares(
+      groupId,
+      expenseId,
     );
+    result.fold((shares) async {
+      // Delete existing shares and insert new ones to ensure consistency
+      _database.expenseSharesDao.deleteExpenseShares(expenseId);
+      for (final share in shares) {
+        await _database.expenseSharesDao.insertExpenseShare(share);
+      }
+      log.d('Synced ${shares.length} shares for expense $expenseId');
+    }, (error) => log.w('Failed to sync shares for $expenseId: $error'));
   }
 
   /// Tier 3: One-time fetch for inactive group with new activity
   Future<void> _fetchGroupExpenses(String groupId) async {
     log.i('📦 Fetching expenses for inactive group: $groupId');
     final result = await _expenseService.downloadGroupExpenses(groupId);
-    result.fold(
-      (expenses) async {
-        for (final expense in expenses) {
-          await _database.upsertExpenseFromSync(expense);
-          await _syncExpenseShares(groupId, expense.id);
-        }
-        log.i('Fetched ${expenses.length} expenses for group $groupId');
-      },
-      (error) => log.w('Failed to fetch expenses for $groupId: $error'),
-    );
+    result.fold((expenses) async {
+      for (final expense in expenses) {
+        await _database.expensesDao.upsertExpenseFromSync(expense);
+        await _syncExpenseShares(groupId, expense.id);
+      }
+      log.i('Fetched ${expenses.length} expenses for group $groupId');
+    }, (error) => log.w('Failed to fetch expenses for $groupId: $error'));
   }
 
   /// Get current listener status (for debugging)

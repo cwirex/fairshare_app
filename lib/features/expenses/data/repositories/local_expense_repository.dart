@@ -1,8 +1,7 @@
-import 'package:result_dart/result_dart.dart';
-
 import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 import 'package:fairshare_app/features/expenses/domain/repositories/expense_repository.dart';
+import 'package:result_dart/result_dart.dart';
 
 /// Local implementation of ExpenseRepository using Drift database.
 class LocalExpenseRepository implements ExpenseRepository {
@@ -14,10 +13,10 @@ class LocalExpenseRepository implements ExpenseRepository {
   Future<Result<ExpenseEntity>> createExpense(ExpenseEntity expense) async {
     try {
       await _database.transaction(() async {
-        await _database.insertExpense(expense);
+        await _database.expensesDao.insertExpense(expense);
 
         // All expenses are synced (personal group expenses too - for backup)
-        await _database.enqueueOperation(
+        await _database.syncDao.enqueueOperation(
           entityType: 'expense',
           entityId: expense.id,
           operationType: 'create',
@@ -32,7 +31,7 @@ class LocalExpenseRepository implements ExpenseRepository {
   @override
   Future<Result<ExpenseEntity>> getExpenseById(String id) async {
     try {
-      final expense = await _database.getExpenseById(id);
+      final expense = await _database.expensesDao.getExpenseById(id);
       if (expense == null) {
         return Failure(Exception('Expense not found: $id'));
       }
@@ -45,7 +44,7 @@ class LocalExpenseRepository implements ExpenseRepository {
   @override
   Future<Result<List<ExpenseEntity>>> getExpensesByGroup(String groupId) async {
     try {
-      final expenses = await _database.getExpensesByGroup(groupId);
+      final expenses = await _database.expensesDao.getExpensesByGroup(groupId);
       return Success(expenses);
     } catch (e) {
       return Failure(Exception('Failed to get expenses by group: $e'));
@@ -55,7 +54,7 @@ class LocalExpenseRepository implements ExpenseRepository {
   @override
   Future<Result<List<ExpenseEntity>>> getAllExpenses() async {
     try {
-      final expenses = await _database.getAllExpenses();
+      final expenses = await _database.expensesDao.getAllExpenses();
       return Success(expenses);
     } catch (e) {
       return Failure(Exception('Failed to get all expenses: $e'));
@@ -66,10 +65,10 @@ class LocalExpenseRepository implements ExpenseRepository {
   Future<Result<ExpenseEntity>> updateExpense(ExpenseEntity expense) async {
     try {
       await _database.transaction(() async {
-        await _database.updateExpense(expense);
+        await _database.expensesDao.updateExpense(expense);
 
         // All expenses are synced (personal group expenses too - for backup)
-        await _database.enqueueOperation(
+        await _database.syncDao.enqueueOperation(
           entityType: 'expense',
           entityId: expense.id,
           operationType: 'update',
@@ -86,18 +85,19 @@ class LocalExpenseRepository implements ExpenseRepository {
     try {
       await _database.transaction(() async {
         // Get expense to retrieve groupId before deleting
-        final expense = await _database.getExpenseById(id);
-        final metadata = expense != null ? '{"groupId":"${expense.groupId}"}' : null;
+        final expense = await _database.expensesDao.getExpenseById(id);
+        final metadata =
+            expense != null ? '{"groupId":"${expense.groupId}"}' : null;
 
         // All expenses are synced (personal group expenses too - for backup)
-        await _database.enqueueOperation(
+        await _database.syncDao.enqueueOperation(
           entityType: 'expense',
           entityId: id,
           operationType: 'delete',
           metadata: metadata,
         );
 
-        await _database.deleteExpense(id);
+        await _database.expensesDao.deleteExpense(id);
       });
       return Success.unit();
     } catch (e) {
@@ -107,11 +107,11 @@ class LocalExpenseRepository implements ExpenseRepository {
 
   @override
   Stream<List<ExpenseEntity>> watchExpensesByGroup(String groupId) {
-    return _database.watchExpensesByGroup(groupId);
+    return _database.expensesDao.watchExpensesByGroup(groupId);
   }
 
   @override
   Stream<List<ExpenseEntity>> watchAllExpenses() {
-    return _database.watchAllExpenses();
+    return _database.expensesDao.watchAllExpenses();
   }
 }

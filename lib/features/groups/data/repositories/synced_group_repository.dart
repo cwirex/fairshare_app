@@ -21,9 +21,9 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   Future<Result<GroupEntity>> createGroup(GroupEntity group) async {
     try {
       // Atomic transaction: DB write + Queue entry (all or nothing)
-      await _database.transaction(() async {
-        await _database.insertGroup(group);
-        await _database.enqueueOperation(
+      await _database.transaction<void>(() async {
+        await _database.groupsDao.insertGroup(group);
+        await _database.syncDao.enqueueOperation(
           entityType: 'group',
           entityId: group.id,
           operationType: 'create',
@@ -41,7 +41,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   @override
   Future<Result<GroupEntity>> getGroupById(String id) async {
     try {
-      final group = await _database.getGroupById(id);
+      final group = await _database.groupsDao.getGroupById(id);
       if (group != null) {
         return Success(group);
       }
@@ -55,7 +55,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   @override
   Future<Result<List<GroupEntity>>> getAllGroups() async {
     try {
-      final groups = await _database.getAllGroups();
+      final groups = await _database.groupsDao.getAllGroups();
       return Success(groups);
     } catch (e) {
       log.e('Failed to get all groups: $e');
@@ -67,9 +67,9 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   Future<Result<GroupEntity>> updateGroup(GroupEntity group) async {
     try {
       // Atomic transaction: DB update + Queue entry
-      await _database.transaction(() async {
-        await _database.updateGroup(group);
-        await _database.enqueueOperation(
+      await _database.transaction<void>(() async {
+        await _database.groupsDao.updateGroup(group);
+        await _database.syncDao.enqueueOperation(
           entityType: 'group',
           entityId: group.id,
           operationType: 'update',
@@ -88,9 +88,9 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   Future<Result<void>> deleteGroup(String id) async {
     try {
       // Atomic transaction: Soft delete + Queue entry
-      await _database.transaction(() async {
-        await _database.softDeleteGroup(id);
-        await _database.enqueueOperation(
+      await _database.transaction<void>(() async {
+        await _database.groupsDao.softDeleteGroup(id);
+        await _database.syncDao.enqueueOperation(
           entityType: 'group',
           entityId: id,
           operationType: 'delete',
@@ -109,9 +109,9 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   Future<Result<void>> addMember(GroupMemberEntity member) async {
     try {
       // Atomic transaction: Add member + Queue entry
-      await _database.transaction(() async {
-        await _database.addGroupMember(member);
-        await _database.enqueueOperation(
+      await _database.transaction<void>(() async {
+        await _database.groupsDao.addGroupMember(member);
+        await _database.syncDao.enqueueOperation(
           entityType: 'group_member',
           entityId: '${member.groupId}_${member.userId}',
           operationType: 'create',
@@ -131,9 +131,9 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   Future<Result<void>> removeMember(String groupId, String userId) async {
     try {
       // Atomic transaction: Remove member + Queue entry
-      await _database.transaction(() async {
-        await _database.removeGroupMember(groupId, userId);
-        await _database.enqueueOperation(
+      await _database.transaction<void>(() async {
+        await _database.groupsDao.removeGroupMember(groupId, userId);
+        await _database.syncDao.enqueueOperation(
           entityType: 'group_member',
           entityId: '${groupId}_$userId',
           operationType: 'delete',
@@ -152,7 +152,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   @override
   Future<Result<List<GroupEntity>>> getUserGroups(String userId) async {
     try {
-      final groups = await _database.getUserGroups(userId);
+      final groups = await _database.groupsDao.getUserGroups(userId);
       return Success(groups);
     } catch (e) {
       log.e('Failed to get user groups: $e');
@@ -162,18 +162,18 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
 
   @override
   Stream<List<GroupEntity>> watchUserGroups(String userId) {
-    return _database.watchUserGroups(userId);
+    return _database.groupsDao.watchUserGroups(userId);
   }
 
   @override
   Stream<List<GroupEntity>> watchAllGroups() {
-    return _database.watchAllGroups();
+    return _database.groupsDao.watchAllGroups();
   }
 
   @override
   Future<Result<List<String>>> getGroupMembers(String groupId) async {
     try {
-      final members = await _database.getGroupMembers(groupId);
+      final members = await _database.groupsDao.getGroupMembers(groupId);
       return Success(members);
     } catch (e) {
       log.e('Failed to get group members: $e');
@@ -182,7 +182,10 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   }
 
   @override
-  Future<Result<GroupEntity>> joinGroupByCode(String code, String userId) async {
+  Future<Result<GroupEntity>> joinGroupByCode(
+    String code,
+    String userId,
+  ) async {
     try {
       // This is a special case - we need to fetch from Firestore first
       // This will be handled by a separate service, not the repository

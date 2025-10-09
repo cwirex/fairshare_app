@@ -22,14 +22,14 @@ class UploadQueueService with LoggerMixin {
     required FirestoreExpenseService expenseService,
     required FirestoreGroupService groupService,
     required FirebaseFirestore firestore,
-  })  : _database = database,
-        _expenseService = expenseService,
-        _groupService = groupService,
-        _firestore = firestore;
+  }) : _database = database,
+       _expenseService = expenseService,
+       _groupService = groupService,
+       _firestore = firestore;
 
   /// Process all pending operations in the queue
   Future<UploadQueueResult> processQueue() async {
-    final operations = await _database.getPendingOperations(
+    final operations = await _database.syncDao.getPendingOperations(
       limit: FeatureFlags.uploadBatchSize,
     );
 
@@ -59,20 +59,20 @@ class UploadQueueService with LoggerMixin {
 
       try {
         await _processOperation(operation);
-        await _database.removeQueuedOperation(operation.id);
+        await _database.syncDao.removeQueuedOperation(operation.id);
         successCount++;
         SyncMetrics.instance.recordSyncSuccess();
       } catch (e) {
         log.e(
           'Operation failed: ${operation.entityType}/${operation.entityId}: $e',
         );
-        await _database.markOperationFailed(operation.id, e.toString());
+        await _database.syncDao.markOperationFailed(operation.id, e.toString());
         failureCount++;
         SyncMetrics.instance.recordSyncError('upload_${operation.entityType}');
       }
     }
 
-    final remaining = await _database.getPendingOperationCount();
+    final remaining = await _database.syncDao.getPendingOperationCount();
     SyncMetrics.instance.updateQueueDepth(remaining);
 
     log.i('✅ Queue processed: $successCount succeeded, $failureCount failed');
@@ -113,37 +113,40 @@ class UploadQueueService with LoggerMixin {
     switch (operation.operationType) {
       case 'create':
       case 'update':
-        final expense = await _database.getExpenseById(operation.entityId);
+        final expense = await _database.expensesDao.getExpenseById(
+          operation.entityId,
+        );
         if (expense == null) {
           throw Exception('Expense not found: ${operation.entityId}');
         }
 
         // Upload to Firestore (server timestamp added by service)
         final uploadResult = await _expenseService.uploadExpense(expense);
-        uploadResult.fold(
-          (_) => null,
-          (error) => throw error,
-        );
+        uploadResult.fold((_) => null, (error) => throw error);
 
         // Fetch server timestamp and update local DB
-        final doc = await _firestore
-            .collection('groups')
-            .doc(expense.groupId)
-            .collection('expenses')
-            .doc(expense.id)
-            .get();
+        final doc =
+            await _firestore
+                .collection('groups')
+                .doc(expense.groupId)
+                .collection('expenses')
+                .doc(expense.id)
+                .get();
 
         if (doc.exists) {
           final data = doc.data()!;
           final serverTimestamp = (data['updatedAt'] as Timestamp).toDate();
-          await _database.updateExpenseTimestamp(expense.id, serverTimestamp);
+          await _database.expensesDao.updateExpenseTimestamp(
+            expense.id,
+            serverTimestamp,
+          );
           log.d('Updated expense timestamp from server: ${expense.id}');
         }
         break;
 
       case 'delete':
         // Get expense with deleted flag to retrieve groupId
-        final expense = await _database.getExpenseById(
+        final expense = await _database.expensesDao.getExpenseById(
           operation.entityId,
           includeDeleted: true,
         );
@@ -156,13 +159,10 @@ class UploadQueueService with LoggerMixin {
           expense.groupId,
           operation.entityId,
         );
-        deleteResult.fold(
-          (_) => null,
-          (error) => throw error,
-        );
+        deleteResult.fold((_) => null, (error) => throw error);
 
         // Hard delete from local DB after successful Firestore deletion
-        await _database.hardDeleteExpense(operation.entityId);
+        await _database.expensesDao.hardDeleteExpense(operation.entityId);
         log.d('Hard deleted expense: ${operation.entityId}');
         break;
 
@@ -176,42 +176,40 @@ class UploadQueueService with LoggerMixin {
     switch (operation.operationType) {
       case 'create':
       case 'update':
-        final group = await _database.getGroupById(operation.entityId);
+        final group = await _database.groupsDao.getGroupById(
+          operation.entityId,
+        );
         if (group == null) {
           throw Exception('Group not found: ${operation.entityId}');
         }
 
         // Upload to Firestore (server timestamp added by service)
         final uploadResult = await _groupService.uploadGroup(group);
-        uploadResult.fold(
-          (_) => null,
-          (error) => throw error,
-        );
+        uploadResult.fold((_) => null, (error) => throw error);
 
         // Fetch server timestamp and update local DB
-        final doc = await _firestore
-            .collection('groups')
-            .doc(group.id)
-            .get();
+        final doc = await _firestore.collection('groups').doc(group.id).get();
 
         if (doc.exists) {
           final data = doc.data()!;
           final serverTimestamp = (data['updatedAt'] as Timestamp).toDate();
-          await _database.updateGroupTimestamp(group.id, serverTimestamp);
+          await _database.groupsDao.updateGroupTimestamp(
+            group.id,
+            serverTimestamp,
+          );
           log.d('Updated group timestamp from server: ${group.id}');
         }
         break;
 
       case 'delete':
         // Delete from Firestore
-        final deleteResult = await _groupService.deleteGroup(operation.entityId);
-        deleteResult.fold(
-          (_) => null,
-          (error) => throw error,
+        final deleteResult = await _groupService.deleteGroup(
+          operation.entityId,
         );
+        deleteResult.fold((_) => null, (error) => throw error);
 
         // Hard delete from local DB after successful Firestore deletion
-        await _database.hardDeleteGroup(operation.entityId);
+        await _database.groupsDao.hardDeleteGroup(operation.entityId);
         log.d('Hard deleted group: ${operation.entityId}');
         break;
 
@@ -225,7 +223,9 @@ class UploadQueueService with LoggerMixin {
     // entityId format: "groupId_userId"
     final parts = operation.entityId.split('_');
     if (parts.length != 2) {
-      throw Exception('Invalid group member entityId format: ${operation.entityId}');
+      throw Exception(
+        'Invalid group member entityId format: ${operation.entityId}',
+      );
     }
 
     final groupId = parts[0];
@@ -234,26 +234,21 @@ class UploadQueueService with LoggerMixin {
     switch (operation.operationType) {
       case 'create':
         // Get the member from local DB
-        final members = await _database.getAllGroupMembers(groupId);
+        final members = await _database.groupsDao.getAllGroupMembers(groupId);
         final member = members.firstWhere(
           (m) => m.userId == userId,
-          orElse: () => throw Exception('Group member not found: $groupId/$userId'),
+          orElse:
+              () => throw Exception('Group member not found: $groupId/$userId'),
         );
 
         // Upload to Firestore
         final result = await _groupService.uploadGroupMember(member);
-        result.fold(
-          (_) => null,
-          (error) => throw error,
-        );
+        result.fold((_) => null, (error) => throw error);
         break;
 
       case 'delete':
         final result = await _groupService.removeGroupMember(groupId, userId);
-        result.fold(
-          (_) => null,
-          (error) => throw error,
-        );
+        result.fold((_) => null, (error) => throw error);
         break;
 
       default:
@@ -266,7 +261,9 @@ class UploadQueueService with LoggerMixin {
     // entityId format: "expenseId_userId"
     final parts = operation.entityId.split('_');
     if (parts.length != 2) {
-      throw Exception('Invalid expense share entityId format: ${operation.entityId}');
+      throw Exception(
+        'Invalid expense share entityId format: ${operation.entityId}',
+      );
     }
 
     final expenseId = parts[0];
@@ -275,18 +272,21 @@ class UploadQueueService with LoggerMixin {
     switch (operation.operationType) {
       case 'create':
         // Get the share from local DB
-        final shares = await _database.getExpenseShares(expenseId);
+        final shares = await _database.expenseSharesDao.getExpenseShares(
+          expenseId,
+        );
         final share = shares.firstWhere(
           (s) => s.userId == userId,
-          orElse: () => throw Exception('Expense share not found: $expenseId/$userId'),
+          orElse:
+              () =>
+                  throw Exception(
+                    'Expense share not found: $expenseId/$userId',
+                  ),
         );
 
         // Upload to Firestore
         final result = await _expenseService.uploadExpenseShare(share);
-        result.fold(
-          (_) => null,
-          (error) => throw error,
-        );
+        result.fold((_) => null, (error) => throw error);
         break;
 
       default:
@@ -296,7 +296,7 @@ class UploadQueueService with LoggerMixin {
 
   /// Get count of pending operations
   Future<int> getPendingCount() async {
-    return _database.getPendingOperationCount();
+    return _database.syncDao.getPendingOperationCount();
   }
 }
 
