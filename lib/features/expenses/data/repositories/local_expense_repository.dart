@@ -10,99 +10,75 @@ class LocalExpenseRepository implements ExpenseRepository {
   LocalExpenseRepository(this._database);
 
   @override
-  Future<Result<ExpenseEntity>> createExpense(ExpenseEntity expense) async {
-    try {
-      await _database.transaction(() async {
-        await _database.expensesDao.insertExpense(expense);
-
-        // All expenses are synced (personal group expenses too - for backup)
-        await _database.syncDao.enqueueOperation(
-          entityType: 'expense',
-          entityId: expense.id,
-          operationType: 'create',
-        );
-      });
-      return Success(expense);
-    } catch (e) {
-      return Failure(Exception('Failed to create expense: $e'));
-    }
+  Future<ExpenseEntity> createExpense(ExpenseEntity expense) async {
+    // Atomic transaction: DB insert + Queue entry
+    await _database.transaction(() async {
+      await _database.expensesDao.insertExpense(expense);
+      // All expenses are synced (personal group expenses too - for backup)
+      await _database.syncDao.enqueueOperation(
+        entityType: 'expense',
+        entityId: expense.id,
+        operationType: 'create',
+      );
+    });
+    return expense;
   }
 
   @override
-  Future<Result<ExpenseEntity>> getExpenseById(String id) async {
-    try {
+  Future<ExpenseEntity> getExpenseById(String id) async {
+    final expense = await _database.expensesDao.getExpenseById(id);
+    if (expense == null) {
+      throw Failure(Exception('Expense not found: $id'));
+    }
+    return expense;
+  }
+
+  @override
+  Future<List<ExpenseEntity>> getExpensesByGroup(String groupId) async {
+    final expenses = await _database.expensesDao.getExpensesByGroup(groupId);
+    return expenses;
+  }
+
+  @override
+  Future<List<ExpenseEntity>> getAllExpenses() async {
+    final expenses = await _database.expensesDao.getAllExpenses();
+    return expenses;
+  }
+
+  @override
+  Future<ExpenseEntity> updateExpense(ExpenseEntity expense) async {
+    await _database.transaction(() async {
+      await _database.expensesDao.updateExpense(expense);
+
+      // All expenses are synced (personal group expenses too - for backup)
+      await _database.syncDao.enqueueOperation(
+        entityType: 'expense',
+        entityId: expense.id,
+        operationType: 'update',
+      );
+    });
+    return expense;
+  }
+
+  @override
+  Future<void> deleteExpense(String id) async {
+    await _database.transaction(() async {
+      // Get expense to retrieve groupId before deleting
       final expense = await _database.expensesDao.getExpenseById(id);
-      if (expense == null) {
-        return Failure(Exception('Expense not found: $id'));
-      }
-      return Success(expense);
-    } catch (e) {
-      return Failure(Exception('Failed to get expense: $e'));
-    }
-  }
+      final metadata =
+          expense != null ? '{"groupId":"${expense.groupId}"}' : null;
 
-  @override
-  Future<Result<List<ExpenseEntity>>> getExpensesByGroup(String groupId) async {
-    try {
-      final expenses = await _database.expensesDao.getExpensesByGroup(groupId);
-      return Success(expenses);
-    } catch (e) {
-      return Failure(Exception('Failed to get expenses by group: $e'));
-    }
-  }
+      // All expenses are synced (personal group expenses too - for backup)
+      await _database.syncDao.enqueueOperation(
+        entityType: 'expense',
+        entityId: id,
+        operationType: 'delete',
+        metadata: metadata,
+      );
 
-  @override
-  Future<Result<List<ExpenseEntity>>> getAllExpenses() async {
-    try {
-      final expenses = await _database.expensesDao.getAllExpenses();
-      return Success(expenses);
-    } catch (e) {
-      return Failure(Exception('Failed to get all expenses: $e'));
-    }
-  }
-
-  @override
-  Future<Result<ExpenseEntity>> updateExpense(ExpenseEntity expense) async {
-    try {
-      await _database.transaction(() async {
-        await _database.expensesDao.updateExpense(expense);
-
-        // All expenses are synced (personal group expenses too - for backup)
-        await _database.syncDao.enqueueOperation(
-          entityType: 'expense',
-          entityId: expense.id,
-          operationType: 'update',
-        );
-      });
-      return Success(expense);
-    } catch (e) {
-      return Failure(Exception('Failed to update expense: $e'));
-    }
-  }
-
-  @override
-  Future<Result<void>> deleteExpense(String id) async {
-    try {
-      await _database.transaction(() async {
-        // Get expense to retrieve groupId before deleting
-        final expense = await _database.expensesDao.getExpenseById(id);
-        final metadata =
-            expense != null ? '{"groupId":"${expense.groupId}"}' : null;
-
-        // All expenses are synced (personal group expenses too - for backup)
-        await _database.syncDao.enqueueOperation(
-          entityType: 'expense',
-          entityId: id,
-          operationType: 'delete',
-          metadata: metadata,
-        );
-
-        await _database.expensesDao.deleteExpense(id);
-      });
-      return Success.unit();
-    } catch (e) {
-      return Failure(Exception('Failed to delete expense: $e'));
-    }
+      await _database.expensesDao.deleteExpense(id);
+    });
+    return Future.value();
   }
 
   @override

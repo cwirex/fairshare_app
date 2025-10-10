@@ -1,6 +1,7 @@
 import 'package:fairshare_app/core/sync/sync_providers.dart';
 import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -10,17 +11,14 @@ part 'expense_providers.g.dart';
 
 /// Provider to watch all expenses
 @riverpod
-Stream<List<ExpenseEntity>> allExpenses(AllExpensesRef ref) {
+Stream<List<ExpenseEntity>> allExpenses(Ref ref) {
   final repository = ref.watch(expenseRepositoryProvider);
   return repository.watchAllExpenses();
 }
 
 /// Provider to watch expenses for a specific group
 @riverpod
-Stream<List<ExpenseEntity>> expensesByGroup(
-  ExpensesByGroupRef ref,
-  String groupId,
-) {
+Stream<List<ExpenseEntity>> expensesByGroup(Ref ref, String groupId) {
   final repository = ref.watch(expenseRepositoryProvider);
   return repository.watchExpensesByGroup(groupId);
 }

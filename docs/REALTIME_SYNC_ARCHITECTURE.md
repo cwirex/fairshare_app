@@ -1,29 +1,608 @@
 # FairShare Real-Time Sync Architecture
 
-**Version:** 2.1
-**Status:** Design Proposal - Team Reviewed
-**Last Updated:** 2025-10-09
+**Version:** 2.2
+**Status:** Design Proposal - Use Case & Event-Driven Refinement
+**Last Updated:** 2025-10-10
 **Author:** Development Team
-**Review Status:** ✅ Approved with Refinements
+**Review Status:** ✅ Approved with Architectural Enhancements
 
 ---
 
 ## Table of Contents
 
-1. [Team Review Decisions](#team-review-decisions)
-2. [Executive Summary](#executive-summary)
-3. [Architecture Principles](#architecture-principles)
-4. [Clean Architecture Layers](#clean-architecture-layers)
-5. [Design Patterns](#design-patterns)
-6. [Component Architecture](#component-architecture)
-7. [Data Flow](#data-flow)
-8. [Real-Time Sync Mechanism](#real-time-sync-mechanism)
-9. [Conflict Resolution](#conflict-resolution)
-10. [Implementation Plan](#implementation-plan)
-11. [Migration from Current Architecture](#migration-from-current-architecture)
-12. [Testing Strategy](#testing-strategy)
-13. [Performance Considerations](#performance-considerations)
-14. [Security Considerations](#security-considerations)
+1. [Architectural Enhancements (v2.2)](#architectural-enhancements-v22)
+2. [Team Review Decisions](#team-review-decisions)
+3. [Executive Summary](#executive-summary)
+4. [Architecture Principles](#architecture-principles)
+5. [Clean Architecture Layers](#clean-architecture-layers)
+6. [Design Patterns](#design-patterns)
+7. [Component Architecture](#component-architecture)
+8. [Data Flow](#data-flow)
+9. [Real-Time Sync Mechanism](#real-time-sync-mechanism)
+10. [Conflict Resolution](#conflict-resolution)
+11. [Implementation Plan](#implementation-plan)
+12. [Migration from Current Architecture](#migration-from-current-architecture)
+13. [Testing Strategy](#testing-strategy)
+14. [Performance Considerations](#performance-considerations)
+15. [Security Considerations](#security-considerations)
+
+---
+
+## Architectural Enhancements (v2.2)
+
+### Overview: Use Cases and Event-Driven State
+
+Version 2.2 introduces two key architectural refinements to enhance separation of concerns, improve testability, and simplify state management:
+
+1. **Use Case (Interactor) Layer**: Formal business logic layer between Presentation and Data
+2. **Command/Event Pattern**: Clear separation between actions (commands) and reactions (events)
+
+These changes build upon the existing Clean Architecture foundation and integrate seamlessly with the realtime sync implementation.
+
+---
+
+### 1. The Use Case (Interactor) Layer
+
+**Position in Architecture:**
+
+```
+┌─────────────────────────────────────────┐
+│      Presentation Layer                  │
+│      (Widgets, Providers)                │
+└──────────────┬──────────────────────────┘
+               │ Issues Commands
+               ↓
+┌─────────────────────────────────────────┐
+│      Domain Layer                        │
+│  ┌─────────────────────────────────┐   │
+│  │   Use Cases (NEW)               │   │
+│  │   • CreateExpenseUseCase        │   │
+│  │   • UpdateGroupUseCase          │   │
+│  │   • DeleteExpenseUseCase        │   │
+│  └──────────────┬──────────────────┘   │
+│                 │                        │
+│  ┌──────────────▼──────────────────┐   │
+│  │   Repository Interfaces          │   │
+│  │   • ExpenseRepository            │   │
+│  │   • GroupRepository              │   │
+│  └─────────────────────────────────┘   │
+└─────────────────────────────────────────┘
+               ↑ Implemented by
+┌──────────────┴──────────────────────────┐
+│      Data Layer                          │
+│  ┌─────────────────────────────────┐   │
+│  │   Repository Implementations     │   │
+│  │   • SyncedExpenseRepository     │   │
+│  │   • SyncedGroupRepository       │   │
+│  └─────────────────────────────────┘   │
+└─────────────────────────────────────────┘
+```
+
+**Purpose:**
+
+A Use Case encapsulates a single, specific business operation. It orchestrates the flow of data and business logic required to perform an action initiated by the user.
+
+**Responsibilities:**
+
+- Contains high-level business logic for a specific user action
+- Depends on Repository *interfaces* from the Domain Layer
+- Is called directly by the Presentation Layer (Providers/Notifiers)
+- Coordinates with one or more repositories to fulfill its task
+- **Handles ALL validation and error wrapping** (returns `Result<T>`)
+- Maintains clean separation: no UI concerns, no infrastructure details
+
+**Error Handling Pattern:**
+
+Our architecture follows a clear separation of concerns for error handling:
+
+- **Use Cases**: Handle validation and wrap ALL errors in `Result<T>`
+  - Validate input before calling repositories
+  - Wrap repository calls in try-catch blocks
+  - Return `Success<T>` or `Failure<Exception>`
+  - Provide logging via inherited `LoggerMixin`
+
+- **Repositories**: Focus solely on data operations and throw exceptions
+  - No `Result<T>` wrapping in repository methods
+  - Throw exceptions directly on errors
+  - Keep repository interfaces and implementations clean
+
+This pattern ensures:
+- ✅ **Single Responsibility**: Repositories do data operations, Use Cases handle business logic
+- ✅ **Clean Interfaces**: Repository methods have simple return types (no Result wrapping)
+- ✅ **Consistent Error Handling**: All errors flow through Use Cases uniformly
+
+**Benefits:**
+
+- ✅ **High Cohesion**: Each use case has one clear purpose
+- ✅ **Single Responsibility**: Logic for creating an expense lives in `CreateExpenseUseCase`
+- ✅ **Testability**: Can be tested in complete isolation with mocked repositories
+- ✅ **Reusability**: Same use case can be called from multiple UI contexts
+- ✅ **Maintainability**: Changes to business logic are localized to one place
+
+**Example: Creating an Expense**
+
+**Before (Current v2.1):**
+```dart
+// Provider calls repository directly
+final repository = ref.read(expenseRepositoryProvider);
+final result = await repository.createExpense(newExpense);
+```
+
+**After (With Use Case v2.2):**
+```dart
+// Step 0: Base Use Case with logging (Core Layer)
+// lib/core/domain/use_case.dart
+abstract class UseCase<Input, Output extends Object> with LoggerMixin {
+  Future<Result<Output>> call(Input input);
+}
+
+// Step 1: Define the Use Case (Domain Layer)
+// lib/features/expenses/domain/use_cases/create_expense_use_case.dart
+class CreateExpenseUseCase extends UseCase<ExpenseEntity, ExpenseEntity> {
+  final ExpenseRepository _repository;
+
+  CreateExpenseUseCase(this._repository);
+
+  @override
+  Future<Result<ExpenseEntity>> call(ExpenseEntity expense) async {
+    log.d('Creating expense: $expense');
+
+    // Validate business rules
+    if (expense.amount <= 0) {
+      return Failure(Exception('Amount must be greater than zero'));
+    }
+    if (expense.title.trim().isEmpty) {
+      return Failure(Exception('Title is required'));
+    }
+    if (expense.groupId.trim().isEmpty) {
+      return Failure(Exception('Group is required'));
+    }
+
+    // Execute and handle repository errors
+    try {
+      final result = await _repository.createExpense(expense);
+      return Success(result);
+    } catch (e) {
+      log.e('Error creating expense: $e');
+      return Failure(Exception('Failed to create expense'));
+    }
+  }
+}
+
+// Step 2: Repository Interface (Domain Layer)
+// lib/features/expenses/domain/repositories/expense_repository.dart
+abstract class ExpenseRepository {
+  Future<ExpenseEntity> createExpense(ExpenseEntity expense); // Throws, no Result<T>
+  Future<ExpenseEntity> getExpenseById(String id);
+  Future<List<ExpenseEntity>> getExpensesByGroup(String groupId);
+  // ... other methods
+}
+
+// Step 3: Repository Implementation (Data Layer)
+// lib/features/expenses/data/repositories/synced_expense_repository.dart
+class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
+  final AppDatabase _database;
+
+  SyncedExpenseRepository(this._database);
+
+  @override
+  Future<ExpenseEntity> createExpense(ExpenseEntity expense) async {
+    // Atomic transaction: DB insert + Queue entry
+    await _database.transaction<void>(() async {
+      await _database.expensesDao.insertExpense(expense);
+      await _database.syncDao.enqueueOperation(
+        entityType: 'expense',
+        entityId: expense.id,
+        operationType: 'create',
+        metadata: expense.groupId,
+      );
+    });
+    log.d('Created expense: ${expense.title}');
+    return expense; // Throws on error, no Result<T> wrapping
+  }
+
+  @override
+  Future<ExpenseEntity> getExpenseById(String id) async {
+    final expense = await _database.expensesDao.getExpenseById(id);
+    if (expense == null) {
+      throw Failure(Exception('Expense not found: $id'));
+    }
+    return expense;
+  }
+}
+
+// Step 3: Provider uses Use Case
+// lib/features/expenses/presentation/providers/expense_providers.dart
+class ExpenseNotifier extends _$ExpenseNotifier {
+  Future<void> createExpense(ExpenseEntity expense) async {
+    state = const AsyncLoading();
+
+    final useCase = ref.read(createExpenseUseCaseProvider);
+    final result = await useCase.call(expense);
+
+    result.fold(
+      (success) => state = const AsyncData(null),
+      (error) => state = AsyncError(error, StackTrace.current),
+    );
+  }
+}
+```
+
+**File Structure for Use Cases:**
+
+```
+lib/features/expenses/domain/
+├── entities/
+│   ├── expense_entity.dart
+│   └── expense_share_entity.dart
+├── repositories/
+│   └── expense_repository.dart
+└── use_cases/                    # NEW
+    ├── create_expense_use_case.dart
+    ├── update_expense_use_case.dart
+    ├── delete_expense_use_case.dart
+    ├── get_expense_use_case.dart
+    └── get_expenses_by_group_use_case.dart
+```
+
+---
+
+### 2. The Command and Event Pattern
+
+**Concept:**
+
+Separate the act of *initiating* an action (Command) from *reacting* to its outcome (Event).
+
+- **Command**: An instruction to perform an action. Use Cases are command handlers.
+- **Event**: A notification that something has happened. Broadcast after successful command execution.
+
+**Benefits:**
+
+- ✅ **Decoupling**: Components don't need to know about each other
+- ✅ **Reactive State**: Multiple parts of the app can react to the same event
+- ✅ **Testability**: Can verify events are fired without testing entire flow
+- ✅ **Scalability**: Easy to add new event listeners without modifying existing code
+
+**Implementation with Event Broker:**
+
+We introduce a singleton **Event Broker** (Event Bus) using `StreamController.broadcast()`.
+
+**The Complete Flow:**
+
+```
+1. UI Issues COMMAND
+   ↓
+   Provider calls Use Case
+
+2. Use Case Executes
+   ↓
+   Use Case calls Repository
+
+3. Repository Performs Operation
+   ↓
+   Atomic transaction: Local DB + Queue
+
+4. Repository Fires EVENT
+   ↓
+   EventBroker.fire(ExpenseCreated(expense))
+
+5. Listeners REACT
+   ↓
+   Multiple providers update their state
+   Dashboard recalculates totals
+   Activity feed shows new entry
+   Notification badge updates
+```
+
+**Architecture Diagram:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Presentation Layer                        │
+│                                                               │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │  Dashboard   │  │  Expense     │  │  Activity    │      │
+│  │  Provider    │  │  Provider    │  │  Provider    │      │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
+│         │ Listens         │ Issues           │ Listens      │
+│         │ to Events       │ Commands         │ to Events    │
+└─────────┼─────────────────┼──────────────────┼──────────────┘
+          │                 │                  │
+          │        ┌────────▼────────┐        │
+          │        │   Use Case      │        │
+          │        │   (Command)     │        │
+          │        └────────┬────────┘        │
+          │                 │                  │
+          │        ┌────────▼────────┐        │
+          │        │   Repository    │        │
+          │        │   (Data Ops)    │        │
+          │        └────────┬────────┘        │
+          │                 │                  │
+          │                 │ Fires Event      │
+          │        ┌────────▼────────┐        │
+          └────────►  Event Broker   ◄────────┘
+                   │  (Broadcast)    │
+                   └─────────────────┘
+```
+
+**Implementation:**
+
+**Step 1: Define Events (Domain Layer)**
+
+```dart
+// lib/core/events/app_events.dart
+abstract class AppEvent {
+  final DateTime timestamp;
+  AppEvent() : timestamp = DateTime.now();
+}
+
+// Expense Events
+class ExpenseCreated extends AppEvent {
+  final ExpenseEntity expense;
+  ExpenseCreated(this.expense);
+}
+
+class ExpenseUpdated extends AppEvent {
+  final ExpenseEntity expense;
+  final ExpenseEntity? previousVersion;
+  ExpenseUpdated(this.expense, [this.previousVersion]);
+}
+
+class ExpenseDeleted extends AppEvent {
+  final String expenseId;
+  final String groupId;
+  ExpenseDeleted(this.expenseId, this.groupId);
+}
+
+// Group Events
+class GroupCreated extends AppEvent {
+  final GroupEntity group;
+  GroupCreated(this.group);
+}
+
+class GroupUpdated extends AppEvent {
+  final GroupEntity group;
+  GroupUpdated(this.group);
+}
+
+class MemberAdded extends AppEvent {
+  final GroupMemberEntity member;
+  MemberAdded(this.member);
+}
+```
+
+**Step 2: Event Broker (Core Infrastructure)**
+
+```dart
+// lib/core/events/event_broker.dart
+class EventBroker {
+  static final EventBroker _instance = EventBroker._internal();
+  factory EventBroker() => _instance;
+  EventBroker._internal();
+
+  final _controller = StreamController<AppEvent>.broadcast();
+
+  /// Stream of all events
+  Stream<AppEvent> get stream => _controller.stream;
+
+  /// Fire an event to all listeners
+  void fire(AppEvent event) {
+    _controller.add(event);
+  }
+
+  /// Stream of specific event type
+  Stream<T> on<T extends AppEvent>() {
+    return stream.where((event) => event is T).cast<T>();
+  }
+
+  /// Dispose (call on app shutdown)
+  void dispose() {
+    _controller.close();
+  }
+}
+
+// Provider
+@Riverpod(keepAlive: true)
+EventBroker eventBroker(EventBrokerRef ref) {
+  final broker = EventBroker();
+  ref.onDispose(() => broker.dispose());
+  return broker;
+}
+```
+
+**Step 3: Repository Fires Events**
+
+```dart
+// lib/features/expenses/data/repositories/synced_expense_repository.dart
+class SyncedExpenseRepository implements ExpenseRepository {
+  final AppDatabase _database;
+  final EventBroker _eventBroker;
+
+  SyncedExpenseRepository(this._database, this._eventBroker);
+
+  @override
+  Future<ExpenseEntity> createExpense(ExpenseEntity expense) async {
+    await _database.transaction(() async {
+      await _database.expensesDao.insertExpense(expense);
+      await _database.syncDao.enqueueOperation(
+        entityType: 'expense',
+        entityId: expense.id,
+        operationType: 'create',
+        metadata: expense.groupId,
+      );
+    });
+
+    // Fire event after successful creation
+    _eventBroker.fire(ExpenseCreated(expense));
+
+    return expense; // Throws on error
+  }
+
+  @override
+  Future<ExpenseEntity> updateExpense(ExpenseEntity expense) async {
+    // Get previous version for event
+    final previous = await _database.expensesDao.getExpenseById(expense.id);
+
+    await _database.transaction(() async {
+      await _database.expensesDao.updateExpense(expense);
+      await _database.syncDao.enqueueOperation(
+        entityType: 'expense',
+        entityId: expense.id,
+        operationType: 'update',
+        metadata: expense.groupId,
+      );
+    });
+
+    // Fire event with previous version
+    _eventBroker.fire(ExpenseUpdated(expense, previous));
+
+    return expense; // Throws on error
+  }
+}
+```
+
+**Step 4: Providers Listen to Events**
+
+```dart
+// Example: Dashboard recalculates on expense changes
+@riverpod
+Stream<double> groupTotal(GroupTotalRef ref, String groupId) {
+  final eventBroker = ref.watch(eventBrokerProvider);
+  final repository = ref.watch(expenseRepositoryProvider);
+
+  // Listen for events that affect this group's total
+  return eventBroker.stream
+    .where((event) {
+      if (event is ExpenseCreated) return event.expense.groupId == groupId;
+      if (event is ExpenseUpdated) return event.expense.groupId == groupId;
+      if (event is ExpenseDeleted) return event.groupId == groupId;
+      return false;
+    })
+    .asyncMap((_) async {
+      // Recalculate total when relevant event fires
+      final expenses = await repository.getExpensesByGroup(groupId);
+      return expenses.fold(
+        (list) => list.fold(0.0, (sum, e) => sum + e.amount),
+        (_) => 0.0,
+      );
+    });
+}
+
+// Example: Activity feed shows all events
+@riverpod
+Stream<List<ActivityEntry>> activityFeed(ActivityFeedRef ref) {
+  final eventBroker = ref.watch(eventBrokerProvider);
+
+  return eventBroker.stream.map((event) {
+    if (event is ExpenseCreated) {
+      return ActivityEntry(
+        type: 'expense_created',
+        title: 'New expense: ${event.expense.title}',
+        timestamp: event.timestamp,
+      );
+    } else if (event is GroupCreated) {
+      return ActivityEntry(
+        type: 'group_created',
+        title: 'New group: ${event.group.displayName}',
+        timestamp: event.timestamp,
+      );
+    }
+    // ... handle other events
+  }).scan<List<ActivityEntry>>(
+    [],
+    (acc, entry, _) => [entry, ...acc].take(50).toList(),
+  );
+}
+```
+
+---
+
+### Integration with Realtime Sync
+
+The Command/Event pattern integrates seamlessly with the existing realtime sync architecture:
+
+**Local Changes (User Actions):**
+```
+User Action
+  ↓
+Use Case (Command)
+  ↓
+Repository (Atomic: DB + Queue)
+  ↓
+Event Broker fires event
+  ↓
+UI providers react immediately
+  ↓
+Upload Queue processes in background
+  ↓
+Firestore updated
+```
+
+**Remote Changes (Sync):**
+```
+Firestore snapshot event
+  ↓
+RealtimeSyncService receives change
+  ↓
+Database.upsertFromSync() (bypasses queue)
+  ↓
+Event Broker fires event
+  ↓
+UI providers react immediately
+```
+
+**Key: Sync operations also fire events!**
+
+```dart
+// lib/core/database/DAOs/expenses_dao.dart
+class ExpensesDao extends DatabaseAccessor<AppDatabase> {
+  final EventBroker _eventBroker;
+
+  ExpensesDao(AppDatabase db, this._eventBroker) : super(db);
+
+  /// Upsert from sync (bypasses queue, fires event)
+  Future<void> upsertExpenseFromSync(ExpenseEntity expense) async {
+    final existing = await getExpenseById(expense.id);
+
+    if (existing == null || expense.updatedAt.isAfter(existing.updatedAt)) {
+      await into(expenses).insertOnConflictUpdate(
+        expenseToDb(expense),
+      );
+
+      // Fire event so UI updates
+      if (existing == null) {
+        _eventBroker.fire(ExpenseCreated(expense));
+      } else {
+        _eventBroker.fire(ExpenseUpdated(expense, existing));
+      }
+    }
+  }
+}
+```
+
+This ensures that **both local and remote changes** trigger the same event flow, providing consistent reactive updates across the entire application.
+
+---
+
+### Summary of Architectural Benefits
+
+**With Use Cases:**
+- ✅ Clear business logic location
+- ✅ Testable in isolation
+- ✅ Reusable across UI contexts
+- ✅ Single Responsibility Principle enforced
+
+**With Command/Event Pattern:**
+- ✅ Decoupled components
+- ✅ Reactive state management
+- ✅ Scalable: easy to add new listeners
+- ✅ Consistent handling of local and remote changes
+
+**Integration with Sync:**
+- ✅ Works seamlessly with queue-based uploads
+- ✅ Works seamlessly with realtime listeners
+- ✅ Events fired for both local and synced changes
+- ✅ UI always stays in sync via reactive streams
 
 ---
 
@@ -214,23 +793,19 @@ await _database.enqueueOperation(/* ... */);  // Operation 2
 ```dart
 // ✅ AFTER: Single atomic transaction
 class SyncedExpenseRepository {
-  Future<Result<ExpenseEntity>> createExpense(ExpenseEntity expense) async {
-    try {
-      await _database.transaction(() async {
-        // Both operations succeed or both fail
-        await _database.insertExpense(expense);
-        await _database.enqueueOperation(
-          entityType: 'expense',
-          entityId: expense.id,
-          operationType: 'create',
-          metadata: expense.groupId,
-        );
-      });
+  Future<ExpenseEntity> createExpense(ExpenseEntity expense) async {
+    await _database.transaction(() async {
+      // Both operations succeed or both fail
+      await _database.insertExpense(expense);
+      await _database.enqueueOperation(
+        entityType: 'expense',
+        entityId: expense.id,
+        operationType: 'create',
+        metadata: expense.groupId,
+      );
+    });
 
-      return Success(expense);
-    } catch (e) {
-      return Failure(Exception('Failed to create expense: $e'));
-    }
+    return expense; // Throws on error
   }
 }
 ```
@@ -565,10 +1140,10 @@ class GroupEntity {
   // No database annotations, no JSON serialization
 }
 
-// Pure repository interface
+// Pure repository interface (throws exceptions)
 abstract class GroupRepository {
-  Future<Result<GroupEntity>> createGroup(GroupEntity group);
-  Future<Result<GroupEntity>> getGroupById(String id);
+  Future<GroupEntity> createGroup(GroupEntity group);
+  Future<GroupEntity> getGroupById(String id);
   Stream<List<GroupEntity>> watchUserGroups(String userId);
 }
 ```
@@ -607,7 +1182,7 @@ class SyncedGroupRepository implements GroupRepository {
     );
 
     // 3. Return immediately (offline-first)
-    return Success(group);
+    return group; // Throws on error
   }
 }
 ```
@@ -660,11 +1235,11 @@ class SyncedExpenseRepository implements ExpenseRepository {
   final AppDatabase _database;
 
   @override
-  Future<Result<ExpenseEntity>> createExpense(ExpenseEntity expense) async {
+  Future<ExpenseEntity> createExpense(ExpenseEntity expense) async {
     // Coordinate: Local DB + Upload Queue
     await _database.insertExpense(expense);
     await _database.enqueueOperation(/* ... */);
-    return Success(expense);
+    return expense; // Throws on error
   }
 }
 ```
@@ -1502,30 +2077,229 @@ Future<ExpenseEntity?> getExpenseById(String id, {bool includeDeleted = false}) 
 
 ## Implementation Plan
 
-### Phase 1: Database Updates (Week 1)
+### Overview: Phased Approach with v2.2 Enhancements
 
-**Goal:** Add sync-safe upsert methods and soft delete support
+The implementation is divided into phases that integrate both the realtime sync (v2.1) and Use Case/Event-Driven (v2.2) refinements. Each phase builds upon the previous one while maintaining backward compatibility.
 
-**Tasks:**
-1. Add `upsertGroupMemberFromSync()` method
-2. Add `includeDeleted` parameter to get methods
-3. Add `softDeleteExpense()` method
-4. Add `hardDeleteExpense()` method
-5. Update delete operations in repositories to use soft delete
-
-**Files:**
-- `lib/core/database/app_database.dart`
-- `lib/features/expenses/data/repositories/synced_expense_repository.dart`
-- `lib/features/groups/data/repositories/synced_group_repository.dart`
-
-**Testing:**
-- Unit tests for upsert methods
-- Test soft delete + hard delete flow
-- Test includeDeleted queries
+**Timeline:** 5-6 weeks total
+- **Weeks 1-2:** Core infrastructure (Events, Use Cases, Database)
+- **Weeks 3-4:** Repository refactoring and Provider updates
+- **Week 5:** Integration and testing
+- **Week 6:** Documentation and polish
 
 ---
 
-### Phase 2: Firestore Real-Time Streams (Week 1-2)
+### Phase 0: Event Infrastructure (Week 1)
+
+**Goal:** Create event broker and domain events foundation
+
+**Tasks:**
+1. Create `lib/core/events/app_events.dart` with base event classes
+2. Create `lib/core/events/event_broker.dart` with singleton implementation
+3. Define expense events: `ExpenseCreated`, `ExpenseUpdated`, `ExpenseDeleted`
+4. Define group events: `GroupCreated`, `GroupUpdated`, `MemberAdded`, `MemberRemoved`
+5. Create Riverpod provider for `EventBroker`
+6. Add unit tests for event broker
+
+**Files to Create:**
+- `lib/core/events/app_events.dart` (NEW)
+- `lib/core/events/event_broker.dart` (NEW)
+- `lib/core/events/event_providers.dart` (NEW)
+- `test/core/events/event_broker_test.dart` (NEW)
+
+**Testing:**
+- Test event broker fires events to multiple listeners
+- Test filtered event streams (`on<T>()` method)
+- Test event broker disposal
+
+**Example Event Classes:**
+```dart
+// lib/core/events/app_events.dart
+abstract class AppEvent {
+  final DateTime timestamp;
+  AppEvent() : timestamp = DateTime.now();
+}
+
+class ExpenseCreated extends AppEvent {
+  final ExpenseEntity expense;
+  ExpenseCreated(this.expense);
+}
+
+class ExpenseUpdated extends AppEvent {
+  final ExpenseEntity expense;
+  final ExpenseEntity? previousVersion;
+  ExpenseUpdated(this.expense, [this.previousVersion]);
+}
+
+class ExpenseDeleted extends AppEvent {
+  final String expenseId;
+  final String groupId;
+  ExpenseDeleted(this.expenseId, this.groupId);
+}
+```
+
+**Deliverables:**
+- ✅ Event broker infrastructure working
+- ✅ All domain events defined
+- ✅ Unit tests passing
+- ✅ Provider setup complete
+
+---
+
+### Phase 1: Use Case Layer (Week 1-2)
+
+**Goal:** Create Use Case layer in domain for expense and group operations
+
+**Tasks:**
+
+**Expense Use Cases:**
+1. Create `lib/features/expenses/domain/use_cases/create_expense_use_case.dart`
+2. Create `lib/features/expenses/domain/use_cases/update_expense_use_case.dart`
+3. Create `lib/features/expenses/domain/use_cases/delete_expense_use_case.dart`
+4. Create `lib/features/expenses/domain/use_cases/get_expense_use_case.dart`
+5. Create `lib/features/expenses/domain/use_cases/get_expenses_by_group_use_case.dart`
+
+**Group Use Cases:**
+6. Create `lib/features/groups/domain/use_cases/create_group_use_case.dart`
+7. Create `lib/features/groups/domain/use_cases/update_group_use_case.dart`
+8. Create `lib/features/groups/domain/use_cases/add_member_use_case.dart`
+9. Create `lib/features/groups/domain/use_cases/remove_member_use_case.dart`
+10. Create `lib/features/groups/domain/use_cases/join_group_by_code_use_case.dart`
+
+**Providers:**
+11. Create Riverpod providers for all use cases
+12. Add validation logic to use cases
+
+**Files to Create:**
+- `lib/features/expenses/domain/use_cases/*.dart` (5 files)
+- `lib/features/groups/domain/use_cases/*.dart` (5 files)
+- `lib/features/expenses/domain/use_cases/expense_use_case_providers.dart` (NEW)
+- `lib/features/groups/domain/use_cases/group_use_case_providers.dart` (NEW)
+
+**Testing:**
+- Unit tests for each use case
+- Test validation logic in isolation
+- Test use cases with mocked repositories
+
+**Example Use Case:**
+```dart
+// lib/features/expenses/domain/use_cases/create_expense_use_case.dart
+class CreateExpenseUseCase extends UseCase<ExpenseEntity, ExpenseEntity> {
+  final ExpenseRepository _repository;
+
+  CreateExpenseUseCase(this._repository);
+
+  @override
+  Future<Result<ExpenseEntity>> call(ExpenseEntity expense) async {
+    log.d('Creating expense: $expense');
+
+    // Business validation
+    if (expense.amount <= 0) {
+      return Failure(Exception('Amount must be greater than zero'));
+    }
+    if (expense.title.trim().isEmpty) {
+      return Failure(Exception('Title is required'));
+    }
+    if (expense.groupId.isEmpty) {
+      return Failure(Exception('Group ID is required'));
+    }
+
+    // Execute and handle repository errors
+    try {
+      final result = await _repository.createExpense(expense);
+      return Success(result);
+    } catch (e) {
+      log.e('Error creating expense: $e');
+      return Failure(Exception('Failed to create expense'));
+    }
+  }
+}
+```
+
+**Deliverables:**
+- ✅ All use cases implemented with validation
+- ✅ Riverpod providers created
+- ✅ Unit tests passing (>90% coverage)
+- ✅ Documentation in code
+
+---
+
+### Phase 2: Repository Refactoring (Week 2-3)
+
+**Goal:** Integrate EventBroker into repositories, update DAOs to fire events
+
+**Tasks:**
+
+**Repository Updates:**
+1. Add `EventBroker` dependency to `SyncedExpenseRepository`
+2. Add `EventBroker` dependency to `SyncedGroupRepository`
+3. Fire events after successful operations in repositories
+4. Update repository providers to inject EventBroker
+
+**DAO Updates:**
+5. Add `EventBroker` dependency to `ExpensesDao`
+6. Add `EventBroker` dependency to `GroupsDao`
+7. Fire events in `upsertExpenseFromSync()` method
+8. Fire events in `upsertGroupFromSync()` method
+9. Fire events in `upsertGroupMemberFromSync()` method
+
+**Database Updates:**
+10. Add sync-safe upsert methods with event firing
+11. Add `includeDeleted` parameter to get methods
+12. Add `softDeleteExpense()` method
+13. Add `hardDeleteExpense()` method
+
+**Files to Modify:**
+- `lib/features/expenses/data/repositories/synced_expense_repository.dart`
+- `lib/features/groups/data/repositories/synced_group_repository.dart`
+- `lib/core/database/DAOs/expenses_dao.dart`
+- `lib/core/database/DAOs/groups_dao.dart`
+- `lib/core/database/DAOs/expense_shares_dao.dart`
+- `lib/core/sync/sync_providers.dart`
+
+**Testing:**
+- Test events are fired on create/update/delete operations
+- Test events are fired on sync operations
+- Test soft delete + hard delete flow
+- Integration tests with event broker
+
+**Example Repository with Events:**
+```dart
+class SyncedExpenseRepository implements ExpenseRepository {
+  final AppDatabase _database;
+  final EventBroker _eventBroker;
+
+  SyncedExpenseRepository(this._database, this._eventBroker);
+
+  @override
+  Future<ExpenseEntity> createExpense(ExpenseEntity expense) async {
+    await _database.transaction(() async {
+      await _database.expensesDao.insertExpense(expense);
+      await _database.syncDao.enqueueOperation(
+        entityType: 'expense',
+        entityId: expense.id,
+        operationType: 'create',
+        metadata: expense.groupId,
+      );
+    });
+
+    // Fire event after successful creation
+    _eventBroker.fire(ExpenseCreated(expense));
+
+    return expense; // Throws on error
+  }
+}
+```
+
+**Deliverables:**
+- ✅ All repositories fire events
+- ✅ All DAOs fire events on sync operations
+- ✅ Soft delete implemented
+- ✅ Tests updated and passing
+
+---
+
+### Phase 3: Firestore Real-Time Streams (Week 2-3)
 
 **Goal:** Add snapshot listeners to Firestore services
 
@@ -1546,166 +2320,402 @@ Future<ExpenseEntity?> getExpenseById(String id, {bool includeDeleted = false}) 
 
 ---
 
-### Phase 3: Realtime Sync Service (Week 2)
+**Deliverables:**
+- ✅ Firestore snapshot listeners implemented
+- ✅ Event streams working
+- ✅ Error handling in place
 
-**Goal:** Create service to manage listeners
+---
+
+### Phase 4: Realtime Sync Service (Week 3)
+
+**Goal:** Create service to manage listeners (integrates with events)
 
 **Tasks:**
 1. Create `RealtimeSyncService` class
 2. Implement `startRealtimeSync(userId)`
 3. Implement `stopRealtimeSync()`
 4. Implement listener callbacks (`_onGroupsChanged`, `_onExpensesChanged`)
-5. Add proper error handling and logging
+5. Ensure sync operations trigger events via DAOs
+6. Add proper error handling and logging
+7. Implement hybrid listener strategy (global + active group)
 
 **Files:**
-- `lib/core/sync/realtime_sync_service.dart` (new file)
+- `lib/core/sync/realtime_sync_service.dart` (already exists, enhance with events)
 
 **Testing:**
 - Test listener lifecycle (start, stop, restart)
+- Test events are fired when sync operations occur
 - Test group listener triggers expense listeners
 - Test error handling (listener failures)
+- Test hybrid listener strategy
+
+**Deliverables:**
+- ✅ Realtime sync service enhanced with event firing
+- ✅ Hybrid listener strategy implemented
+- ✅ Tests passing
 
 ---
 
-### Phase 4: Update Sync Service (Week 2-3)
+### Phase 5: Provider Layer Updates (Week 3-4)
 
-**Goal:** Integrate RealtimeSyncService into existing SyncService
-
-**Tasks:**
-1. Remove timer-based polling code
-2. Remove `_downloadRemoteChanges()` method
-3. Add RealtimeSyncService dependency
-4. Update connectivity handler to start/stop listeners
-5. Keep upload queue processing logic
-
-**Files:**
-- `lib/core/sync/sync_service.dart`
-
-**Testing:**
-- Test connectivity changes (offline → online)
-- Test manual sync still works
-- Test upload queue processing
-
----
-
-### Phase 5: Simplify Repositories (Week 3)
-
-**Goal:** Remove sync logic from repositories
+**Goal:** Update providers to use Use Cases and listen to events
 
 **Tasks:**
-1. Remove Firestore service dependencies from SyncedGroupRepository
-2. Remove Connectivity dependency
-3. Remove `_syncUserGroupsFromFirestore()` method
-4. Remove `_isOnline()` check
-5. Update `joinGroupByCode()` to not do direct sync (move to separate service)
 
-**Files:**
-- `lib/features/groups/data/repositories/synced_group_repository.dart`
+**Expense Providers:**
+1. Update `ExpenseNotifier` to call Use Cases instead of repositories
+2. Remove direct repository calls from `createExpense()`, `updateExpense()`, `deleteExpense()`
+3. Add error handling for validation exceptions from Use Cases
 
-**Testing:**
-- Test all repository methods still work
-- Test repositories don't make Firestore calls
-- Test upload queue entries still created
+**Group Providers:**
+4. Update `GroupNotifier` to call Use Cases instead of repositories
+5. Remove direct repository calls from `createGroup()`, `joinGroup()`, etc.
+6. Add validation error handling
 
----
+**Event-Driven Providers:**
+7. Create event-driven providers that react to events (e.g., `groupTotalProvider`)
+8. Create activity feed provider that listens to all events
+9. Update existing providers to optionally listen to events for reactive updates
 
-### Phase 6: Update Providers (Week 3)
+**Sync Service:**
+10. Update sync service provider to inject RealtimeSyncService
+11. Ensure `startAutoSync()` called on app startup
+12. Ensure `stopAutoSync()` called on logout
 
-**Goal:** Ensure providers work with new sync architecture
-
-**Tasks:**
-1. Update sync service provider to inject RealtimeSyncService
-2. Ensure `startAutoSync()` called on app startup
-3. Ensure `stopAutoSync()` called on logout
-4. No changes needed to data providers (they already watch local DB)
-
-**Files:**
+**Files to Modify:**
+- `lib/features/expenses/presentation/providers/expense_providers.dart`
+- `lib/features/groups/presentation/providers/group_providers.dart`
 - `lib/core/sync/sync_providers.dart`
 - `lib/main.dart`
 
+**Files to Create:**
+- `lib/features/dashboard/presentation/providers/dashboard_providers.dart` (event-driven totals)
+- `lib/features/activity/presentation/providers/activity_providers.dart` (activity feed)
+
 **Testing:**
-- Test app startup sync flow
-- Test logout cleanup
-- Test UI updates in real-time
+- Test providers call Use Cases correctly
+- Test validation errors are surfaced to UI
+- Test event-driven providers react to events
+- Test app startup/shutdown sync lifecycle
+
+**Example Provider with Use Case:**
+```dart
+@riverpod
+class ExpenseNotifier extends _$ExpenseNotifier {
+  @override
+  FutureOr<void> build() {}
+
+  Future<void> createExpense(ExpenseEntity expense) async {
+    state = const AsyncLoading();
+
+    // Call Use Case instead of repository
+    final useCase = ref.read(createExpenseUseCaseProvider);
+    final result = await useCase.call(expense);
+
+    result.fold(
+      (success) => state = const AsyncData(null),
+      (error) {
+        // Handle validation errors specifically
+        if (error is ValidationException) {
+          state = AsyncError(error, StackTrace.current);
+        } else {
+          state = AsyncError(error, StackTrace.current);
+        }
+      },
+    );
+  }
+}
+
+// Event-driven provider example
+@riverpod
+Stream<double> groupTotal(GroupTotalRef ref, String groupId) {
+  final eventBroker = ref.watch(eventBrokerProvider);
+  final repository = ref.watch(expenseRepositoryProvider);
+
+  // Listen for expense events affecting this group
+  return eventBroker.stream
+    .where((event) {
+      if (event is ExpenseCreated) return event.expense.groupId == groupId;
+      if (event is ExpenseUpdated) return event.expense.groupId == groupId;
+      if (event is ExpenseDeleted) return event.groupId == groupId;
+      return false;
+    })
+    .asyncMap((_) async {
+      final result = await repository.getExpensesByGroup(groupId);
+      return result.fold(
+        (expenses) => expenses.fold(0.0, (sum, e) => sum + e.amount),
+        (_) => 0.0,
+      );
+    });
+}
+```
+
+**Deliverables:**
+- ✅ All notifiers use Use Cases
+- ✅ Event-driven providers implemented
+- ✅ Validation errors handled in UI
+- ✅ Sync lifecycle integrated
+- ✅ Tests passing
 
 ---
 
-### Phase 7: Replace Print Statements (Week 4)
+### Phase 6: Integration & Cleanup (Week 4-5)
 
-**Goal:** Professional logging
+**Goal:** Ensure all components work together, remove old code
 
 **Tasks:**
-1. Add `LoggerMixin` to all services
-2. Replace all `print()` with `log.d/i/w/e()`
-3. Remove debug print statements
 
-**Files:**
-- All service files
+**Integration:**
+1. Ensure realtime sync triggers events correctly
+2. Verify Use Cases → Repositories → Events flow works end-to-end
+3. Test both local and remote changes trigger events
+4. Verify no duplicate event firing
+
+**Cleanup:**
+5. Remove any remaining direct Firestore calls from repositories
+6. Remove old sync logic that's been replaced
+7. Clean up dead code and unused imports
+8. Add missing documentation
+
+**Logging:**
+9. Add `LoggerMixin` to all new use cases
+10. Replace any remaining `print()` statements with proper logging
+11. Add debug logs for event firing
+
+**Files to Review:**
+- All repository files
+- All use case files
+- All provider files
+- SyncService and RealtimeSyncService
 
 **Testing:**
-- Verify logs appear with correct severity
-- Verify no print statements remain
+- End-to-end integration tests
+- Test with multiple devices
+- Test offline scenarios
+- Test event flow consistency
+
+**Deliverables:**
+- ✅ Complete integration working
+- ✅ No duplicate events
+- ✅ Clean codebase
+- ✅ Proper logging throughout
 
 ---
 
-### Phase 8: End-to-End Testing (Week 4)
+### Phase 7: End-to-End Testing (Week 5)
 
-**Goal:** Validate entire flow works
+**Goal:** Validate entire flow works with Use Cases and Events
 
 **Test Scenarios:**
 
-1. **Offline Creation**
+**1. Use Case Flow Testing**
+   - Test validation errors are caught by Use Cases
+   - Test Use Case → Repository → Event flow
+   - Test failed operations don't fire events
+   - Test Use Cases work offline
+
+**2. Event-Driven State Testing**
+   - Create expense, verify event fires
+   - Verify multiple providers react to same event
+   - Test event-driven dashboard totals update
+   - Test activity feed shows events
+
+**3. Offline Creation (with Events)**
    - Disable network
-   - Create expense
-   - Verify immediate UI update
+   - Create expense via Use Case
+   - Verify event fires immediately
+   - Verify UI updates from event
    - Enable network
    - Verify syncs to Firestore
    - Verify appears on other device
+   - Verify other device receives event
 
-2. **Real-Time Sync**
+**4. Real-Time Sync (with Events)**
    - Device A: Create expense
-   - Device B: Verify expense appears < 1 second
+   - Device A: Verify local event fires
+   - Device B: Verify sync triggers event
+   - Device B: Verify event-driven providers update
+   - Verify < 1 second latency
 
-3. **Conflict Resolution**
+**5. Conflict Resolution**
    - Both devices offline
    - Both edit same expense
    - Both go online
    - Verify LWW works correctly
+   - Verify events fire on both devices
 
-4. **Offline Queue Processing**
-   - Offline: Create 10 expenses
+**6. Offline Queue Processing (with Events)**
+   - Offline: Create 10 expenses via Use Cases
+   - Verify 10 events fire locally
    - Go online
    - Verify all 10 upload
    - Verify all 10 appear on other device
+   - Verify other device receives 10 events
 
-5. **Listener Reconnection**
+**7. Listener Reconnection**
    - Start app online
    - Go offline for 5 minutes
    - Another device creates expense
    - Original device goes online
    - Verify expense appears
+   - Verify event fires on reconnection
+
+**8. Event-Driven Dashboard**
+   - Open dashboard showing group totals
+   - Create expense in that group
+   - Verify dashboard updates immediately via event
+   - No manual refresh needed
+
+**Deliverables:**
+- ✅ All scenarios passing
+- ✅ < 1 second realtime sync latency
+- ✅ Events fire consistently for local and remote changes
+- ✅ No event duplication
+- ✅ Offline-first still works perfectly
 
 ---
 
-### Phase 9: Documentation (Week 4)
+### Phase 8: Documentation & Polish (Week 6)
 
-**Goal:** Complete documentation
+**Goal:** Complete documentation and polish implementation
 
 **Tasks:**
-1. Update SYNC_ARCHITECTURE.md with real-time implementation
-2. Add API documentation to all public methods
-3. Create troubleshooting guide
-4. Update README with architecture overview
+
+**Documentation:**
+1. Document all Use Cases with usage examples
+2. Document Event Broker and event types
+3. Create event-driven provider guide
+4. Update architecture diagrams with Use Case layer
+5. Add troubleshooting guide for events
+6. Document migration path for existing code
+
+**Code Quality:**
+7. Add missing inline documentation
+8. Ensure all public APIs have dartdoc comments
+9. Add code examples to complex methods
+10. Review and improve error messages
+
+**Performance:**
+11. Profile event broker performance
+12. Ensure no memory leaks in event streams
+13. Optimize event filtering
+14. Add metrics for event firing
+
+**Files to Create:**
+- `docs/USE_CASES_GUIDE.md` (NEW)
+- `docs/EVENT_DRIVEN_ARCHITECTURE.md` (NEW)
+- `docs/MIGRATION_V2_TO_V2_2.md` (NEW)
+
+**Deliverables:**
+- ✅ Complete documentation
+- ✅ All code documented
+- ✅ Performance validated
+- ✅ Migration guide available
 
 ---
 
 ## Migration from Current Architecture
 
+### Migration Path: v2.1 → v2.2
+
+**Overview:**
+
+Version 2.2 is **backward compatible** with v2.1. The migration adds Use Cases and Events without breaking existing code. Providers can be migrated incrementally.
+
 ### Breaking Changes
 
-**None!** This is a drop-in replacement.
+**None!** All changes are additive:
+- ✅ Existing repositories continue to work
+- ✅ Existing providers continue to work
+- ✅ Event infrastructure is opt-in
+- ✅ Use Cases are opt-in (providers can migrate gradually)
+
+### Migration Strategy: Incremental Adoption
+
+**Week 1-2: Foundation**
+1. Deploy Event Broker infrastructure
+2. Deploy Use Cases (unused initially)
+3. No provider changes yet
+4. Validate in production with monitoring
+
+**Week 3-4: Repository Enhancement**
+5. Update repositories to fire events (non-breaking)
+6. Validate events fire correctly
+7. No UI changes yet
+
+**Week 5-6: Provider Migration**
+8. Migrate one feature at a time (start with expenses)
+9. Update providers to use Use Cases
+10. Add event-driven providers gradually
+11. Monitor for issues, rollback if needed
+
+**Week 7+: Completion**
+12. Migrate remaining features
+13. Add new event-driven features (dashboard, activity feed)
+14. Sunset old patterns
 
 ### Deployment Strategy
+
+**Phase 1: Infrastructure (No Risk)**
+```
+1. Deploy EventBroker
+2. Deploy Use Cases
+3. No behavior changes
+4. Monitor: Event broker initialized correctly
+```
+
+**Phase 2: Event Integration (Low Risk)**
+```
+1. Update repositories to fire events
+2. Update DAOs to fire events on sync
+3. Behavior unchanged (events fired but no listeners yet)
+4. Monitor: Events firing, no performance impact
+```
+
+**Phase 3: Provider Migration (Incremental)**
+```
+1. Update expense providers to use Use Cases
+2. Add event-driven expense totals
+3. Test thoroughly
+4. If issues: Rollback providers, keep events
+5. Monitor: Validation errors, event-driven updates working
+```
+
+**Phase 4: Complete Migration**
+```
+1. Migrate group providers
+2. Add activity feed (event-driven)
+3. Add dashboard enhancements
+4. Monitor: Full event flow, performance, user experience
+```
+
+### Rollback Plan
+
+If issues occur at any phase:
+
+**Event Infrastructure Issues:**
+- Event broker can be disabled via feature flag
+- No impact on existing functionality
+
+**Repository Event Firing Issues:**
+- Remove event broker injection from repositories
+- Repositories work without events
+- No data loss
+
+**Provider Migration Issues:**
+- Revert specific providers to direct repository calls
+- Use Cases remain available for future migration
+- Individual feature rollback possible
+
+**Data Integrity:**
+- ✅ Upload queue preserves all operations
+- ✅ Local DB remains source of truth
+- ✅ No data loss possible during migration
+
+### Old Deployment Strategy (v2.1)
+
+**For reference, the original realtime sync deployment:**
 
 1. **Deploy database changes first** (soft delete, upsert methods)
 2. **Deploy new services** (RealtimeSyncService)
@@ -2010,14 +3020,15 @@ lib/
 ### GroupRepository Interface
 
 ```dart
+// Repositories throw exceptions, no Result<T> wrapping
 abstract class GroupRepository {
-  Future<Result<GroupEntity>> createGroup(GroupEntity group);
-  Future<Result<GroupEntity>> getGroupById(String id);
-  Future<Result<List<GroupEntity>>> getUserGroups(String userId);
-  Future<Result<GroupEntity>> updateGroup(GroupEntity group);
-  Future<Result<void>> deleteGroup(String id);
-  Future<Result<void>> addMember(GroupMemberEntity member);
-  Future<Result<void>> removeMember(String groupId, String userId);
+  Future<GroupEntity> createGroup(GroupEntity group);
+  Future<GroupEntity> getGroupById(String id);
+  Future<List<GroupEntity>> getUserGroups(String userId);
+  Future<GroupEntity> updateGroup(GroupEntity group);
+  Future<void> deleteGroup(String id);
+  Future<void> addMember(GroupMemberEntity member);
+  Future<void> removeMember(String groupId, String userId);
   Stream<List<GroupEntity>> watchUserGroups(String userId);
 }
 ```
@@ -2025,12 +3036,13 @@ abstract class GroupRepository {
 ### ExpenseRepository Interface
 
 ```dart
+// Repositories throw exceptions, no Result<T> wrapping
 abstract class ExpenseRepository {
-  Future<Result<ExpenseEntity>> createExpense(ExpenseEntity expense);
-  Future<Result<ExpenseEntity>> getExpenseById(String id);
-  Future<Result<List<ExpenseEntity>>> getExpensesByGroup(String groupId);
-  Future<Result<ExpenseEntity>> updateExpense(ExpenseEntity expense);
-  Future<Result<void>> deleteExpense(String id);
+  Future<ExpenseEntity> createExpense(ExpenseEntity expense);
+  Future<ExpenseEntity> getExpenseById(String id);
+  Future<List<ExpenseEntity>> getExpensesByGroup(String groupId);
+  Future<ExpenseEntity> updateExpense(ExpenseEntity expense);
+  Future<void> deleteExpense(String id);
   Stream<List<ExpenseEntity>> watchExpensesByGroup(String groupId);
 }
 ```
