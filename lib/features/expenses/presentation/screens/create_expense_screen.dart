@@ -1,9 +1,12 @@
+import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
+import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
+import 'package:fairshare_app/features/expenses/presentation/providers/expense_use_case_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/logging/app_logger.dart';
 import '../../../groups/presentation/providers/group_providers.dart';
-import '../providers/expense_providers.dart';
 
 class CreateExpenseScreen extends ConsumerStatefulWidget {
   const CreateExpenseScreen({super.key});
@@ -21,6 +24,7 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> with 
   String _selectedCurrency = 'USD';
   String? _selectedGroupId;
   DateTime? _selectedDate;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -32,59 +36,82 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> with 
   Future<void> _saveExpense() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final expenseNotifier = ref.read(expenseNotifierProvider.notifier);
+    setState(() => _isLoading = true);
 
-    final title = _titleController.text.trim();
-    final amount = double.parse(_amountController.text.trim());
+    try {
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null) {
+        throw Exception('User must be logged in to create expenses');
+      }
 
-    log.i('Creating expense: $title - $amount $_selectedCurrency for group $_selectedGroupId');
+      final title = _titleController.text.trim();
+      final amount = double.parse(_amountController.text.trim());
 
-    await expenseNotifier.createExpense(
-      title: title,
-      amount: amount,
-      currency: _selectedCurrency,
-      groupId: _selectedGroupId,
-      expenseDate: _selectedDate,
-    );
+      log.i('Creating expense: $title - $amount $_selectedCurrency for group $_selectedGroupId');
 
-    if (!mounted) return;
-
-    final state = ref.read(expenseNotifierProvider);
-    if (state.hasError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to create expense: ${state.error}'),
-          backgroundColor: Colors.red,
-        ),
+      // Build expense entity
+      final now = DateTime.now();
+      final expense = ExpenseEntity(
+        id: const Uuid().v4(),
+        groupId: _selectedGroupId ?? 'personal',
+        title: title,
+        amount: amount,
+        currency: _selectedCurrency,
+        paidBy: currentUser.id,
+        shareWithEveryone: true,
+        expenseDate: _selectedDate ?? now,
+        createdAt: now,
+        updatedAt: now,
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Expense created successfully!'),
-          backgroundColor: Colors.green,
-        ),
+
+      // Call use case
+      final useCase = ref.read(createExpenseUseCaseProvider);
+      final result = await useCase(expense);
+
+      if (!mounted) return;
+
+      // Handle result
+      result.fold(
+        (createdExpense) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Expense created successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          context.go('/home');
+        },
+        (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to create expense: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        },
       );
-      context.go('/home');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final expenseState = ref.watch(expenseNotifierProvider);
-    final isLoading = expenseState.isLoading;
     final groupsAsync = ref.watch(userGroupsProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Expense'),
         leading: IconButton(
-          onPressed: isLoading ? null : () => context.go('/home'),
+          onPressed: _isLoading ? null : () => context.go('/home'),
           icon: const Icon(Icons.close),
         ),
         actions: [
           TextButton(
-            onPressed: isLoading ? null : _saveExpense,
-            child: isLoading
+            onPressed: _isLoading ? null : _saveExpense,
+            child: _isLoading
                 ? const SizedBox(
                     width: 20,
                     height: 20,

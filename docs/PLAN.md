@@ -1,6 +1,6 @@
 # FairShare Development Plan
 
-**Last Updated:** 2025-10-10
+**Last Updated:** 2025-10-13
 **Philosophy:** Build minimally, test thoroughly, iterate quickly.
 
 ---
@@ -55,30 +55,39 @@
 
 **Goal:** Complete the Use Case Layer and Event-Driven Architecture integration
 
-### Current Priority: Complete Phase 1 Tasks
+### ✅ Phase 2.1: Use Case Layer - COMPLETED (2025-10-13)
 
-**2.1 Remaining Use Cases** 🔄 IN PROGRESS
-- [ ] **Group Use Cases** (5 files to create)
-  - [ ] `CreateGroupUseCase` with validation
-  - [ ] `UpdateGroupUseCase` with validation
-  - [ ] `DeleteGroupUseCase` with validation
-  - [ ] `AddMemberUseCase` with validation
-  - [ ] `RemoveMemberUseCase` with validation
+**2.1 Use Cases** ✅ COMPLETED
+- [x] **Group Use Cases** (5 files created)
+  - [x] `CreateGroupUseCase` with validation
+  - [x] `UpdateGroupUseCase` with validation
+  - [x] `DeleteGroupUseCase` with validation
+  - [x] `AddMemberUseCase` with validation
+  - [x] `RemoveMemberUseCase` with validation (with params class)
 
-- [ ] **Riverpod Providers**
-  - [ ] Create `expense_use_case_providers.dart`
-  - [ ] Create `group_use_case_providers.dart`
+- [x] **Riverpod Providers**
+  - [x] Create `expense_use_case_providers.dart` (moved to presentation/providers/)
+  - [x] Create `group_use_case_providers.dart` (moved to presentation/providers/)
 
-- [ ] **Unit Tests**
+- [x] **Presentation Layer Cleanup**
+  - [x] Removed `ExpenseNotifier` (UI calls use cases directly)
+  - [x] Updated `CreateExpenseScreen` to use use cases
+  - [x] Stream providers remain for reactive queries
+
+- [ ] **Unit Tests** ⏳ TODO
   - [ ] Test all expense use cases
   - [ ] Test all group use cases
   - [ ] Aim for >90% test coverage
 
-**Deliverables:**
-- ✅ All use cases implemented with validation
-- ✅ Riverpod providers created
-- ✅ Unit tests passing (>90% coverage)
+**Key Achievements:**
+- ✅ All 10 use cases implemented with validation
+- ✅ Riverpod providers created and moved to presentation layer
+- ✅ UI architecture simplified (no Notifiers for commands)
+- ✅ Result<T> pattern working correctly
 - ✅ Base UseCase pattern established
+- ⏳ Unit tests pending
+
+**Architecture Decision:** UI calls use cases directly (no ExpenseNotifier), handles Result<T> with .fold()
 
 ---
 

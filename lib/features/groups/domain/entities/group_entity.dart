@@ -1,3 +1,4 @@
+import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'group_entity.freezed.dart';
@@ -26,8 +27,10 @@ abstract class GroupEntity with _$GroupEntity {
 }
 
 extension GroupEntityX on GroupEntity {
-  /// Whether this group should be synced to Firestore
-  bool get shouldSync => !isPersonal;
+  static EntityType get entityType => EntityType.group;
+
+  /// Unique key for this object
+  String get key => id;
 
   /// Whether this group has been soft-deleted
   bool get isDeleted => deletedAt != null;

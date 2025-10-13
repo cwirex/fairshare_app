@@ -1,9 +1,13 @@
+import 'dart:math' as math;
+
+import 'package:fairshare_app/core/logging/app_logger.dart';
+import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
+import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
+import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
+import 'package:fairshare_app/features/groups/presentation/providers/group_use_case_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
-import '../../../../core/logging/app_logger.dart';
-import '../providers/group_providers.dart';
 
 class CreateGroupScreen extends ConsumerStatefulWidget {
   const CreateGroupScreen({super.key});
@@ -18,6 +22,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
   final _nameController = TextEditingController();
 
   String _selectedCurrency = 'USD';
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -25,44 +30,100 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
     super.dispose();
   }
 
+  String _generateGroupId() {
+    final random = math.Random();
+    return List.generate(6, (_) => random.nextInt(10)).join();
+  }
+
   Future<void> _saveGroup() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final groupNotifier = ref.read(groupNotifierProvider.notifier);
-    final name = _nameController.text.trim();
+    setState(() => _isLoading = true);
 
-    log.i('Creating group: $name');
+    try {
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null) {
+        throw Exception('User must be logged in to create groups');
+      }
 
-    await groupNotifier.createGroup(
-      displayName: name,
-      defaultCurrency: _selectedCurrency,
-    );
+      final name = _nameController.text.trim();
+      log.i('Creating group: $name');
 
-    if (!mounted) return;
-
-    final state = ref.read(groupNotifierProvider);
-    if (state.hasError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to create group: ${state.error}'),
-          backgroundColor: Colors.red,
-        ),
+      // Build group entity
+      final groupId = _generateGroupId();
+      final now = DateTime.now();
+      final group = GroupEntity(
+        id: groupId,
+        displayName: name,
+        avatarUrl: '',
+        isPersonal: false,
+        defaultCurrency: _selectedCurrency,
+        createdAt: now,
+        updatedAt: now,
+        lastActivityAt: now,
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Group created successfully!'),
-          backgroundColor: Colors.green,
-        ),
+
+      final member = GroupMemberEntity(
+        groupId: groupId,
+        userId: currentUser.id,
+        joinedAt: now,
       );
-      context.go('/home');
+
+      // Call use cases
+      final createGroupUseCase = ref.read(createGroupUseCaseProvider);
+      final addMemberUseCase = ref.read(addMemberUseCaseProvider);
+
+      final groupResult = await createGroupUseCase(group);
+
+      if (!mounted) return;
+
+      // Handle group creation result
+      await groupResult.fold(
+        (createdGroup) async {
+          // Group created, now add member
+          final memberResult = await addMemberUseCase(member);
+
+          if (!mounted) return;
+
+          memberResult.fold(
+            (success) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Group created successfully!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              context.go('/home');
+            },
+            (error) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to add member: $error'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            },
+          );
+        },
+        (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to create group: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        },
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final groupState = ref.watch(groupNotifierProvider);
-    final isLoading = groupState.isLoading;
+    final isLoading = _isLoading;
 
     return Scaffold(
       appBar: AppBar(
@@ -74,13 +135,14 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
         actions: [
           TextButton(
             onPressed: isLoading ? null : _saveGroup,
-            child: isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Save'),
+            child:
+                isLoading
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Text('Save'),
           ),
         ],
       ),
@@ -113,12 +175,13 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                 labelText: 'Default Currency',
                 prefixIcon: Icon(Icons.attach_money),
               ),
-              items: ['USD', 'EUR', 'GBP', 'PLN'].map((currency) {
-                return DropdownMenuItem(
-                  value: currency,
-                  child: Text(currency),
-                );
-              }).toList(),
+              items:
+                  ['USD', 'EUR', 'GBP', 'PLN'].map((currency) {
+                    return DropdownMenuItem(
+                      value: currency,
+                      child: Text(currency),
+                    );
+                  }).toList(),
               onChanged: (value) {
                 setState(() {
                   _selectedCurrency = value ?? 'USD';
@@ -144,12 +207,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                         const SizedBox(width: 8),
                         Text(
                           'About Groups',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
@@ -157,9 +216,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen>
                     Text(
                       'Groups help you organize expenses with specific people. You can add members later and start tracking shared expenses.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),

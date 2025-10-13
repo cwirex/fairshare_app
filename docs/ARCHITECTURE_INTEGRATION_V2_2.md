@@ -4,51 +4,74 @@
 
 ---
 
-## Complete Architecture Diagram
+## Complete Architecture Diagram (✅ IMPLEMENTED v2.2)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    PRESENTATION LAYER                            │
 │                                                                   │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │ Expense      │  │ Group        │  │ Dashboard    │          │
-│  │ Notifier     │  │ Notifier     │  │ Provider     │          │
-│  │              │  │              │  │ (Event-      │          │
-│  │ Issues       │  │ Issues       │  │  Driven)     │          │
-│  │ Commands     │  │ Commands     │  │              │          │
-│  └──────┬───────┘  └──────┬───────┘  └──────▲───────┘          │
-│         │                 │                  │                   │
-│         │                 │                  │ Listens           │
-│         │                 │                  │ to Events         │
-└─────────┼─────────────────┼──────────────────┼───────────────────┘
-          │                 │                  │
-          │                 │                  │
-┌─────────▼─────────────────▼──────────────────┼───────────────────┐
-│                    DOMAIN LAYER              │                   │
-│                                              │                   │
-│  ┌─────────────────────────────────────┐   │                   │
-│  │         USE CASES (v2.2 NEW)        │   │                   │
-│  │                                      │   │                   │
-│  │  • CreateExpenseUseCase             │   │                   │
-│  │  • UpdateExpenseUseCase             │   │                   │
-│  │  • CreateGroupUseCase               │   │                   │
-│  │                                      │   │                   │
-│  │  (Validation & Business Logic)      │   │                   │
-│  └──────────────┬──────────────────────┘   │                   │
-│                 │                            │                   │
-│                 │ Calls                      │                   │
-│                 ↓                            │                   │
-│  ┌─────────────────────────────────────┐   │                   │
-│  │      REPOSITORY INTERFACES          │   │                   │
-│  │                                      │   │                   │
-│  │  • ExpenseRepository                │   │                   │
-│  │  • GroupRepository                  │   │                   │
-│  └─────────────────────────────────────┘   │                   │
-│                                              │                   │
-└──────────────────────────────────────────────┼───────────────────┘
-                                               │
-                        Implemented by         │
-                                               │
+│  │ UI Screens   │  │ Stream       │  │ Dashboard    │          │
+│  │              │  │ Providers    │  │ Provider     │          │
+│  │ Calls Use    │  │              │  │ (Event-      │          │
+│  │ Cases        │  │ Watch Repos  │  │  Driven)     │          │
+│  │ Directly     │  │ Streams      │  │              │          │
+│  └──────┬───────┘  └──────────────┘  └──────▲───────┘          │
+│         │                                    │                   │
+│         │ ref.read(                          │ Listens           │
+│         │   createExpenseUseCaseProvider     │ to Events         │
+│         │ )                                  │                   │
+│         │                                    │                   │
+│  ┌──────┴────────────────────────────┐      │                   │
+│  │  USE CASE PROVIDERS               │      │                   │
+│  │  (presentation/providers/)        │      │                   │
+│  │                                    │      │                   │
+│  │  • expense_use_case_providers.dart│      │                   │
+│  │  • group_use_case_providers.dart  │      │                   │
+│  └──────┬────────────────────────────┘      │                   │
+└─────────┼─────────────────────────────────────┼──────────────────┘
+          │                                    │
+          │ Provides Use Case Instances        │
+          ↓                                    │
+┌─────────────────────────────────────────────┼───────────────────┐
+│                    DOMAIN LAYER             │                   │
+│                                             │                   │
+│  ┌─────────────────────────────────────┐  │                   │
+│  │    USE CASES (✅ IMPLEMENTED)       │  │                   │
+│  │                                      │  │                   │
+│  │  COMMANDS (Write):                  │  │                   │
+│  │  • CreateExpenseUseCase ✅          │  │                   │
+│  │  • UpdateExpenseUseCase ✅          │  │                   │
+│  │  • DeleteExpenseUseCase ✅          │  │                   │
+│  │  • CreateGroupUseCase ✅            │  │                   │
+│  │  • UpdateGroupUseCase ✅            │  │                   │
+│  │  • DeleteGroupUseCase ✅            │  │                   │
+│  │  • AddMemberUseCase ✅              │  │                   │
+│  │  • RemoveMemberUseCase ✅           │  │                   │
+│  │                                      │  │                   │
+│  │  QUERIES (Read):                    │  │                   │
+│  │  • GetExpenseUseCase ✅             │  │                   │
+│  │  • GetExpensesByGroupUseCase ✅     │  │                   │
+│  │                                      │  │                   │
+│  │  (Validation & Business Logic)      │  │                   │
+│  │  Returns: Result<T>                 │  │                   │
+│  └──────────────┬──────────────────────┘  │                   │
+│                 │                           │                   │
+│                 │ Calls                     │                   │
+│                 ↓                           │                   │
+│  ┌─────────────────────────────────────┐  │                   │
+│  │      REPOSITORY INTERFACES          │  │                   │
+│  │                                      │  │                   │
+│  │  • ExpenseRepository                │  │                   │
+│  │    (throws exceptions) ✅           │  │                   │
+│  │  • GroupRepository                  │  │                   │
+│  │    (returns Result<T>) ⚠️           │  │                   │
+│  └─────────────────────────────────────┘  │                   │
+│                                             │                   │
+└─────────────────────────────────────────────┼───────────────────┘
+                                              │
+                        Implemented by        │
+                                              │
 ┌──────────────────────────────────────────────┼───────────────────┐
 │                    DATA LAYER                │                   │
 │                                              │                   │
@@ -147,33 +170,42 @@
 
 ---
 
-## Data Flow: Local Change (User Creates Expense)
+## Data Flow: Local Change (User Creates Expense) ✅ IMPLEMENTED
 
-### Complete Flow with Use Cases and Events
+### Complete Flow with Use Cases (No Notifier!)
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│ STEP 1: User taps "Create Expense" button          │
+│ STEP 1: User taps "Save" button in UI              │
 └─────────────────────┬───────────────────────────────┘
                       │
                       ↓
 ┌─────────────────────────────────────────────────────┐
-│ STEP 2: ExpenseNotifier calls Use Case             │
+│ STEP 2: UI builds ExpenseEntity and calls Use Case │
 │                                                      │
+│   final expense = ExpenseEntity(...);               │
 │   final useCase = ref.read(                         │
 │     createExpenseUseCaseProvider                    │
 │   );                                                 │
-│   final result = await useCase.call(expense);       │
+│   final result = await useCase(expense);            │
 └─────────────────────┬───────────────────────────────┘
                       │
                       ↓
 ┌─────────────────────────────────────────────────────┐
 │ STEP 3: CreateExpenseUseCase validates             │
 │                                                      │
-│   if (expense.amount <= 0) {                        │
-│     return Failure(ValidationException(...));       │
+│   void validate(ExpenseEntity input) {              │
+│     if (input.amount <= 0) {                        │
+│       throw Exception('Amount must be > 0');        │
+│     }                                                │
+│     if (input.title.trim().isEmpty) {               │
+│       throw Exception('Title is required');         │
+│     }                                                │
 │   }                                                  │
-│   return repository.createExpense(expense);         │
+│                                                      │
+│   Future<ExpenseEntity> execute(input) async {      │
+│     return await _repository.createExpense(input);  │
+│   }                                                  │
 └─────────────────────┬───────────────────────────────┘
                       │
                       ↓
@@ -471,10 +503,94 @@ Future<void> upsertExpenseFromSync(ExpenseEntity expense) async {
 - ✅ **Low Risk:** Easy rollback at any stage
 - ✅ **High Value:** Better code quality, testability, and UX
 
+---
+
+## ✅ ACTUAL IMPLEMENTATION STATUS (2025-10-13)
+
+### Phase 2.1: Use Case Layer - COMPLETED
+
+**Use Cases Created:**
+
+**Expenses (5 use cases):**
+- ✅ `CreateExpenseUseCase` - validates amount > 0, title not empty
+- ✅ `UpdateExpenseUseCase` - validates ID, amount, title
+- ✅ `DeleteExpenseUseCase` - validates ID, returns `Unit`
+- ✅ `GetExpenseUseCase` - one-time fetch by ID
+- ✅ `GetExpensesByGroupUseCase` - one-time fetch by group
+
+**Groups (5 use cases):**
+- ✅ `CreateGroupUseCase` - validates name length (2-100 chars)
+- ✅ `UpdateGroupUseCase` - validates ID and name
+- ✅ `DeleteGroupUseCase` - validates ID, returns `Unit`
+- ✅ `AddMemberUseCase` - validates groupId and userId
+- ✅ `RemoveMemberUseCase` - validates groupId and userId (with params class)
+
+**Base Architecture:**
+- ✅ `UseCase<Input, Output extends Object>` base class
+- ✅ `validate(Input)` method for business rules
+- ✅ `execute(Input)` method for repository calls
+- ✅ `call(Input)` returns `Result<Output>`
+
+**Riverpod Providers:**
+- ✅ `expense_use_case_providers.dart` (moved to `presentation/providers/`)
+- ✅ `group_use_case_providers.dart` (moved to `presentation/providers/`)
+
+**Presentation Layer Cleanup:**
+- ✅ **Removed `ExpenseNotifier`** completely
+- ✅ UI calls use cases directly via `ref.read(createExpenseUseCaseProvider)`
+- ✅ UI handles `Result<T>` with `.fold()` for success/error
+- ✅ Stream providers remain for reactive queries (`allExpenses`, `expensesByGroup`)
+
+**Key Architecture Decisions:**
+
+1. **No Command Notifiers** - UI calls use cases directly
+   ```dart
+   // UI code
+   final useCase = ref.read(createExpenseUseCaseProvider);
+   final result = await useCase(expense);
+   result.fold(
+     (success) => showSuccess(),
+     (error) => showError(),
+   );
+   ```
+
+2. **Stream Providers for Queries** - Reactive data stays simple
+   ```dart
+   @riverpod
+   Stream<List<ExpenseEntity>> expensesByGroup(Ref ref, String groupId) {
+     return ref.watch(expenseRepositoryProvider).watchExpensesByGroup(groupId);
+   }
+   ```
+
+3. **Use Cases for Commands** - Business logic centralized
+   - Validation in `validate()`
+   - Repository call in `execute()`
+   - Result wrapping in `call()`
+
+4. **Provider Location** - Moved to presentation layer
+   - Use case providers are Riverpod infrastructure
+   - Belong in `presentation/providers/`, not `domain/use_cases/`
+
+**Files Modified:**
+- `lib/core/domain/use_case.dart` - Updated generics to `Output extends Object`
+- `lib/features/expenses/domain/use_cases/delete_expense_use_case.dart` - Fixed to return `Unit`
+- `lib/features/expenses/presentation/providers/expense_providers.dart` - Removed ExpenseNotifier
+- `lib/features/expenses/presentation/screens/create_expense_screen.dart` - Uses use cases directly
+
+### Phase 2.2: Event-Driven Architecture - TODO
+
+**Remaining Tasks:**
+1. ⏳ Update `GroupRepository` interface to throw exceptions (match ExpenseRepository)
+2. ⏳ Inject `EventBroker` into `SyncedExpenseRepository`
+3. ⏳ Inject `EventBroker` into `SyncedGroupRepository`
+4. ⏳ Update `ExpensesDao.upsertFromSync()` to fire events
+5. ⏳ Update `GroupsDao.upsertFromSync()` to fire events
+6. ⏳ Write unit tests for all use cases (>90% coverage)
+
 **Next Steps:**
-1. Review this integration plan with team
-2. Get approval to start Phase 0
-3. Create project tickets
-4. Begin implementation
+1. Update repository interfaces for consistency
+2. Integrate EventBroker into repositories
+3. Update DAOs to fire events on sync operations
+4. Write comprehensive unit tests
 
 **Questions?** See [IMPLEMENTATION_PLAN_V2_2.md](./IMPLEMENTATION_PLAN_V2_2.md) for detailed breakdown.

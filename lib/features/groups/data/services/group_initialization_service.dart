@@ -2,6 +2,7 @@ import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart'
 import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
 import 'package:fairshare_app/features/groups/domain/repositories/group_repository.dart';
 
+// TODO: FIX THIS SERVICE. MAKE SURE IT STICKS TO OUR ARCHITECTURE
 class GroupInitializationService {
   final GroupRepository _repository;
 

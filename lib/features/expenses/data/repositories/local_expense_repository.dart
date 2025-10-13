@@ -1,3 +1,4 @@
+import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 import 'package:fairshare_app/features/expenses/domain/repositories/expense_repository.dart';
@@ -70,7 +71,7 @@ class LocalExpenseRepository implements ExpenseRepository {
 
       // All expenses are synced (personal group expenses too - for backup)
       await _database.syncDao.enqueueOperation(
-        entityType: 'expense',
+        entityType: EntityType.expense.name,
         entityId: id,
         operationType: 'delete',
         metadata: metadata,

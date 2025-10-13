@@ -154,13 +154,14 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen>
             // Join button
             FilledButton.icon(
               onPressed: isLoading ? null : _joinGroup,
-              icon: isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.group_add),
+              icon:
+                  isLoading
+                      ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : const Icon(Icons.group_add),
               label: Text(isLoading ? 'Joining...' : 'Join Group'),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.all(16),

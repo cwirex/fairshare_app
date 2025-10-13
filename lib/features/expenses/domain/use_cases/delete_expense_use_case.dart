@@ -9,18 +9,16 @@ class DeleteExpenseUseCase extends UseCase<String, Unit> {
   DeleteExpenseUseCase(this._repository);
 
   @override
-  Future<Result<Unit>> call(String expenseId) async {
-    // Validate ID
-    if (expenseId.trim().isEmpty) {
-      return Failure(Exception('Expense ID is required'));
+  void validate(String input) {
+    if (input.trim().isEmpty) {
+      throw Exception('Expense ID is required');
     }
+  }
 
-    // Delegate to repository
-    try {
-      await _repository.deleteExpense(expenseId);
-      return Success.unit();
-    } catch (e) {
-      return Failure(Exception('Failed to delete expense: $e'));
-    }
+  @override
+  Future<Unit> execute(String input) async {
+    log.d('Deleting expense: $input');
+    await _repository.deleteExpense(input);
+    return unit;
   }
 }
