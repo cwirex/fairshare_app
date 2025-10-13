@@ -1,3 +1,4 @@
+import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
@@ -22,7 +23,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
     await _database.transaction<void>(() async {
       await _database.expensesDao.insertExpense(expense);
       await _database.syncDao.enqueueOperation(
-        entityType: 'expense',
+        entityType: EntityType.expense,
         entityId: expense.id,
         operationType: 'create',
         metadata: expense.groupId,
@@ -58,7 +59,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
     await _database.transaction<void>(() async {
       await _database.expensesDao.updateExpense(expense);
       await _database.syncDao.enqueueOperation(
-        entityType: 'expense',
+        entityType: EntityType.expense,
         entityId: expense.id,
         operationType: 'update',
         metadata: expense.groupId,
@@ -81,7 +82,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
     await _database.transaction<void>(() async {
       await _database.expensesDao.softDeleteExpense(id);
       await _database.syncDao.enqueueOperation(
-        entityType: 'expense',
+        entityType: EntityType.expense,
         entityId: id,
         operationType: 'delete',
         metadata: expense.groupId,
@@ -109,7 +110,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
       await _database.transaction<void>(() async {
         await _database.expenseSharesDao.insertExpenseShare(share);
         await _database.syncDao.enqueueOperation(
-          entityType: 'expense_share',
+          entityType: EntityType.expenseShare,
           entityId: '${share.expenseId}_${share.userId}',
           operationType: 'create',
           metadata: share.expenseId,

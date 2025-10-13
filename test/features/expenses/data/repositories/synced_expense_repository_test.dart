@@ -1,7 +1,7 @@
-import 'package:fairshare_app/core/database/app_database.dart';
-import 'package:fairshare_app/core/database/DAOs/expenses_dao.dart';
 import 'package:fairshare_app/core/database/DAOs/expense_shares_dao.dart';
+import 'package:fairshare_app/core/database/DAOs/expenses_dao.dart';
 import 'package:fairshare_app/core/database/DAOs/sync_dao.dart';
+import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/features/expenses/data/repositories/synced_expense_repository.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_share_entity.dart';
@@ -85,7 +85,9 @@ void main() {
 
       test('should return failure if database operation fails', () async {
         // Arrange
-        when(mockDatabase.transaction<void>(any)).thenThrow(Exception('DB Error'));
+        when(
+          mockDatabase.transaction<void>(any),
+        ).thenThrow(Exception('DB Error'));
 
         // Act
         final result = await repository.createExpense(testExpense);
@@ -191,9 +193,7 @@ void main() {
           // Assert
           expect(result.isSuccess(), true);
           verify(mockDatabase.transaction<void>(any)).called(1);
-          verify(
-            mockExpensesDao.softDeleteExpense('expense123'),
-          ).called(1);
+          verify(mockExpensesDao.softDeleteExpense('expense123')).called(1);
           verify(
             mockSyncDao.enqueueOperation(
               entityType: 'expense',
@@ -234,7 +234,9 @@ void main() {
           await callback();
           return null;
         });
-        when(mockExpenseSharesDao.insertExpenseShare(any)).thenAnswer((_) async {});
+        when(
+          mockExpenseSharesDao.insertExpenseShare(any),
+        ).thenAnswer((_) async {});
         when(
           mockSyncDao.enqueueOperation(
             entityType: anyNamed('entityType'),
@@ -250,9 +252,7 @@ void main() {
         // Assert
         expect(result.isSuccess(), true);
         verify(mockDatabase.transaction<void>(any)).called(1);
-        verify(
-          mockExpenseSharesDao.insertExpenseShare(testShare),
-        ).called(1);
+        verify(mockExpenseSharesDao.insertExpenseShare(testShare)).called(1);
         verify(
           mockSyncDao.enqueueOperation(
             entityType: 'expense_share',
@@ -289,9 +289,7 @@ void main() {
         // Assert
         expect(result.isSuccess(), true);
         expect(result.getOrNull()!.length, 2);
-        verify(
-          mockExpenseSharesDao.getExpenseShares('expense123'),
-        ).called(1);
+        verify(mockExpenseSharesDao.getExpenseShares('expense123')).called(1);
       });
     });
   });

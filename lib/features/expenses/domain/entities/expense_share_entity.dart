@@ -1,4 +1,3 @@
-import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'expense_share_entity.freezed.dart';
@@ -18,8 +17,6 @@ abstract class ExpenseShareEntity with _$ExpenseShareEntity {
 }
 
 extension ExpenseShareEntityX on ExpenseShareEntity {
-  EntityType get entityType => EntityType.expenseShare;
-
   /// Unique key for this object
   String get key => '$expenseId-$userId';
 }

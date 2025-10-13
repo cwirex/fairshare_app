@@ -1,4 +1,3 @@
-import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'expense_entity.freezed.dart';
@@ -29,8 +28,6 @@ abstract class ExpenseEntity with _$ExpenseEntity {
 }
 
 extension ExpenseEntityX on ExpenseEntity {
-  static EntityType get entityType => EntityType.expense;
-
   /// Whether this expense has been soft-deleted
   bool get isDeleted => deletedAt != null;
 

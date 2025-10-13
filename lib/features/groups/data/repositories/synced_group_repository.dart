@@ -1,3 +1,4 @@
+import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
@@ -24,7 +25,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
       await _database.transaction<void>(() async {
         await _database.groupsDao.insertGroup(group);
         await _database.syncDao.enqueueOperation(
-          entityType: 'group',
+          entityType: EntityType.group,
           entityId: group.id,
           operationType: 'create',
         );
@@ -70,7 +71,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
       await _database.transaction<void>(() async {
         await _database.groupsDao.updateGroup(group);
         await _database.syncDao.enqueueOperation(
-          entityType: 'group',
+          entityType: EntityType.group,
           entityId: group.id,
           operationType: 'update',
         );
@@ -91,7 +92,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
       await _database.transaction<void>(() async {
         await _database.groupsDao.softDeleteGroup(id);
         await _database.syncDao.enqueueOperation(
-          entityType: 'group',
+          entityType: EntityType.group,
           entityId: id,
           operationType: 'delete',
         );
@@ -111,7 +112,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
       await _database.transaction<void>(() async {
         await _database.groupsDao.addGroupMember(member);
         await _database.syncDao.enqueueOperation(
-          entityType: 'group_member',
+          entityType: EntityType.groupMember,
           entityId: '${member.groupId}_${member.userId}',
           operationType: 'create',
           metadata: member.groupId,
@@ -132,7 +133,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
       await _database.transaction<void>(() async {
         await _database.groupsDao.removeGroupMember(groupId, userId);
         await _database.syncDao.enqueueOperation(
-          entityType: 'group_member',
+          entityType: EntityType.groupMember,
           entityId: '${groupId}_$userId',
           operationType: 'delete',
           metadata: groupId,
@@ -179,10 +180,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   }
 
   @override
-  Future<GroupEntity> joinGroupByCode(
-    String code,
-    String userId,
-  ) async {
+  Future<GroupEntity> joinGroupByCode(String code, String userId) async {
     try {
       // This is a special case - we need to fetch from Firestore first
       // This will be handled by a separate service, not the repository

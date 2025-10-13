@@ -17,7 +17,7 @@ class LocalExpenseRepository implements ExpenseRepository {
       await _database.expensesDao.insertExpense(expense);
       // All expenses are synced (personal group expenses too - for backup)
       await _database.syncDao.enqueueOperation(
-        entityType: 'expense',
+        entityType: EntityType.expense,
         entityId: expense.id,
         operationType: 'create',
       );
@@ -53,7 +53,7 @@ class LocalExpenseRepository implements ExpenseRepository {
 
       // All expenses are synced (personal group expenses too - for backup)
       await _database.syncDao.enqueueOperation(
-        entityType: 'expense',
+        entityType: EntityType.expense,
         entityId: expense.id,
         operationType: 'update',
       );
@@ -71,7 +71,7 @@ class LocalExpenseRepository implements ExpenseRepository {
 
       // All expenses are synced (personal group expenses too - for backup)
       await _database.syncDao.enqueueOperation(
-        entityType: EntityType.expense.name,
+        entityType: EntityType.expense,
         entityId: id,
         operationType: 'delete',
         metadata: metadata,

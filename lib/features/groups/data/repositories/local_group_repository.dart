@@ -1,3 +1,4 @@
+import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
@@ -19,7 +20,7 @@ class LocalGroupRepository with LoggerMixin implements GroupRepository {
       // Only enqueue non-personal groups for sync
       if (!group.isPersonal) {
         await _database.syncDao.enqueueOperation(
-          entityType: 'group',
+          entityType: EntityType.group,
           entityId: group.id,
           operationType: 'create',
         );
@@ -52,7 +53,7 @@ class LocalGroupRepository with LoggerMixin implements GroupRepository {
       // Only enqueue non-personal groups for sync
       if (!group.isPersonal) {
         await _database.syncDao.enqueueOperation(
-          entityType: 'group',
+          entityType: EntityType.group,
           entityId: group.id,
           operationType: 'update',
         );
@@ -71,7 +72,7 @@ class LocalGroupRepository with LoggerMixin implements GroupRepository {
       // Only enqueue non-personal groups for sync
       if (group != null && !group.isPersonal) {
         await _database.syncDao.enqueueOperation(
-          entityType: 'group',
+          entityType: EntityType.group,
           entityId: id,
           operationType: 'delete',
         );

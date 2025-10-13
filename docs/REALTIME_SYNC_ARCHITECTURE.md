@@ -85,7 +85,7 @@ A Use Case encapsulates a single, specific business operation. It orchestrates t
 **Responsibilities:**
 
 - Contains high-level business logic for a specific user action
-- Depends on Repository *interfaces* from the Domain Layer
+- Depends on Repository _interfaces_ from the Domain Layer
 - Is called directly by the Presentation Layer (Providers/Notifiers)
 - Coordinates with one or more repositories to fulfill its task
 - **Handles ALL validation and error wrapping** (returns `Result<T>`)
@@ -96,6 +96,7 @@ A Use Case encapsulates a single, specific business operation. It orchestrates t
 Our architecture follows a clear separation of concerns for error handling:
 
 - **Use Cases**: Handle validation and wrap ALL errors in `Result<T>`
+
   - Validate input before calling repositories
   - Wrap repository calls in try-catch blocks
   - Return `Success<T>` or `Failure<Exception>`
@@ -107,6 +108,7 @@ Our architecture follows a clear separation of concerns for error handling:
   - Keep repository interfaces and implementations clean
 
 This pattern ensures:
+
 - ✅ **Single Responsibility**: Repositories do data operations, Use Cases handle business logic
 - ✅ **Clean Interfaces**: Repository methods have simple return types (no Result wrapping)
 - ✅ **Consistent Error Handling**: All errors flow through Use Cases uniformly
@@ -122,6 +124,7 @@ This pattern ensures:
 **Example: Creating an Expense**
 
 **Before (Current v2.1):**
+
 ```dart
 // Provider calls repository directly
 final repository = ref.read(expenseRepositoryProvider);
@@ -129,6 +132,7 @@ final result = await repository.createExpense(newExpense);
 ```
 
 **After (With Use Case v2.2):**
+
 ```dart
 // Step 0: Base Use Case with logging (Core Layer)
 // lib/core/domain/use_case.dart
@@ -191,7 +195,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
     await _database.transaction<void>(() async {
       await _database.expensesDao.insertExpense(expense);
       await _database.syncDao.enqueueOperation(
-        entityType: 'expense',
+        entityType: EntityType.expense,
         entityId: expense.id,
         operationType: 'create',
         metadata: expense.groupId,
@@ -251,7 +255,7 @@ lib/features/expenses/domain/
 
 **Concept:**
 
-Separate the act of *initiating* an action (Command) from *reacting* to its outcome (Event).
+Separate the act of _initiating_ an action (Command) from _reacting_ to its outcome (Event).
 
 - **Command**: An instruction to perform an action. Use Cases are command handlers.
 - **Event**: A notification that something has happened. Broadcast after successful command execution.
@@ -425,7 +429,7 @@ class SyncedExpenseRepository implements ExpenseRepository {
     await _database.transaction(() async {
       await _database.expensesDao.insertExpense(expense);
       await _database.syncDao.enqueueOperation(
-        entityType: 'expense',
+        entityType: EntityType.expense,
         entityId: expense.id,
         operationType: 'create',
         metadata: expense.groupId,
@@ -446,7 +450,7 @@ class SyncedExpenseRepository implements ExpenseRepository {
     await _database.transaction(() async {
       await _database.expensesDao.updateExpense(expense);
       await _database.syncDao.enqueueOperation(
-        entityType: 'expense',
+        entityType: EntityType.expense,
         entityId: expense.id,
         operationType: 'update',
         metadata: expense.groupId,
@@ -522,6 +526,7 @@ Stream<List<ActivityEntry>> activityFeed(ActivityFeedRef ref) {
 The Command/Event pattern integrates seamlessly with the existing realtime sync architecture:
 
 **Local Changes (User Actions):**
+
 ```
 User Action
   ↓
@@ -539,6 +544,7 @@ Firestore updated
 ```
 
 **Remote Changes (Sync):**
+
 ```
 Firestore snapshot event
   ↓
@@ -587,18 +593,21 @@ This ensures that **both local and remote changes** trigger the same event flow,
 ### Summary of Architectural Benefits
 
 **With Use Cases:**
+
 - ✅ Clear business logic location
 - ✅ Testable in isolation
 - ✅ Reusable across UI contexts
 - ✅ Single Responsibility Principle enforced
 
 **With Command/Event Pattern:**
+
 - ✅ Decoupled components
 - ✅ Reactive state management
 - ✅ Scalable: easy to add new listeners
 - ✅ Consistent handling of local and remote changes
 
 **Integration with Sync:**
+
 - ✅ Works seamlessly with queue-based uploads
 - ✅ Works seamlessly with realtime listeners
 - ✅ Events fired for both local and synced changes
@@ -617,6 +626,7 @@ This ensures that **both local and remote changes** trigger the same event flow,
 #### 1. ✅ Hybrid Listener Strategy (Cost & Battery Optimization)
 
 **Problem Identified:** Original design could open dozens of listeners simultaneously (one per group), causing:
+
 - High Firestore connection costs
 - Excessive battery drain
 - Increased memory usage
@@ -625,6 +635,7 @@ This ensures that **both local and remote changes** trigger the same event flow,
 **Solution Adopted: "Single Collection Listener + Active View Listener"**
 
 **How It Works:**
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ Tier 1: Global Groups Listener (Always Active)         │
@@ -653,6 +664,7 @@ This ensures that **both local and remote changes** trigger the same event flow,
 ```
 
 **Implementation Example:**
+
 ```dart
 class RealtimeSyncService {
   // Tier 1: Always active when app is foregrounded
@@ -705,12 +717,14 @@ class RealtimeSyncService {
 ```
 
 **Benefits:**
+
 - ✅ Cost: 1-2 active listeners instead of 10-50+
 - ✅ Battery: Minimal WebSocket connections
 - ✅ Performance: Real-time where it matters (active view)
 - ✅ UX: Instant updates for current screen, smart notifications for others
 
 **Firestore Schema Update Required:**
+
 ```dart
 // Add to Group document
 class GroupEntity {
@@ -729,6 +743,7 @@ class GroupEntity {
 #### 2. ✅ Server-Side Timestamps for Conflict Resolution
 
 **Problem Identified:** Client-side timestamps (`updatedAt = DateTime.now()`) are vulnerable to:
+
 - Device clock skew (user's clock is wrong)
 - Timezone issues
 - Concurrent edits with same timestamp
@@ -737,6 +752,7 @@ class GroupEntity {
 **Solution: Use Firestore `FieldValue.serverTimestamp()`**
 
 **Implementation:**
+
 ```dart
 // In UploadQueueService
 Future<void> _processExpenseUpdate(SyncQueueData operation) async {
@@ -772,6 +788,7 @@ Future<void> _processExpenseUpdate(SyncQueueData operation) async {
 ```
 
 **Benefits:**
+
 - ✅ Reliable conflict resolution (server clock is authoritative)
 - ✅ Deterministic behavior across all devices
 - ✅ No timezone issues
@@ -780,6 +797,7 @@ Future<void> _processExpenseUpdate(SyncQueueData operation) async {
 #### 3. ✅ Atomic Database Transactions
 
 **Problem Identified:** Repository operations that write to both local DB and queue are NOT atomic:
+
 ```dart
 // ❌ BEFORE: Two separate operations - can fail between them
 await _database.insertExpense(expense);       // Operation 1
@@ -790,6 +808,7 @@ await _database.enqueueOperation(/* ... */);  // Operation 2
 **Solution: Wrap in Drift transaction**
 
 **Implementation:**
+
 ```dart
 // ✅ AFTER: Single atomic transaction
 class SyncedExpenseRepository {
@@ -798,7 +817,7 @@ class SyncedExpenseRepository {
       // Both operations succeed or both fail
       await _database.insertExpense(expense);
       await _database.enqueueOperation(
-        entityType: 'expense',
+        entityType: EntityType.expense,
         entityId: expense.id,
         operationType: 'create',
         metadata: expense.groupId,
@@ -811,6 +830,7 @@ class SyncedExpenseRepository {
 ```
 
 **Benefits:**
+
 - ✅ Data integrity: All-or-nothing operations
 - ✅ No orphaned data
 - ✅ Crash-safe
@@ -821,11 +841,13 @@ class SyncedExpenseRepository {
 **Decision:** Real-time listeners are ONLY active when app is in foreground.
 
 **Rationale:**
+
 - Background listeners drain battery significantly
 - Firestore SDK has excellent catch-up mechanism on resume
 - User doesn't notice 1-second delay when opening app
 
 **Implementation:**
+
 ```dart
 class SyncService {
   void startAutoSync(String? userId) {
@@ -869,6 +891,7 @@ class SyncService {
 **Solution:** Non-blocking notification when conflict occurs.
 
 **Implementation:**
+
 ```dart
 // In app_database.dart
 Future<void> upsertExpenseFromSync(ExpenseEntity remoteExpense) async {
@@ -882,7 +905,7 @@ Future<void> upsertExpenseFromSync(ExpenseEntity remoteExpense) async {
       // Conflict: User's local edit will be overwritten
       // Emit event for UI to show notification
       _conflictController.add(ConflictEvent(
-        entityType: 'expense',
+        entityType: EntityType.expense,
         entityId: remoteExpense.id,
         localVersion: local,
         remoteVersion: remoteExpense,
@@ -897,6 +920,7 @@ Future<void> upsertExpenseFromSync(ExpenseEntity remoteExpense) async {
 ```
 
 **UI Layer:**
+
 ```dart
 // Listen to conflicts
 ref.listen(conflictEventsProvider, (previous, next) {
@@ -920,6 +944,7 @@ ref.listen(conflictEventsProvider, (previous, next) {
 **Solution: Single queue entry with expansion logic**
 
 **Implementation:**
+
 ```dart
 // Repository: Single queue entry for complex operation
 Future<Result<void>> deleteGroup(String id) async {
@@ -930,7 +955,7 @@ Future<Result<void>> deleteGroup(String id) async {
 
       // Single queue entry represents entire operation
       await _database.enqueueOperation(
-        entityType: 'group',
+        entityType: EntityType.group,
         entityId: id,
         operationType: 'delete',
         metadata: jsonEncode({
@@ -996,6 +1021,7 @@ Future<void> _processGroupDelete(SyncQueueData operation) async {
 ### Architecture Rating: 9/10 → 10/10
 
 With these refinements, the architecture is now **production-ready** with:
+
 - ✅ Scalability: Minimal listener overhead
 - ✅ Reliability: Atomic operations, server timestamps
 - ✅ Cost-efficiency: Optimized for Firestore pricing
@@ -1007,11 +1033,13 @@ With these refinements, the architecture is now **production-ready** with:
 ### Key Metrics to Track Post-Launch
 
 1. **Sync Performance**
+
    - Average sync latency (target: < 1s for active views)
    - Queue depth over time (target: < 10 pending operations)
    - Failed upload retry rate (target: < 1%)
 
 2. **Cost Management**
+
    - Firestore reads per user per day (target: < 500)
    - Firestore writes per user per day (target: < 200)
    - Active listener count (target: 1-2 per user)
@@ -1026,12 +1054,14 @@ With these refinements, the architecture is now **production-ready** with:
 ## Executive Summary
 
 ### Current State (v1.0)
+
 - **Offline-first** architecture with periodic sync (30-second polling)
 - Local database (Drift/SQLite) as single source of truth for UI
 - Upload queue for reliable, retryable uploads
 - Download sync triggered periodically or manually
 
 ### Proposed State (v2.1)
+
 - **Offline-first with real-time sync** using Firestore listeners
 - **Hybrid listener strategy:** Single collection listener + active view listener
 - Maintains Local DB as single source of truth
@@ -1043,6 +1073,7 @@ With these refinements, the architecture is now **production-ready** with:
 - Simple, maintainable components with single responsibilities
 
 ### Key Benefits
+
 - ✅ True real-time collaboration (< 1 second sync for active views)
 - ✅ Cost-optimized: Minimal listener overhead (1-2 active listeners max)
 - ✅ Battery-efficient: Foreground-only listeners
@@ -1058,15 +1089,18 @@ With these refinements, the architecture is now **production-ready** with:
 ## Architecture Principles
 
 ### 1. Offline-First
+
 **Definition:** The application works fully offline, with data syncing transparently in the background when online.
 
 **Implementation:**
+
 - Local database is the single source of truth for UI
 - All write operations happen to local DB first
 - UI updates instantly without waiting for network
 - Sync happens asynchronously in the background
 
 **User Experience:**
+
 ```
 User Action → Local DB (0ms) → UI Update (instant)
                      ↓
@@ -1076,36 +1110,44 @@ User Action → Local DB (0ms) → UI Update (instant)
 ```
 
 ### 2. Clean Architecture
+
 **Definition:** Strict separation of concerns with dependency rules flowing inward.
 
 **Layer Rules:**
+
 - Domain layer has NO dependencies on outer layers
 - Data layer implements Domain interfaces
 - Presentation layer depends ONLY on Domain layer
 - Infrastructure details (Firestore, Drift) hidden in Data layer
 
 ### 3. Single Responsibility Principle (SRP)
+
 **Definition:** Each class has one clear, well-defined responsibility.
 
 **Applied To:**
+
 - Repositories: Local DB + Queue coordination only
 - SyncService: Orchestrate upload queue processing
 - RealtimeSyncService: Manage Firestore listeners only
 - UploadQueueService: Process queued operations only
 
 ### 4. Keep It Simple (KISS)
+
 **Definition:** Prefer simple solutions over complex ones.
 
 **Examples:**
+
 - Use database constraints instead of manual duplicate checks
 - Use soft delete pattern instead of complex metadata
 - Let database handle conflict resolution where possible
 - Minimal abstractions, maximal clarity
 
 ### 5. Eventual Consistency
+
 **Definition:** Data will be consistent across devices eventually, not immediately.
 
 **Implementation:**
+
 - Upload queue ensures local changes reach Firestore
 - Real-time listeners ensure remote changes reach local DB
 - Last Write Wins (LWW) conflict resolution
@@ -1116,20 +1158,24 @@ User Action → Local DB (0ms) → UI Update (instant)
 ## Clean Architecture Layers
 
 ### Layer 1: Domain Layer (Business Logic)
+
 **Location:** `lib/features/*/domain/`
 
 **Components:**
+
 - **Entities:** Pure data models (e.g., `GroupEntity`, `ExpenseEntity`)
 - **Repository Interfaces:** Abstract contracts (e.g., `GroupRepository`)
 - **Use Cases:** Business logic operations (future enhancement)
 
 **Rules:**
+
 - ✅ NO dependencies on other layers
 - ✅ NO Flutter/Dart framework dependencies
 - ✅ Pure business logic only
 - ✅ Can be tested without any infrastructure
 
 **Example:**
+
 ```dart
 // Pure domain entity
 class GroupEntity {
@@ -1149,21 +1195,25 @@ abstract class GroupRepository {
 ```
 
 ### Layer 2: Data Layer (Implementation)
+
 **Location:** `lib/features/*/data/`
 
 **Components:**
+
 - **Repositories:** Implement domain interfaces
 - **Data Sources:** Database DAOs, Firestore services
 - **Services:** Sync services, queue services
 - **Mappers:** Convert between entities and DTOs
 
 **Rules:**
+
 - ✅ Implements Domain interfaces
 - ✅ Can depend on external frameworks (Drift, Firestore, Firebase)
 - ✅ Handles data transformation
 - ✅ Manages technical details (caching, network, persistence)
 
 **Example:**
+
 ```dart
 // Repository implementation
 class SyncedGroupRepository implements GroupRepository {
@@ -1176,7 +1226,7 @@ class SyncedGroupRepository implements GroupRepository {
 
     // 2. Enqueue for sync
     await _database.enqueueOperation(
-      entityType: 'group',
+      entityType: EntityType.group,
       entityId: group.id,
       operationType: 'create',
     );
@@ -1188,20 +1238,24 @@ class SyncedGroupRepository implements GroupRepository {
 ```
 
 ### Layer 3: Presentation Layer (UI)
+
 **Location:** `lib/features/*/presentation/`
 
 **Components:**
+
 - **Screens/Widgets:** Flutter UI components
 - **Providers:** State management (Riverpod)
 - **View Models:** Presentation logic (if needed)
 
 **Rules:**
+
 - ✅ Depends ONLY on Domain layer
 - ✅ Uses repository interfaces, not implementations
 - ✅ Watches streams from repositories
 - ✅ NO direct database or Firestore calls
 
 **Example:**
+
 ```dart
 // Provider watching repository stream
 @Riverpod(keepAlive: true)
@@ -1220,9 +1274,11 @@ Stream<List<GroupEntity>> userGroups(UserGroupsRef ref, String userId) async* {
 ## Design Patterns
 
 ### 1. Repository Pattern
+
 **Purpose:** Abstract data access logic from business logic.
 
 **Implementation:**
+
 ```dart
 // Domain defines the contract
 abstract class ExpenseRepository {
@@ -1245,14 +1301,17 @@ class SyncedExpenseRepository implements ExpenseRepository {
 ```
 
 **Benefits:**
+
 - ✅ UI doesn't know about database implementation
 - ✅ Easy to swap data sources (e.g., for testing)
 - ✅ Clear separation of concerns
 
 ### 2. Queue Pattern (Upload)
+
 **Purpose:** Ensure reliable, retryable data uploads.
 
 **Implementation:**
+
 ```dart
 class UploadQueueService {
   Future<void> processQueue() async {
@@ -1271,15 +1330,18 @@ class UploadQueueService {
 ```
 
 **Benefits:**
+
 - ✅ Offline resilience: Operations queued when offline
 - ✅ Retry logic: Failed operations can be retried
 - ✅ No data loss: Operations persisted to database
 - ✅ Ordered processing: FIFO queue ensures consistency
 
 ### 3. Observer Pattern (Real-Time Sync)
+
 **Purpose:** React to remote data changes in real-time.
 
 **Implementation:**
+
 ```dart
 class RealtimeSyncService {
   StreamSubscription? _groupsListener;
@@ -1298,14 +1360,17 @@ class RealtimeSyncService {
 ```
 
 **Benefits:**
+
 - ✅ Real-time updates: < 1 second latency
 - ✅ Automatic reconnection: Firestore handles connection lifecycle
 - ✅ Efficient: Only changed documents trigger events
 
 ### 4. Soft Delete Pattern
+
 **Purpose:** Preserve data until successful upload.
 
 **Implementation:**
+
 ```dart
 // Repository
 Future<Result<void>> deleteExpense(String id) async {
@@ -1314,7 +1379,7 @@ Future<Result<void>> deleteExpense(String id) async {
 
   // Queue for upload
   await _database.enqueueOperation(
-    entityType: 'expense',
+    entityType: EntityType.expense,
     entityId: id,
     operationType: 'delete',
   );
@@ -1339,15 +1404,18 @@ Future<void> _processExpenseDelete(SyncQueueData operation) async {
 ```
 
 **Benefits:**
+
 - ✅ No metadata complexity
 - ✅ Can retry failed deletes
 - ✅ Safer: Data preserved until confirmed deleted remotely
 - ✅ Simpler code
 
 ### 5. Stream Pattern (Reactive UI)
+
 **Purpose:** UI automatically updates when data changes.
 
 **Implementation:**
+
 ```dart
 // Database provides streams
 Stream<List<ExpenseEntity>> watchExpensesByGroup(String groupId) {
@@ -1382,6 +1450,7 @@ Widget build(BuildContext context, WidgetRef ref) {
 ```
 
 **Benefits:**
+
 - ✅ Automatic UI updates: No manual refresh needed
 - ✅ Single source of truth: UI always reflects database state
 - ✅ Declarative: UI describes what to show, not how to update
@@ -1447,17 +1516,21 @@ Widget build(BuildContext context, WidgetRef ref) {
 ### Component Responsibilities
 
 #### 1. Repositories
+
 **Files:**
+
 - `lib/features/groups/data/repositories/synced_group_repository.dart`
 - `lib/features/expenses/data/repositories/synced_expense_repository.dart`
 
 **Responsibilities:**
+
 - Implement domain repository interfaces
 - Coordinate Local DB + Upload Queue
 - Provide streams for UI
 - NO sync logic, NO Firestore calls, NO connectivity checks
 
 **Key Methods:**
+
 ```dart
 class SyncedGroupRepository implements GroupRepository {
   final AppDatabase _database;
@@ -1476,9 +1549,11 @@ class SyncedGroupRepository implements GroupRepository {
 ```
 
 #### 2. Local Database (Drift/SQLite)
+
 **File:** `lib/core/database/app_database.dart`
 
 **Responsibilities:**
+
 - Persist data locally
 - Provide reactive streams
 - Manage sync queue table
@@ -1486,6 +1561,7 @@ class SyncedGroupRepository implements GroupRepository {
 - Implement upsert methods for sync
 
 **Key Tables:**
+
 - `app_groups` - Groups with soft delete support
 - `app_group_members` - Group membership
 - `expenses` - Expense records with soft delete
@@ -1493,6 +1569,7 @@ class SyncedGroupRepository implements GroupRepository {
 - `sync_queue` - Upload queue for pending operations
 
 **Key Methods:**
+
 ```dart
 // Regular operations (trigger queue in repository)
 Future<void> insertGroup(GroupEntity group);
@@ -1510,15 +1587,18 @@ Future<void> removeQueuedOperation(int id);
 ```
 
 #### 3. Upload Queue Service
+
 **File:** `lib/core/sync/upload_queue_service.dart`
 
 **Responsibilities:**
+
 - Process pending operations from queue
 - Upload to Firestore
 - Handle retries and failures
 - Remove successfully uploaded operations
 
 **Flow:**
+
 ```dart
 Future<void> processQueue() async {
   final operations = await _database.getPendingOperations(limit: 10);
@@ -1537,9 +1617,11 @@ Future<void> processQueue() async {
 ```
 
 #### 4. Realtime Sync Service (New)
+
 **File:** `lib/core/sync/realtime_sync_service.dart` (to be created)
 
 **Responsibilities:**
+
 - Manage Firestore listener lifecycle
 - Listen to user's groups in real-time
 - Listen to group expenses in real-time
@@ -1547,6 +1629,7 @@ Future<void> processQueue() async {
 - Handle listener errors and reconnection
 
 **Key Methods:**
+
 ```dart
 class RealtimeSyncService {
   // Start listening to user's data
@@ -1570,9 +1653,11 @@ class RealtimeSyncService {
 ```
 
 #### 5. Sync Service (Updated)
+
 **File:** `lib/core/sync/sync_service.dart`
 
 **Responsibilities:**
+
 - Orchestrate overall sync
 - Monitor connectivity
 - Start/stop real-time sync on connectivity changes
@@ -1580,21 +1665,26 @@ class RealtimeSyncService {
 - Provide manual sync method
 
 **Key Changes:**
+
 - Remove timer-based polling
 - Remove download logic (moved to RealtimeSyncService)
 - Simplified to just: connectivity monitoring + queue processing + listener management
 
 #### 6. Firestore Services
+
 **Files:**
+
 - `lib/features/groups/data/services/firestore_group_service.dart`
 - `lib/features/expenses/data/services/firestore_expense_service.dart`
 
 **Responsibilities:**
+
 - Upload/download individual documents
 - Provide real-time snapshot streams
 - Handle Firestore-specific logic
 
 **New Methods:**
+
 ```dart
 class FirestoreGroupService {
   // Existing upload/download methods remain
@@ -1666,6 +1756,7 @@ class FirestoreExpenseService {
 ```
 
 **Timeline:**
+
 - **T0:** User action
 - **T1 (0ms):** Local DB write
 - **T2 (10ms):** UI updates (instant!)
@@ -1792,6 +1883,7 @@ Other devices' UIs update automatically
 ### Firestore Snapshot Listeners
 
 **How They Work:**
+
 ```dart
 // Firestore SDK maintains persistent WebSocket connection
 _firestore.collection('groups')
@@ -1814,6 +1906,7 @@ _firestore.collection('groups')
 ```
 
 **Connection Lifecycle:**
+
 1. **Initial Connection:** Opens WebSocket, sends initial query, receives full dataset
 2. **Listening:** Maintains connection, receives only changes (delta updates)
 3. **Disconnection:** Automatically handled by Firestore SDK
@@ -1821,12 +1914,14 @@ _firestore.collection('groups')
 5. **Error Handling:** SDK retries with exponential backoff
 
 **Benefits:**
+
 - ✅ Efficient: Only changed documents sent over network
 - ✅ Automatic reconnection: No manual retry logic needed
 - ✅ Catches up: Receives all changes that occurred while offline
 - ✅ Low latency: < 1 second typical
 
 **Cost Considerations:**
+
 - 1 read for initial query
 - 1 read per document change
 - Connection is persistent (small data transfer cost)
@@ -1836,6 +1931,7 @@ _firestore.collection('groups')
 ### Listener Lifecycle Management
 
 **Challenge:** Must start/stop listeners based on:
+
 - User authentication state (only listen when logged in)
 - Network connectivity (no point listening when offline)
 - App lifecycle (stop when app backgrounded to save battery)
@@ -1874,6 +1970,7 @@ class RealtimeSyncService {
 ```
 
 **Lifecycle Events:**
+
 - **App Startup:** `startRealtimeSync(userId)` called after authentication
 - **User Logout:** `stopRealtimeSync()` called to clean up
 - **Device Offline:** Listeners automatically pause (Firestore SDK handles)
@@ -1922,6 +2019,7 @@ T7: Device A's local DB updated via upsertExpenseFromSync()
 **Result:** Device B's edit wins (Last Write Wins)
 
 **User Experience:**
+
 - Device A user sees their edit first (instant local update)
 - A moment later, Device A user sees Device B's edit appear
 - This is acceptable for most collaborative apps
@@ -1961,16 +2059,19 @@ Future<void> upsertGroupFromSync(GroupEntity group) async {
 ```
 
 **Key Points:**
+
 - ✅ Simple to implement
 - ✅ Deterministic: All devices converge to same state
 - ❌ Can lose data: User's edit might be overwritten
 
 **When It Works Well:**
+
 - Different users editing different fields
 - Edits separated by time (not simultaneous)
 - UI clearly shows "last updated" timestamp
 
 **When It Fails:**
+
 - Simultaneous edits to same field
 - Long offline periods followed by sync
 - Critical data that can't afford to be lost
@@ -2011,6 +2112,7 @@ Future<void> upsertExpenseFromSync(ExpenseEntity expense) async {
 ```
 
 **Naming Convention:**
+
 - `insert*` / `update*` / `delete*` → Used by repositories, triggers queue
 - `*FromSync` → Used by sync services, bypasses queue
 
@@ -2028,7 +2130,7 @@ Future<Result<void>> deleteExpense(String id) async {
 
   // Queue for upload
   await _database.enqueueOperation(
-    entityType: 'expense',
+    entityType: EntityType.expense,
     entityId: id,
     operationType: 'delete',
   );
@@ -2051,11 +2153,13 @@ Future<void> _processExpenseDelete(SyncQueueData operation) async {
 ```
 
 **Benefits:**
+
 - ✅ Can retry if upload fails
 - ✅ Have all data needed for upload (groupId, etc.)
 - ✅ No complex metadata encoding
 
 **Database Queries:**
+
 ```dart
 // Default queries exclude soft-deleted
 Future<ExpenseEntity?> getExpenseById(String id) async {
@@ -2082,6 +2186,7 @@ Future<ExpenseEntity?> getExpenseById(String id, {bool includeDeleted = false}) 
 The implementation is divided into phases that integrate both the realtime sync (v2.1) and Use Case/Event-Driven (v2.2) refinements. Each phase builds upon the previous one while maintaining backward compatibility.
 
 **Timeline:** 5-6 weeks total
+
 - **Weeks 1-2:** Core infrastructure (Events, Use Cases, Database)
 - **Weeks 3-4:** Repository refactoring and Provider updates
 - **Week 5:** Integration and testing
@@ -2094,6 +2199,7 @@ The implementation is divided into phases that integrate both the realtime sync 
 **Goal:** Create event broker and domain events foundation
 
 **Tasks:**
+
 1. Create `lib/core/events/app_events.dart` with base event classes
 2. Create `lib/core/events/event_broker.dart` with singleton implementation
 3. Define expense events: `ExpenseCreated`, `ExpenseUpdated`, `ExpenseDeleted`
@@ -2102,17 +2208,20 @@ The implementation is divided into phases that integrate both the realtime sync 
 6. Add unit tests for event broker
 
 **Files to Create:**
+
 - `lib/core/events/app_events.dart` (NEW)
 - `lib/core/events/event_broker.dart` (NEW)
 - `lib/core/events/event_providers.dart` (NEW)
 - `test/core/events/event_broker_test.dart` (NEW)
 
 **Testing:**
+
 - Test event broker fires events to multiple listeners
 - Test filtered event streams (`on<T>()` method)
 - Test event broker disposal
 
 **Example Event Classes:**
+
 ```dart
 // lib/core/events/app_events.dart
 abstract class AppEvent {
@@ -2139,6 +2248,7 @@ class ExpenseDeleted extends AppEvent {
 ```
 
 **Deliverables:**
+
 - ✅ Event broker infrastructure working
 - ✅ All domain events defined
 - ✅ Unit tests passing
@@ -2153,35 +2263,32 @@ class ExpenseDeleted extends AppEvent {
 **Tasks:**
 
 **Expense Use Cases:**
+
 1. Create `lib/features/expenses/domain/use_cases/create_expense_use_case.dart`
 2. Create `lib/features/expenses/domain/use_cases/update_expense_use_case.dart`
 3. Create `lib/features/expenses/domain/use_cases/delete_expense_use_case.dart`
 4. Create `lib/features/expenses/domain/use_cases/get_expense_use_case.dart`
 5. Create `lib/features/expenses/domain/use_cases/get_expenses_by_group_use_case.dart`
 
-**Group Use Cases:**
-6. Create `lib/features/groups/domain/use_cases/create_group_use_case.dart`
-7. Create `lib/features/groups/domain/use_cases/update_group_use_case.dart`
-8. Create `lib/features/groups/domain/use_cases/add_member_use_case.dart`
-9. Create `lib/features/groups/domain/use_cases/remove_member_use_case.dart`
-10. Create `lib/features/groups/domain/use_cases/join_group_by_code_use_case.dart`
+**Group Use Cases:** 6. Create `lib/features/groups/domain/use_cases/create_group_use_case.dart` 7. Create `lib/features/groups/domain/use_cases/update_group_use_case.dart` 8. Create `lib/features/groups/domain/use_cases/add_member_use_case.dart` 9. Create `lib/features/groups/domain/use_cases/remove_member_use_case.dart` 10. Create `lib/features/groups/domain/use_cases/join_group_by_code_use_case.dart`
 
-**Providers:**
-11. Create Riverpod providers for all use cases
-12. Add validation logic to use cases
+**Providers:** 11. Create Riverpod providers for all use cases 12. Add validation logic to use cases
 
 **Files to Create:**
+
 - `lib/features/expenses/domain/use_cases/*.dart` (5 files)
 - `lib/features/groups/domain/use_cases/*.dart` (5 files)
 - `lib/features/expenses/domain/use_cases/expense_use_case_providers.dart` (NEW)
 - `lib/features/groups/domain/use_cases/group_use_case_providers.dart` (NEW)
 
 **Testing:**
+
 - Unit tests for each use case
 - Test validation logic in isolation
 - Test use cases with mocked repositories
 
 **Example Use Case:**
+
 ```dart
 // lib/features/expenses/domain/use_cases/create_expense_use_case.dart
 class CreateExpenseUseCase extends UseCase<ExpenseEntity, ExpenseEntity> {
@@ -2217,6 +2324,7 @@ class CreateExpenseUseCase extends UseCase<ExpenseEntity, ExpenseEntity> {
 ```
 
 **Deliverables:**
+
 - ✅ All use cases implemented with validation
 - ✅ Riverpod providers created
 - ✅ Unit tests passing (>90% coverage)
@@ -2231,25 +2339,18 @@ class CreateExpenseUseCase extends UseCase<ExpenseEntity, ExpenseEntity> {
 **Tasks:**
 
 **Repository Updates:**
+
 1. Add `EventBroker` dependency to `SyncedExpenseRepository`
 2. Add `EventBroker` dependency to `SyncedGroupRepository`
 3. Fire events after successful operations in repositories
 4. Update repository providers to inject EventBroker
 
-**DAO Updates:**
-5. Add `EventBroker` dependency to `ExpensesDao`
-6. Add `EventBroker` dependency to `GroupsDao`
-7. Fire events in `upsertExpenseFromSync()` method
-8. Fire events in `upsertGroupFromSync()` method
-9. Fire events in `upsertGroupMemberFromSync()` method
+**DAO Updates:** 5. Add `EventBroker` dependency to `ExpensesDao` 6. Add `EventBroker` dependency to `GroupsDao` 7. Fire events in `upsertExpenseFromSync()` method 8. Fire events in `upsertGroupFromSync()` method 9. Fire events in `upsertGroupMemberFromSync()` method
 
-**Database Updates:**
-10. Add sync-safe upsert methods with event firing
-11. Add `includeDeleted` parameter to get methods
-12. Add `softDeleteExpense()` method
-13. Add `hardDeleteExpense()` method
+**Database Updates:** 10. Add sync-safe upsert methods with event firing 11. Add `includeDeleted` parameter to get methods 12. Add `softDeleteExpense()` method 13. Add `hardDeleteExpense()` method
 
 **Files to Modify:**
+
 - `lib/features/expenses/data/repositories/synced_expense_repository.dart`
 - `lib/features/groups/data/repositories/synced_group_repository.dart`
 - `lib/core/database/DAOs/expenses_dao.dart`
@@ -2258,12 +2359,14 @@ class CreateExpenseUseCase extends UseCase<ExpenseEntity, ExpenseEntity> {
 - `lib/core/sync/sync_providers.dart`
 
 **Testing:**
+
 - Test events are fired on create/update/delete operations
 - Test events are fired on sync operations
 - Test soft delete + hard delete flow
 - Integration tests with event broker
 
 **Example Repository with Events:**
+
 ```dart
 class SyncedExpenseRepository implements ExpenseRepository {
   final AppDatabase _database;
@@ -2276,7 +2379,7 @@ class SyncedExpenseRepository implements ExpenseRepository {
     await _database.transaction(() async {
       await _database.expensesDao.insertExpense(expense);
       await _database.syncDao.enqueueOperation(
-        entityType: 'expense',
+        entityType: EntityType.expense,
         entityId: expense.id,
         operationType: 'create',
         metadata: expense.groupId,
@@ -2292,6 +2395,7 @@ class SyncedExpenseRepository implements ExpenseRepository {
 ```
 
 **Deliverables:**
+
 - ✅ All repositories fire events
 - ✅ All DAOs fire events on sync operations
 - ✅ Soft delete implemented
@@ -2304,16 +2408,19 @@ class SyncedExpenseRepository implements ExpenseRepository {
 **Goal:** Add snapshot listeners to Firestore services
 
 **Tasks:**
+
 1. Add `watchUserGroups(userId)` to FirestoreGroupService
 2. Add `watchGroupExpenses(groupId)` to FirestoreExpenseService
 3. Handle Firestore snapshot events properly
 4. Map Firestore documents to domain entities
 
 **Files:**
+
 - `lib/features/groups/data/services/firestore_group_service.dart`
 - `lib/features/expenses/data/services/firestore_expense_service.dart`
 
 **Testing:**
+
 - Manual test: Create group in Firestore console, verify stream emits
 - Manual test: Update expense, verify stream emits change
 - Test error handling (network loss, invalid data)
@@ -2321,6 +2428,7 @@ class SyncedExpenseRepository implements ExpenseRepository {
 ---
 
 **Deliverables:**
+
 - ✅ Firestore snapshot listeners implemented
 - ✅ Event streams working
 - ✅ Error handling in place
@@ -2332,6 +2440,7 @@ class SyncedExpenseRepository implements ExpenseRepository {
 **Goal:** Create service to manage listeners (integrates with events)
 
 **Tasks:**
+
 1. Create `RealtimeSyncService` class
 2. Implement `startRealtimeSync(userId)`
 3. Implement `stopRealtimeSync()`
@@ -2341,9 +2450,11 @@ class SyncedExpenseRepository implements ExpenseRepository {
 7. Implement hybrid listener strategy (global + active group)
 
 **Files:**
+
 - `lib/core/sync/realtime_sync_service.dart` (already exists, enhance with events)
 
 **Testing:**
+
 - Test listener lifecycle (start, stop, restart)
 - Test events are fired when sync operations occur
 - Test group listener triggers expense listeners
@@ -2351,6 +2462,7 @@ class SyncedExpenseRepository implements ExpenseRepository {
 - Test hybrid listener strategy
 
 **Deliverables:**
+
 - ✅ Realtime sync service enhanced with event firing
 - ✅ Hybrid listener strategy implemented
 - ✅ Tests passing
@@ -2364,42 +2476,38 @@ class SyncedExpenseRepository implements ExpenseRepository {
 **Tasks:**
 
 **Expense Providers:**
+
 1. Update `ExpenseNotifier` to call Use Cases instead of repositories
 2. Remove direct repository calls from `createExpense()`, `updateExpense()`, `deleteExpense()`
 3. Add error handling for validation exceptions from Use Cases
 
-**Group Providers:**
-4. Update `GroupNotifier` to call Use Cases instead of repositories
-5. Remove direct repository calls from `createGroup()`, `joinGroup()`, etc.
-6. Add validation error handling
+**Group Providers:** 4. Update `GroupNotifier` to call Use Cases instead of repositories 5. Remove direct repository calls from `createGroup()`, `joinGroup()`, etc. 6. Add validation error handling
 
-**Event-Driven Providers:**
-7. Create event-driven providers that react to events (e.g., `groupTotalProvider`)
-8. Create activity feed provider that listens to all events
-9. Update existing providers to optionally listen to events for reactive updates
+**Event-Driven Providers:** 7. Create event-driven providers that react to events (e.g., `groupTotalProvider`) 8. Create activity feed provider that listens to all events 9. Update existing providers to optionally listen to events for reactive updates
 
-**Sync Service:**
-10. Update sync service provider to inject RealtimeSyncService
-11. Ensure `startAutoSync()` called on app startup
-12. Ensure `stopAutoSync()` called on logout
+**Sync Service:** 10. Update sync service provider to inject RealtimeSyncService 11. Ensure `startAutoSync()` called on app startup 12. Ensure `stopAutoSync()` called on logout
 
 **Files to Modify:**
+
 - `lib/features/expenses/presentation/providers/expense_providers.dart`
 - `lib/features/groups/presentation/providers/group_providers.dart`
 - `lib/core/sync/sync_providers.dart`
 - `lib/main.dart`
 
 **Files to Create:**
+
 - `lib/features/dashboard/presentation/providers/dashboard_providers.dart` (event-driven totals)
 - `lib/features/activity/presentation/providers/activity_providers.dart` (activity feed)
 
 **Testing:**
+
 - Test providers call Use Cases correctly
 - Test validation errors are surfaced to UI
 - Test event-driven providers react to events
 - Test app startup/shutdown sync lifecycle
 
 **Example Provider with Use Case:**
+
 ```dart
 @riverpod
 class ExpenseNotifier extends _$ExpenseNotifier {
@@ -2452,6 +2560,7 @@ Stream<double> groupTotal(GroupTotalRef ref, String groupId) {
 ```
 
 **Deliverables:**
+
 - ✅ All notifiers use Use Cases
 - ✅ Event-driven providers implemented
 - ✅ Validation errors handled in UI
@@ -2467,35 +2576,32 @@ Stream<double> groupTotal(GroupTotalRef ref, String groupId) {
 **Tasks:**
 
 **Integration:**
+
 1. Ensure realtime sync triggers events correctly
 2. Verify Use Cases → Repositories → Events flow works end-to-end
 3. Test both local and remote changes trigger events
 4. Verify no duplicate event firing
 
-**Cleanup:**
-5. Remove any remaining direct Firestore calls from repositories
-6. Remove old sync logic that's been replaced
-7. Clean up dead code and unused imports
-8. Add missing documentation
+**Cleanup:** 5. Remove any remaining direct Firestore calls from repositories 6. Remove old sync logic that's been replaced 7. Clean up dead code and unused imports 8. Add missing documentation
 
-**Logging:**
-9. Add `LoggerMixin` to all new use cases
-10. Replace any remaining `print()` statements with proper logging
-11. Add debug logs for event firing
+**Logging:** 9. Add `LoggerMixin` to all new use cases 10. Replace any remaining `print()` statements with proper logging 11. Add debug logs for event firing
 
 **Files to Review:**
+
 - All repository files
 - All use case files
 - All provider files
 - SyncService and RealtimeSyncService
 
 **Testing:**
+
 - End-to-end integration tests
 - Test with multiple devices
 - Test offline scenarios
 - Test event flow consistency
 
 **Deliverables:**
+
 - ✅ Complete integration working
 - ✅ No duplicate events
 - ✅ Clean codebase
@@ -2510,64 +2616,73 @@ Stream<double> groupTotal(GroupTotalRef ref, String groupId) {
 **Test Scenarios:**
 
 **1. Use Case Flow Testing**
-   - Test validation errors are caught by Use Cases
-   - Test Use Case → Repository → Event flow
-   - Test failed operations don't fire events
-   - Test Use Cases work offline
+
+- Test validation errors are caught by Use Cases
+- Test Use Case → Repository → Event flow
+- Test failed operations don't fire events
+- Test Use Cases work offline
 
 **2. Event-Driven State Testing**
-   - Create expense, verify event fires
-   - Verify multiple providers react to same event
-   - Test event-driven dashboard totals update
-   - Test activity feed shows events
+
+- Create expense, verify event fires
+- Verify multiple providers react to same event
+- Test event-driven dashboard totals update
+- Test activity feed shows events
 
 **3. Offline Creation (with Events)**
-   - Disable network
-   - Create expense via Use Case
-   - Verify event fires immediately
-   - Verify UI updates from event
-   - Enable network
-   - Verify syncs to Firestore
-   - Verify appears on other device
-   - Verify other device receives event
+
+- Disable network
+- Create expense via Use Case
+- Verify event fires immediately
+- Verify UI updates from event
+- Enable network
+- Verify syncs to Firestore
+- Verify appears on other device
+- Verify other device receives event
 
 **4. Real-Time Sync (with Events)**
-   - Device A: Create expense
-   - Device A: Verify local event fires
-   - Device B: Verify sync triggers event
-   - Device B: Verify event-driven providers update
-   - Verify < 1 second latency
+
+- Device A: Create expense
+- Device A: Verify local event fires
+- Device B: Verify sync triggers event
+- Device B: Verify event-driven providers update
+- Verify < 1 second latency
 
 **5. Conflict Resolution**
-   - Both devices offline
-   - Both edit same expense
-   - Both go online
-   - Verify LWW works correctly
-   - Verify events fire on both devices
+
+- Both devices offline
+- Both edit same expense
+- Both go online
+- Verify LWW works correctly
+- Verify events fire on both devices
 
 **6. Offline Queue Processing (with Events)**
-   - Offline: Create 10 expenses via Use Cases
-   - Verify 10 events fire locally
-   - Go online
-   - Verify all 10 upload
-   - Verify all 10 appear on other device
-   - Verify other device receives 10 events
+
+- Offline: Create 10 expenses via Use Cases
+- Verify 10 events fire locally
+- Go online
+- Verify all 10 upload
+- Verify all 10 appear on other device
+- Verify other device receives 10 events
 
 **7. Listener Reconnection**
-   - Start app online
-   - Go offline for 5 minutes
-   - Another device creates expense
-   - Original device goes online
-   - Verify expense appears
-   - Verify event fires on reconnection
+
+- Start app online
+- Go offline for 5 minutes
+- Another device creates expense
+- Original device goes online
+- Verify expense appears
+- Verify event fires on reconnection
 
 **8. Event-Driven Dashboard**
-   - Open dashboard showing group totals
-   - Create expense in that group
-   - Verify dashboard updates immediately via event
-   - No manual refresh needed
+
+- Open dashboard showing group totals
+- Create expense in that group
+- Verify dashboard updates immediately via event
+- No manual refresh needed
 
 **Deliverables:**
+
 - ✅ All scenarios passing
 - ✅ < 1 second realtime sync latency
 - ✅ Events fire consistently for local and remote changes
@@ -2583,6 +2698,7 @@ Stream<double> groupTotal(GroupTotalRef ref, String groupId) {
 **Tasks:**
 
 **Documentation:**
+
 1. Document all Use Cases with usage examples
 2. Document Event Broker and event types
 3. Create event-driven provider guide
@@ -2590,24 +2706,18 @@ Stream<double> groupTotal(GroupTotalRef ref, String groupId) {
 5. Add troubleshooting guide for events
 6. Document migration path for existing code
 
-**Code Quality:**
-7. Add missing inline documentation
-8. Ensure all public APIs have dartdoc comments
-9. Add code examples to complex methods
-10. Review and improve error messages
+**Code Quality:** 7. Add missing inline documentation 8. Ensure all public APIs have dartdoc comments 9. Add code examples to complex methods 10. Review and improve error messages
 
-**Performance:**
-11. Profile event broker performance
-12. Ensure no memory leaks in event streams
-13. Optimize event filtering
-14. Add metrics for event firing
+**Performance:** 11. Profile event broker performance 12. Ensure no memory leaks in event streams 13. Optimize event filtering 14. Add metrics for event firing
 
 **Files to Create:**
+
 - `docs/USE_CASES_GUIDE.md` (NEW)
 - `docs/EVENT_DRIVEN_ARCHITECTURE.md` (NEW)
 - `docs/MIGRATION_V2_TO_V2_2.md` (NEW)
 
 **Deliverables:**
+
 - ✅ Complete documentation
 - ✅ All code documented
 - ✅ Performance validated
@@ -2626,6 +2736,7 @@ Version 2.2 is **backward compatible** with v2.1. The migration adds Use Cases a
 ### Breaking Changes
 
 **None!** All changes are additive:
+
 - ✅ Existing repositories continue to work
 - ✅ Existing providers continue to work
 - ✅ Event infrastructure is opt-in
@@ -2634,30 +2745,22 @@ Version 2.2 is **backward compatible** with v2.1. The migration adds Use Cases a
 ### Migration Strategy: Incremental Adoption
 
 **Week 1-2: Foundation**
+
 1. Deploy Event Broker infrastructure
 2. Deploy Use Cases (unused initially)
 3. No provider changes yet
 4. Validate in production with monitoring
 
-**Week 3-4: Repository Enhancement**
-5. Update repositories to fire events (non-breaking)
-6. Validate events fire correctly
-7. No UI changes yet
+**Week 3-4: Repository Enhancement** 5. Update repositories to fire events (non-breaking) 6. Validate events fire correctly 7. No UI changes yet
 
-**Week 5-6: Provider Migration**
-8. Migrate one feature at a time (start with expenses)
-9. Update providers to use Use Cases
-10. Add event-driven providers gradually
-11. Monitor for issues, rollback if needed
+**Week 5-6: Provider Migration** 8. Migrate one feature at a time (start with expenses) 9. Update providers to use Use Cases 10. Add event-driven providers gradually 11. Monitor for issues, rollback if needed
 
-**Week 7+: Completion**
-12. Migrate remaining features
-13. Add new event-driven features (dashboard, activity feed)
-14. Sunset old patterns
+**Week 7+: Completion** 12. Migrate remaining features 13. Add new event-driven features (dashboard, activity feed) 14. Sunset old patterns
 
 ### Deployment Strategy
 
 **Phase 1: Infrastructure (No Risk)**
+
 ```
 1. Deploy EventBroker
 2. Deploy Use Cases
@@ -2666,6 +2769,7 @@ Version 2.2 is **backward compatible** with v2.1. The migration adds Use Cases a
 ```
 
 **Phase 2: Event Integration (Low Risk)**
+
 ```
 1. Update repositories to fire events
 2. Update DAOs to fire events on sync
@@ -2674,6 +2778,7 @@ Version 2.2 is **backward compatible** with v2.1. The migration adds Use Cases a
 ```
 
 **Phase 3: Provider Migration (Incremental)**
+
 ```
 1. Update expense providers to use Use Cases
 2. Add event-driven expense totals
@@ -2683,6 +2788,7 @@ Version 2.2 is **backward compatible** with v2.1. The migration adds Use Cases a
 ```
 
 **Phase 4: Complete Migration**
+
 ```
 1. Migrate group providers
 2. Add activity feed (event-driven)
@@ -2695,20 +2801,24 @@ Version 2.2 is **backward compatible** with v2.1. The migration adds Use Cases a
 If issues occur at any phase:
 
 **Event Infrastructure Issues:**
+
 - Event broker can be disabled via feature flag
 - No impact on existing functionality
 
 **Repository Event Firing Issues:**
+
 - Remove event broker injection from repositories
 - Repositories work without events
 - No data loss
 
 **Provider Migration Issues:**
+
 - Revert specific providers to direct repository calls
 - Use Cases remain available for future migration
 - Individual feature rollback possible
 
 **Data Integrity:**
+
 - ✅ Upload queue preserves all operations
 - ✅ Local DB remains source of truth
 - ✅ No data loss possible during migration
@@ -2726,6 +2836,7 @@ If issues occur at any phase:
 ### Rollback Plan
 
 If issues occur:
+
 1. Keep old SyncService as `SyncServiceV1`
 2. Keep old repositories as `*RepositoryV1`
 3. Switch back to old implementations via provider
@@ -2734,6 +2845,7 @@ If issues occur:
 ### Data Migration
 
 **No migration needed!**
+
 - Database schema unchanged
 - Existing queue entries still processed
 - Existing data works with new code
@@ -2745,6 +2857,7 @@ If issues occur:
 ### Unit Tests
 
 **Repositories:**
+
 ```dart
 test('createGroup writes to DB and enqueues', () async {
   final repository = SyncedGroupRepository(mockDatabase);
@@ -2757,6 +2870,7 @@ test('createGroup writes to DB and enqueues', () async {
 ```
 
 **Sync Services:**
+
 ```dart
 test('RealtimeSyncService starts group listener', () async {
   final service = RealtimeSyncService(/* ... */);
@@ -2770,6 +2884,7 @@ test('RealtimeSyncService starts group listener', () async {
 ### Integration Tests
 
 **Database + Queue:**
+
 ```dart
 testWidgets('Expense creation triggers upload queue', (tester) async {
   await tester.pumpWidget(app);
@@ -2788,6 +2903,7 @@ testWidgets('Expense creation triggers upload queue', (tester) async {
 ### End-to-End Tests
 
 **Multi-Device Sync:**
+
 ```dart
 testWidgets('Real-time sync across devices', (tester) async {
   // Device A: Create expense
@@ -2822,18 +2938,21 @@ testWidgets('Real-time sync across devices', (tester) async {
 ### Firestore Costs
 
 **Pricing (as of 2025):**
+
 - Document reads: $0.06 per 100,000
 - Document writes: $0.18 per 100,000
 - Network egress: $0.12 per GB
 - Free tier: 50,000 reads/day, 20,000 writes/day
 
 **Estimated Costs for 1000 Active Users:**
+
 - Initial load: 1000 users × 10 groups × 1 read = 10,000 reads/day
 - Real-time updates: 1000 users × 5 expenses/day × 1 read = 5,000 reads/day
 - Total reads: ~15,000/day (within free tier)
 - Total writes: ~5,000/day (within free tier)
 
 **Optimization Strategies:**
+
 - Cache initial loads
 - Use pagination for large lists
 - Debounce rapid updates
@@ -2842,10 +2961,12 @@ testWidgets('Real-time sync across devices', (tester) async {
 ### Battery Impact
 
 **Listener Overhead:**
+
 - WebSocket connection: ~5-10% battery drain per hour
 - Minimal data transfer (only deltas)
 
 **Mitigation:**
+
 - Stop listeners when app backgrounded
 - Use WorkManager for periodic sync instead
 - Let user control real-time vs. manual sync
@@ -2853,22 +2974,26 @@ testWidgets('Real-time sync across devices', (tester) async {
 ### Memory Usage
 
 **Listener Subscriptions:**
+
 - Each listener: ~1-5 KB memory
 - 10 groups × 1 expense listener each = ~50 KB
 - Negligible impact
 
 **Stream Controllers:**
+
 - Drift manages streams efficiently
 - No memory leaks if disposed properly
 
 ### Network Usage
 
 **Initial Load:**
+
 - 10 groups × 10 KB each = 100 KB
 - 100 expenses × 2 KB each = 200 KB
 - Total: ~300 KB per initial sync
 
 **Real-Time Updates:**
+
 - Only changed documents transferred
 - Average expense: ~2 KB
 - 10 updates/hour = 20 KB/hour
@@ -2915,6 +3040,7 @@ service cloud.firestore {
 ```
 
 **Key Points:**
+
 - ✅ Users can only access groups they're members of
 - ✅ Membership verified on every operation
 - ✅ No direct collection group queries without membership check
@@ -2923,6 +3049,7 @@ service cloud.firestore {
 ### Client-Side Validation
 
 **Always validate before upload:**
+
 ```dart
 Future<void> _processExpenseOperation(SyncQueueData operation) async {
   final expense = await _database.getExpenseById(operation.entityId);
@@ -2943,6 +3070,7 @@ Future<void> _processExpenseOperation(SyncQueueData operation) async {
 ### Authentication
 
 **Ensure authenticated before sync:**
+
 ```dart
 void startAutoSync(String? userId) {
   if (userId == null) {
@@ -2956,10 +3084,12 @@ void startAutoSync(String? userId) {
 ### Data Encryption
 
 **Local DB:**
+
 - Use SQLCipher for encrypted local database (future enhancement)
 - Encrypt sensitive fields before storing
 
 **Network:**
+
 - Firestore uses TLS by default
 - No additional encryption needed
 
@@ -3069,40 +3199,50 @@ abstract class ExpenseRepository {
 ## Team Discussion Questions - RESOLVED ✅
 
 ### 1. ✅ Battery Trade-off: Should we keep listeners active when app is backgrounded?
+
 **Decision:** NO - Foreground-only listeners
 **Rationale:**
+
 - Background listeners drain battery significantly
 - Firestore SDK has excellent catch-up mechanism
 - 1-second delay on app resume is acceptable UX
 - Significant battery savings for users
 
 ### 2. ✅ Real-time Granularity: Should shares also be real-time, or one-time fetch is enough?
+
 **Decision:** One-time fetch is sufficient
 **Rationale:**
+
 - Shares rarely change independently of their parent expense
 - When expense listener fires, we fetch shares at that time
 - Cost optimization: Shares are small, fetching on-demand is cheap
 - Can upgrade to real-time later if needed
 
 ### 3. ✅ Conflict Resolution: Is LWW acceptable, or do we need more sophisticated merging?
+
 **Decision:** LWW with server timestamps + conflict notifications
 **Rationale:**
+
 - LWW is simple and deterministic
 - Server timestamps eliminate clock skew issues
 - Conflict notifications make data loss feel intentional, not like a bug
 - Can add field-level merging in v3 if user feedback demands it
 
 ### 4. ✅ Cost Management: Should we implement pagination/caching to reduce Firestore reads?
+
 **Decision:** Hybrid listener strategy + smart caching
 **Rationale:**
+
 - Single global listener (1 read) + active view listener (1 read) = 2 total
 - On-demand fetch for inactive groups when `lastActivityAt` changes
 - Local DB acts as cache - only fetch when needed
 - Cost is already optimized, pagination not needed initially
 
 ### 5. ✅ Testing: What's our target test coverage?
+
 **Decision:** 80% unit tests, 60% integration tests, 5 critical E2E scenarios
 **Critical E2E Scenarios:**
+
 1. Offline expense creation → online sync
 2. Real-time update propagation across devices
 3. Conflict resolution (concurrent edits)
@@ -3110,16 +3250,20 @@ abstract class ExpenseRepository {
 5. Listener reconnection after app resume
 
 ### 6. ✅ Migration: Gradual rollout or big-bang deployment?
+
 **Decision:** Feature-flag controlled gradual rollout
 **Strategy:**
+
 1. Week 1: Internal testing (10% of users behind flag)
 2. Week 2: Beta users (25% of users)
 3. Week 3: General rollout (100% of users)
 4. Keep old sync code for 1 month as fallback
 
 ### 7. ✅ Monitoring: What metrics should we track?
+
 **Decision:** Track all critical metrics - see "Key Metrics" section above
 **Specific Implementations:**
+
 - Firebase Performance Monitoring for sync latency
 - Custom Firestore metrics for cost tracking
 - Crashlytics for sync-related crashes
@@ -3130,6 +3274,7 @@ abstract class ExpenseRepository {
 ## Next Steps - READY FOR IMPLEMENTATION
 
 ### Phase 0: Pre-Implementation (Complete by: Week 0)
+
 1. ✅ Architecture document reviewed and approved
 2. ✅ All team questions resolved
 3. ⏳ Set up feature flag system
@@ -3137,11 +3282,13 @@ abstract class ExpenseRepository {
 5. ⏳ Set up Firestore indexes
 
 ### Phase 1-9: Implementation (See Implementation Plan section)
+
 - Timeline: 4 weeks
 - Start Date: [To be assigned]
 - Team Assignment: [To be assigned]
 
 ### Post-Launch (Week 5+)
+
 1. Monitor key metrics daily for first week
 2. Weekly sync architecture reviews
 3. Gather user feedback on conflict notifications

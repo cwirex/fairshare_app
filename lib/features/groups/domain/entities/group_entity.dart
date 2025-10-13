@@ -1,4 +1,3 @@
-import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'group_entity.freezed.dart';
@@ -27,8 +26,6 @@ abstract class GroupEntity with _$GroupEntity {
 }
 
 extension GroupEntityX on GroupEntity {
-  static EntityType get entityType => EntityType.group;
-
   /// Unique key for this object
   String get key => id;
 
