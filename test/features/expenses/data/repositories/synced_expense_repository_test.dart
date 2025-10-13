@@ -2,6 +2,7 @@ import 'package:fairshare_app/core/database/DAOs/expense_shares_dao.dart';
 import 'package:fairshare_app/core/database/DAOs/expenses_dao.dart';
 import 'package:fairshare_app/core/database/DAOs/sync_dao.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
+import 'package:fairshare_app/core/events/event_broker.dart';
 import 'package:fairshare_app/features/expenses/data/repositories/synced_expense_repository.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_share_entity.dart';
@@ -11,12 +12,13 @@ import 'package:mockito/mockito.dart';
 
 import 'synced_expense_repository_test.mocks.dart';
 
-@GenerateMocks([AppDatabase, ExpensesDao, ExpenseSharesDao, SyncDao])
+@GenerateMocks([AppDatabase, ExpensesDao, ExpenseSharesDao, SyncDao, EventBroker])
 void main() {
   late MockAppDatabase mockDatabase;
   late MockExpensesDao mockExpensesDao;
   late MockExpenseSharesDao mockExpenseSharesDao;
   late MockSyncDao mockSyncDao;
+  late MockEventBroker mockEventBroker;
   late SyncedExpenseRepository repository;
 
   setUp(() {
@@ -24,13 +26,14 @@ void main() {
     mockExpensesDao = MockExpensesDao();
     mockExpenseSharesDao = MockExpenseSharesDao();
     mockSyncDao = MockSyncDao();
+    mockEventBroker = MockEventBroker();
 
     // Wire up the DAOs to the mock database
     when(mockDatabase.expensesDao).thenReturn(mockExpensesDao);
     when(mockDatabase.expenseSharesDao).thenReturn(mockExpenseSharesDao);
     when(mockDatabase.syncDao).thenReturn(mockSyncDao);
 
-    repository = SyncedExpenseRepository(mockDatabase);
+    repository = SyncedExpenseRepository(mockDatabase, mockEventBroker);
   });
 
   group('SyncedExpenseRepository', () {
@@ -70,7 +73,7 @@ void main() {
         final result = await repository.createExpense(testExpense);
 
         // Assert
-        expect(result.isSuccess(), true);
+        expect(result, testExpense);
         verify(mockDatabase.transaction<void>(any)).called(1);
         verify(mockExpensesDao.insertExpense(testExpense)).called(1);
         verify(
@@ -83,18 +86,17 @@ void main() {
         ).called(1);
       });
 
-      test('should return failure if database operation fails', () async {
+      test('should throw exception if database operation fails', () async {
         // Arrange
         when(
           mockDatabase.transaction<void>(any),
         ).thenThrow(Exception('DB Error'));
 
-        // Act
-        final result = await repository.createExpense(testExpense);
-
-        // Assert
-        expect(result.isError(), true);
-        expect(result.exceptionOrNull()!.toString(), contains('DB Error'));
+        // Act & Assert
+        expect(
+          () => repository.createExpense(testExpense),
+          throwsA(isA<Exception>()),
+        );
       });
     });
 
@@ -109,22 +111,20 @@ void main() {
         final result = await repository.getExpenseById('expense123');
 
         // Assert
-        expect(result.isSuccess(), true);
-        expect(result.getOrNull(), testExpense);
+        expect(result, testExpense);
       });
 
-      test('should return failure if expense not found', () async {
+      test('should throw exception if expense not found', () async {
         // Arrange
         when(
           mockExpensesDao.getExpenseById('nonexistent'),
         ).thenAnswer((_) async => null);
 
-        // Act
-        final result = await repository.getExpenseById('nonexistent');
-
-        // Assert
-        expect(result.isError(), true);
-        expect(result.exceptionOrNull()!.toString(), contains('not found'));
+        // Act & Assert
+        expect(
+          () => repository.getExpenseById('nonexistent'),
+          throwsA(isA<Exception>()),
+        );
       });
     });
 
@@ -150,7 +150,7 @@ void main() {
         final result = await repository.updateExpense(testExpense);
 
         // Assert
-        expect(result.isSuccess(), true);
+        expect(result, testExpense);
         verify(mockDatabase.transaction<void>(any)).called(1);
         verify(mockExpensesDao.updateExpense(testExpense)).called(1);
         verify(
@@ -188,10 +188,9 @@ void main() {
           ).thenAnswer((_) async {});
 
           // Act
-          final result = await repository.deleteExpense('expense123');
+          await repository.deleteExpense('expense123');
 
           // Assert
-          expect(result.isSuccess(), true);
           verify(mockDatabase.transaction<void>(any)).called(1);
           verify(mockExpensesDao.softDeleteExpense('expense123')).called(1);
           verify(
@@ -205,18 +204,17 @@ void main() {
         },
       );
 
-      test('should return failure if expense not found for deletion', () async {
+      test('should throw exception if expense not found for deletion', () async {
         // Arrange
         when(
           mockExpensesDao.getExpenseById('nonexistent'),
         ).thenAnswer((_) async => null);
 
-        // Act
-        final result = await repository.deleteExpense('nonexistent');
-
-        // Assert
-        expect(result.isError(), true);
-        expect(result.exceptionOrNull()!.toString(), contains('not found'));
+        // Act & Assert
+        expect(
+          () => repository.deleteExpense('nonexistent'),
+          throwsA(isA<Exception>()),
+        );
       });
     });
 

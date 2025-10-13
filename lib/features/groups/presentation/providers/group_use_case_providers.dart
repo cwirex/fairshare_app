@@ -2,6 +2,7 @@ import 'package:fairshare_app/core/sync/sync_providers.dart';
 import 'package:fairshare_app/features/groups/domain/use_cases/add_member_use_case.dart';
 import 'package:fairshare_app/features/groups/domain/use_cases/create_group_use_case.dart';
 import 'package:fairshare_app/features/groups/domain/use_cases/delete_group_use_case.dart';
+import 'package:fairshare_app/features/groups/domain/use_cases/join_group_by_code_use_case.dart';
 import 'package:fairshare_app/features/groups/domain/use_cases/remove_member_use_case.dart';
 import 'package:fairshare_app/features/groups/domain/use_cases/update_group_use_case.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,4 +38,11 @@ AddMemberUseCase addMemberUseCase(Ref ref) {
 RemoveMemberUseCase removeMemberUseCase(Ref ref) {
   final repository = ref.watch(groupRepositoryProvider);
   return RemoveMemberUseCase(repository);
+}
+
+/// Provider for JoinGroupByCode
+@riverpod
+JoinGroupByCodeUseCase joinGroupByCodeUseCase(Ref ref) {
+  final repository = ref.watch(groupRepositoryProvider);
+  return JoinGroupByCodeUseCase(repository);
 }

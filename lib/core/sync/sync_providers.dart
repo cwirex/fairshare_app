@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fairshare_app/core/database/database_provider.dart';
+import 'package:fairshare_app/core/events/event_providers.dart';
 import 'package:fairshare_app/core/sync/realtime_sync_service.dart';
 import 'package:fairshare_app/core/sync/sync_service.dart';
 import 'package:fairshare_app/core/sync/upload_queue_service.dart';
@@ -40,14 +41,16 @@ FirestoreExpenseService firestoreExpenseService(
 @riverpod
 GroupRepository groupRepository(GroupRepositoryRef ref) {
   final database = ref.watch(appDatabaseProvider);
-  return SyncedGroupRepository(database);
+  final eventBroker = ref.watch(eventBrokerProvider);
+  return SyncedGroupRepository(database, eventBroker);
 }
 
 /// Synced expense repository provider (clean architecture - DB + Queue only)
 @riverpod
 ExpenseRepository expenseRepository(ExpenseRepositoryRef ref) {
   final database = ref.watch(appDatabaseProvider);
-  return SyncedExpenseRepository(database);
+  final eventBroker = ref.watch(eventBrokerProvider);
+  return SyncedExpenseRepository(database, eventBroker);
 }
 
 /// Upload queue service provider

@@ -4,7 +4,6 @@ import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
 import 'package:fairshare_app/features/groups/domain/repositories/group_repository.dart';
-import 'package:result_dart/result_dart.dart';
 
 class LocalGroupRepository with LoggerMixin implements GroupRepository {
   final AppDatabase _database;
@@ -35,7 +34,7 @@ class LocalGroupRepository with LoggerMixin implements GroupRepository {
   Future<GroupEntity> getGroupById(String id) async {
     final group = await _database.groupsDao.getGroupById(id);
     if (group == null) {
-      throw Failure(Exception('Group not found LOCAL: $id'));
+      throw Exception('Group not found LOCAL: $id');
     }
     return group;
   }

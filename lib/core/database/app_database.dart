@@ -40,6 +40,9 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
+  /// Constructor for testing with in-memory database
+  AppDatabase.forTesting(QueryExecutor executor) : super(executor);
+
   @override
   int get schemaVersion => 6; // Increment when changing tables
 

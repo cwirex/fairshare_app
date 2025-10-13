@@ -1,6 +1,7 @@
 import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/core/database/DAOs/groups_dao.dart';
 import 'package:fairshare_app/core/database/DAOs/sync_dao.dart';
+import 'package:fairshare_app/core/events/event_broker.dart';
 import 'package:fairshare_app/features/groups/data/repositories/synced_group_repository.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
@@ -10,23 +11,25 @@ import 'package:mockito/mockito.dart';
 
 import 'synced_group_repository_test.mocks.dart';
 
-@GenerateMocks([AppDatabase, GroupsDao, SyncDao])
+@GenerateMocks([AppDatabase, GroupsDao, SyncDao, EventBroker])
 void main() {
   late MockAppDatabase mockDatabase;
   late MockGroupsDao mockGroupsDao;
   late MockSyncDao mockSyncDao;
+  late MockEventBroker mockEventBroker;
   late SyncedGroupRepository repository;
 
   setUp(() {
     mockDatabase = MockAppDatabase();
     mockGroupsDao = MockGroupsDao();
     mockSyncDao = MockSyncDao();
+    mockEventBroker = MockEventBroker();
 
     // Wire up the DAOs to the mock database
     when(mockDatabase.groupsDao).thenReturn(mockGroupsDao);
     when(mockDatabase.syncDao).thenReturn(mockSyncDao);
 
-    repository = SyncedGroupRepository(mockDatabase);
+    repository = SyncedGroupRepository(mockDatabase, mockEventBroker);
   });
 
   group('SyncedGroupRepository', () {
@@ -64,7 +67,7 @@ void main() {
         final result = await repository.createGroup(testGroup);
 
         // Assert
-        expect(result.isSuccess(), true);
+        expect(result, testGroup);
         verify(mockDatabase.transaction<void>(any)).called(1);
         verify(mockGroupsDao.insertGroup(testGroup)).called(1);
         verify(
@@ -76,16 +79,15 @@ void main() {
         ).called(1);
       });
 
-      test('should return failure if database operation fails', () async {
+      test('should throw exception if database operation fails', () async {
         // Arrange
         when(mockDatabase.transaction<void>(any)).thenThrow(Exception('DB Error'));
 
-        // Act
-        final result = await repository.createGroup(testGroup);
-
-        // Assert
-        expect(result.isError(), true);
-        expect(result.exceptionOrNull()!.toString(), contains('DB Error'));
+        // Act & Assert
+        expect(
+          () => repository.createGroup(testGroup),
+          throwsA(isA<Exception>()),
+        );
       });
     });
 
@@ -100,23 +102,21 @@ void main() {
         final result = await repository.getGroupById('group123');
 
         // Assert
-        expect(result.isSuccess(), true);
-        expect(result.getOrNull(), testGroup);
+        expect(result, testGroup);
         verify(mockGroupsDao.getGroupById('group123')).called(1);
       });
 
-      test('should return failure if group not found', () async {
+      test('should throw exception if group not found', () async {
         // Arrange
         when(
           mockGroupsDao.getGroupById('nonexistent'),
         ).thenAnswer((_) async => null);
 
-        // Act
-        final result = await repository.getGroupById('nonexistent');
-
-        // Assert
-        expect(result.isError(), true);
-        expect(result.exceptionOrNull()!.toString(), contains('not found'));
+        // Act & Assert
+        expect(
+          () => repository.getGroupById('nonexistent'),
+          throwsA(isA<Exception>()),
+        );
       });
     });
 
@@ -142,7 +142,7 @@ void main() {
         final result = await repository.updateGroup(testGroup);
 
         // Assert
-        expect(result.isSuccess(), true);
+        expect(result, testGroup);
         verify(mockDatabase.transaction<void>(any)).called(1);
         verify(mockGroupsDao.updateGroup(testGroup)).called(1);
         verify(
@@ -176,10 +176,9 @@ void main() {
           ).thenAnswer((_) async {});
 
           // Act
-          final result = await repository.deleteGroup('group123');
+          await repository.deleteGroup('group123');
 
           // Assert
-          expect(result.isSuccess(), true);
           verify(mockDatabase.transaction<void>(any)).called(1);
           verify(mockGroupsDao.softDeleteGroup('group123')).called(1);
           verify(
@@ -218,10 +217,9 @@ void main() {
         ).thenAnswer((_) async {});
 
         // Act
-        final result = await repository.addMember(testMember);
+        await repository.addMember(testMember);
 
         // Assert
-        expect(result.isSuccess(), true);
         verify(mockDatabase.transaction<void>(any)).called(1);
         verify(mockGroupsDao.addGroupMember(testMember)).called(1);
         verify(
@@ -254,10 +252,9 @@ void main() {
         ).thenAnswer((_) async {});
 
         // Act
-        final result = await repository.removeMember('group123', 'user456');
+        await repository.removeMember('group123', 'user456');
 
         // Assert
-        expect(result.isSuccess(), true);
         verify(mockDatabase.transaction<void>(any)).called(1);
         verify(
           mockGroupsDao.removeGroupMember('group123', 'user456'),
@@ -291,14 +288,13 @@ void main() {
           ),
         ).thenThrow(Exception('Queue error'));
 
-        // Act
-        final result = await repository.createGroup(testGroup);
-
-        // Assert
-        expect(result.isError(), true);
-        // In a real transaction, the insert would be rolled back
-        // Here we just verify the exception was propagated
-        expect(result.exceptionOrNull()!.toString(), contains('Queue error'));
+        // Act & Assert
+        expect(
+          () => repository.createGroup(testGroup),
+          throwsA(
+            predicate((e) => e.toString().contains('Queue error')),
+          ),
+        );
       });
     });
   });

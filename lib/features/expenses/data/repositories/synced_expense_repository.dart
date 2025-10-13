@@ -1,5 +1,7 @@
 import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
+import 'package:fairshare_app/core/events/event_broker.dart';
+import 'package:fairshare_app/core/events/expense_events.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_share_entity.dart';
@@ -12,10 +14,12 @@ import 'package:result_dart/result_dart.dart';
 /// - ONLY interacts with local database and queue
 /// - NO Firestore calls (handled by sync services)
 /// - Uses atomic transactions for data integrity
+/// - Fires events after successful operations
 class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
   final AppDatabase _database;
+  final EventBroker _eventBroker;
 
-  SyncedExpenseRepository(this._database);
+  SyncedExpenseRepository(this._database, this._eventBroker);
 
   @override
   Future<ExpenseEntity> createExpense(ExpenseEntity expense) async {
@@ -29,6 +33,9 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
         metadata: expense.groupId,
       );
     });
+
+    // Fire event after successful operation
+    _eventBroker.fire(ExpenseCreated(expense));
     log.d('Created expense: ${expense.title}');
     return expense;
   }
@@ -37,7 +44,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
   Future<ExpenseEntity> getExpenseById(String id) async {
     final expense = await _database.expensesDao.getExpenseById(id);
     if (expense == null) {
-      throw Failure(Exception('Expense not found: $id'));
+      throw Exception('Expense not found: $id');
     }
     return expense;
   }
@@ -66,6 +73,8 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
       );
     });
 
+    // Fire event after successful operation
+    _eventBroker.fire(ExpenseUpdated(expense));
     return expense;
   }
 
@@ -75,7 +84,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
     final expense = await _database.expensesDao.getExpenseById(id);
     if (expense == null) {
       log.e('Expense not found for deletion: $id');
-      throw Failure(Exception('Expense not found: $id'));
+      throw Exception('Expense not found: $id');
     }
 
     // Atomic transaction: Soft delete + Queue entry
@@ -89,6 +98,8 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
       );
     });
 
+    // Fire event after successful operation
+    _eventBroker.fire(ExpenseDeleted(id, expense.groupId));
     log.d('Deleted expense: ${expense.title}');
     return Future.value();
   }
@@ -117,6 +128,8 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
         );
       });
 
+      // Fire event after successful operation
+      _eventBroker.fire(ExpenseShareAdded(share));
       log.d('Added share for expense ${share.expenseId}');
       return Success.unit();
     } catch (e) {

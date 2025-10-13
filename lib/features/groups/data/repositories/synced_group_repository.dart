@@ -1,5 +1,7 @@
 import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
+import 'package:fairshare_app/core/events/event_broker.dart';
+import 'package:fairshare_app/core/events/group_events.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
@@ -12,11 +14,12 @@ import 'package:fairshare_app/features/groups/domain/repositories/group_reposito
 /// - NO Firestore calls (handled by sync services)
 /// - NO connectivity checks (handled by SyncService)
 /// - Uses atomic transactions for data integrity
-/// - Throws exceptions on failure (no `Result<T>` wrapping)
+/// - Fires events after successful operations
 class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   final AppDatabase _database;
+  final EventBroker _eventBroker;
 
-  SyncedGroupRepository(this._database);
+  SyncedGroupRepository(this._database, this._eventBroker);
 
   @override
   Future<GroupEntity> createGroup(GroupEntity group) async {
@@ -31,6 +34,8 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
         );
       });
 
+      // Fire event after successful operation
+      _eventBroker.fire(GroupCreated(group));
       log.d('Created group: ${group.displayName}');
       return group;
     } catch (e) {
@@ -77,6 +82,8 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
         );
       });
 
+      // Fire event after successful operation
+      _eventBroker.fire(GroupUpdated(group));
       log.d('Updated group: ${group.displayName}');
       return group;
     } catch (e) {
@@ -98,6 +105,8 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
         );
       });
 
+      // Fire event after successful operation
+      _eventBroker.fire(GroupDeleted(id));
       log.d('Deleted group: $id');
     } catch (e) {
       log.e('Failed to delete group $id: $e');
@@ -119,6 +128,8 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
         );
       });
 
+      // Fire event after successful operation
+      _eventBroker.fire(MemberAdded(member));
       log.d('Added member ${member.userId} to group ${member.groupId}');
     } catch (e) {
       log.e('Failed to add member: $e');
@@ -140,6 +151,8 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
         );
       });
 
+      // Fire event after successful operation
+      _eventBroker.fire(MemberRemoved(groupId, userId));
       log.d('Removed member $userId from group $groupId');
     } catch (e) {
       log.e('Failed to remove member: $e');

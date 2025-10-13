@@ -2,7 +2,6 @@ import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 import 'package:fairshare_app/features/expenses/domain/repositories/expense_repository.dart';
-import 'package:result_dart/result_dart.dart';
 
 /// Local implementation of ExpenseRepository using Drift database.
 class LocalExpenseRepository implements ExpenseRepository {
@@ -29,7 +28,7 @@ class LocalExpenseRepository implements ExpenseRepository {
   Future<ExpenseEntity> getExpenseById(String id) async {
     final expense = await _database.expensesDao.getExpenseById(id);
     if (expense == null) {
-      throw Failure(Exception('Expense not found: $id'));
+      throw Exception('Expense not found: $id');
     }
     return expense;
   }

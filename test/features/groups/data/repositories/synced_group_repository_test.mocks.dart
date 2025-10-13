@@ -14,6 +14,8 @@ import 'package:fairshare_app/core/database/DAOs/expenses_dao.dart' as _i6;
 import 'package:fairshare_app/core/database/DAOs/groups_dao.dart' as _i5;
 import 'package:fairshare_app/core/database/DAOs/sync_dao.dart' as _i8;
 import 'package:fairshare_app/core/database/DAOs/user_dao.dart' as _i4;
+import 'package:fairshare_app/core/events/app_event.dart' as _i16;
+import 'package:fairshare_app/core/events/event_broker.dart' as _i15;
 import 'package:fairshare_app/core/logging/app_logger.dart' as _i11;
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart'
     as _i13;
@@ -2276,4 +2278,59 @@ class MockSyncDao extends _i1.Mock implements _i8.SyncDao {
             returnValueForMissingStub: _i10.Future<void>.value(),
           )
           as _i10.Future<void>);
+}
+
+/// A class which mocks [EventBroker].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockEventBroker extends _i1.Mock implements _i15.EventBroker {
+  MockEventBroker() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  _i10.Stream<_i16.AppEvent> get stream =>
+      (super.noSuchMethod(
+            Invocation.getter(#stream),
+            returnValue: _i10.Stream<_i16.AppEvent>.empty(),
+          )
+          as _i10.Stream<_i16.AppEvent>);
+
+  @override
+  bool get isClosed =>
+      (super.noSuchMethod(Invocation.getter(#isClosed), returnValue: false)
+          as bool);
+
+  @override
+  bool get hasListeners =>
+      (super.noSuchMethod(Invocation.getter(#hasListeners), returnValue: false)
+          as bool);
+
+  @override
+  _i11.AppLogger get log =>
+      (super.noSuchMethod(
+            Invocation.getter(#log),
+            returnValue: _FakeAppLogger_32(this, Invocation.getter(#log)),
+          )
+          as _i11.AppLogger);
+
+  @override
+  void fire(_i16.AppEvent? event) => super.noSuchMethod(
+    Invocation.method(#fire, [event]),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  _i10.Stream<T> on<T extends _i16.AppEvent>() =>
+      (super.noSuchMethod(
+            Invocation.method(#on, []),
+            returnValue: _i10.Stream<T>.empty(),
+          )
+          as _i10.Stream<T>);
+
+  @override
+  void dispose() => super.noSuchMethod(
+    Invocation.method(#dispose, []),
+    returnValueForMissingStub: null,
+  );
 }

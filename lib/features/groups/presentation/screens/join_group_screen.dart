@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/logging/app_logger.dart';
 import '../../../../shared/routes/routes.dart';
-import '../providers/group_providers.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../domain/use_cases/join_group_by_code_use_case.dart';
+import '../providers/group_use_case_providers.dart';
 
 class JoinGroupScreen extends ConsumerStatefulWidget {
   const JoinGroupScreen({super.key});
@@ -18,6 +20,7 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen>
     with LoggerMixin {
   final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -29,44 +32,64 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen>
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final code = _codeController.text.trim();
-    final groupNotifier = ref.read(groupNotifierProvider.notifier);
+    final currentUser = ref.read(currentUserProvider);
 
-    log.i('Attempting to join group with code: $code');
-
-    await groupNotifier.joinGroup(code);
-
-    if (!mounted) return;
-
-    final state = ref.read(groupNotifierProvider);
-    if (state.hasError) {
+    if (currentUser == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to join group: ${state.error}'),
+        const SnackBar(
+          content: Text('You must be signed in to join a group'),
           backgroundColor: Colors.red,
         ),
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Successfully joined group!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      context.go(Routes.home);
+      return;
     }
+
+    setState(() => _isLoading = true);
+
+    log.i('Attempting to join group with code: $code');
+
+    final useCase = ref.read(joinGroupByCodeUseCaseProvider);
+    final result = await useCase.call(
+      JoinGroupByCodeParams(groupCode: code, userId: currentUser.id),
+    );
+
+    if (!mounted) return;
+
+    setState(() => _isLoading = false);
+
+    result.fold(
+      (group) {
+        log.i('Successfully joined group: ${group.displayName}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully joined ${group.displayName}!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        context.go(Routes.home);
+      },
+      (error) {
+        log.e('Failed to join group: $error');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to join group: ${error.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final groupState = ref.watch(groupNotifierProvider);
-    final isLoading = groupState.isLoading;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Join Group'),
         leading: IconButton(
-          onPressed: isLoading ? null : () => context.go(Routes.home),
+          onPressed: _isLoading ? null : () => context.go(Routes.home),
           icon: const Icon(Icons.close),
         ),
       ),
@@ -153,16 +176,16 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen>
 
             // Join button
             FilledButton.icon(
-              onPressed: isLoading ? null : _joinGroup,
+              onPressed: _isLoading ? null : _joinGroup,
               icon:
-                  isLoading
+                  _isLoading
                       ? const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                       : const Icon(Icons.group_add),
-              label: Text(isLoading ? 'Joining...' : 'Join Group'),
+              label: Text(_isLoading ? 'Joining...' : 'Join Group'),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.all(16),
                 shape: RoundedRectangleBorder(
