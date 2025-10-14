@@ -14,8 +14,10 @@ import 'package:fairshare_app/core/database/DAOs/expenses_dao.dart' as _i6;
 import 'package:fairshare_app/core/database/DAOs/groups_dao.dart' as _i5;
 import 'package:fairshare_app/core/database/DAOs/sync_dao.dart' as _i8;
 import 'package:fairshare_app/core/database/DAOs/user_dao.dart' as _i4;
+import 'package:fairshare_app/core/events/app_event.dart' as _i22;
+import 'package:fairshare_app/core/events/event_broker.dart' as _i20;
 import 'package:fairshare_app/core/logging/app_logger.dart' as _i11;
-import 'package:fairshare_app/features/auth/domain/entities/user.dart' as _i20;
+import 'package:fairshare_app/features/auth/domain/entities/user.dart' as _i21;
 import 'package:fairshare_app/features/expenses/data/services/firestore_expense_service.dart'
     as _i17;
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart'
@@ -1524,18 +1526,27 @@ class MockGroupsDao extends _i1.Mock implements _i5.GroupsDao {
           as _i10.Future<void>);
 
   @override
-  _i10.Future<void> upsertGroupMemberFromSync(_i16.GroupMemberEntity? member) =>
+  _i10.Future<void> upsertGroupMemberFromSync(
+    _i16.GroupMemberEntity? member,
+    _i20.EventBroker? eventBroker,
+  ) =>
       (super.noSuchMethod(
-            Invocation.method(#upsertGroupMemberFromSync, [member]),
+            Invocation.method(#upsertGroupMemberFromSync, [
+              member,
+              eventBroker,
+            ]),
             returnValue: _i10.Future<void>.value(),
             returnValueForMissingStub: _i10.Future<void>.value(),
           )
           as _i10.Future<void>);
 
   @override
-  _i10.Future<void> upsertGroupFromSync(_i15.GroupEntity? group) =>
+  _i10.Future<void> upsertGroupFromSync(
+    _i15.GroupEntity? group,
+    _i20.EventBroker? eventBroker,
+  ) =>
       (super.noSuchMethod(
-            Invocation.method(#upsertGroupFromSync, [group]),
+            Invocation.method(#upsertGroupFromSync, [group, eventBroker]),
             returnValue: _i10.Future<void>.value(),
             returnValueForMissingStub: _i10.Future<void>.value(),
           )
@@ -2109,6 +2120,14 @@ class MockExpensesDao extends _i1.Mock implements _i6.ExpensesDao {
           as _i3.$ExpensesTable);
 
   @override
+  _i11.AppLogger get log =>
+      (super.noSuchMethod(
+            Invocation.getter(#log),
+            returnValue: _FakeAppLogger_31(this, Invocation.getter(#log)),
+          )
+          as _i11.AppLogger);
+
+  @override
   _i10.Future<void> insertExpense(_i18.ExpenseEntity? expense) =>
       (super.noSuchMethod(
             Invocation.method(#insertExpense, [expense]),
@@ -2199,9 +2218,12 @@ class MockExpensesDao extends _i1.Mock implements _i6.ExpensesDao {
           as _i10.Stream<List<_i18.ExpenseEntity>>);
 
   @override
-  _i10.Future<void> upsertExpenseFromSync(_i18.ExpenseEntity? expense) =>
+  _i10.Future<void> upsertExpenseFromSync(
+    _i18.ExpenseEntity? expense,
+    _i20.EventBroker? eventBroker,
+  ) =>
       (super.noSuchMethod(
-            Invocation.method(#upsertExpenseFromSync, [expense]),
+            Invocation.method(#upsertExpenseFromSync, [expense, eventBroker]),
             returnValue: _i10.Future<void>.value(),
             returnValueForMissingStub: _i10.Future<void>.value(),
           )
@@ -3356,7 +3378,7 @@ class MockUserDao extends _i1.Mock implements _i4.UserDao {
           as _i3.$AppUsersTable);
 
   @override
-  _i10.Future<void> insertUser(_i20.User? user) =>
+  _i10.Future<void> insertUser(_i21.User? user) =>
       (super.noSuchMethod(
             Invocation.method(#insertUser, [user]),
             returnValue: _i10.Future<void>.value(),
@@ -3365,15 +3387,15 @@ class MockUserDao extends _i1.Mock implements _i4.UserDao {
           as _i10.Future<void>);
 
   @override
-  _i10.Future<_i20.User?> getUserById(String? id) =>
+  _i10.Future<_i21.User?> getUserById(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getUserById, [id]),
-            returnValue: _i10.Future<_i20.User?>.value(),
+            returnValue: _i10.Future<_i21.User?>.value(),
           )
-          as _i10.Future<_i20.User?>);
+          as _i10.Future<_i21.User?>);
 
   @override
-  _i10.Future<void> updateUser(_i20.User? user) =>
+  _i10.Future<void> updateUser(_i21.User? user) =>
       (super.noSuchMethod(
             Invocation.method(#updateUser, [user]),
             returnValue: _i10.Future<void>.value(),
@@ -3813,4 +3835,59 @@ class MockUserDao extends _i1.Mock implements _i4.UserDao {
             returnValueForMissingStub: _i10.Future<void>.value(),
           )
           as _i10.Future<void>);
+}
+
+/// A class which mocks [EventBroker].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockEventBroker extends _i1.Mock implements _i20.EventBroker {
+  MockEventBroker() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  _i10.Stream<_i22.AppEvent> get stream =>
+      (super.noSuchMethod(
+            Invocation.getter(#stream),
+            returnValue: _i10.Stream<_i22.AppEvent>.empty(),
+          )
+          as _i10.Stream<_i22.AppEvent>);
+
+  @override
+  bool get isClosed =>
+      (super.noSuchMethod(Invocation.getter(#isClosed), returnValue: false)
+          as bool);
+
+  @override
+  bool get hasListeners =>
+      (super.noSuchMethod(Invocation.getter(#hasListeners), returnValue: false)
+          as bool);
+
+  @override
+  _i11.AppLogger get log =>
+      (super.noSuchMethod(
+            Invocation.getter(#log),
+            returnValue: _FakeAppLogger_31(this, Invocation.getter(#log)),
+          )
+          as _i11.AppLogger);
+
+  @override
+  void fire(_i22.AppEvent? event) => super.noSuchMethod(
+    Invocation.method(#fire, [event]),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  _i10.Stream<T> on<T extends _i22.AppEvent>() =>
+      (super.noSuchMethod(
+            Invocation.method(#on, []),
+            returnValue: _i10.Stream<T>.empty(),
+          )
+          as _i10.Stream<T>);
+
+  @override
+  void dispose() => super.noSuchMethod(
+    Invocation.method(#dispose, []),
+    returnValueForMissingStub: null,
+  );
 }

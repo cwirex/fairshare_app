@@ -32,9 +32,11 @@ void main() {
   StreamSubscription<MemberRemoved>? memberRemovedSub;
 
   setUp(() async {
+    // Create EventBroker first
+    eventBroker = EventBroker();
+
     // Create in-memory database for testing
     database = AppDatabase.forTesting(NativeDatabase.memory());
-    eventBroker = EventBroker();
 
     // Create repository
     repository = SyncedGroupRepository(database, eventBroker);

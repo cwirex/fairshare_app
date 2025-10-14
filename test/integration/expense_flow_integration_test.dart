@@ -27,9 +27,11 @@ void main() {
   StreamSubscription<ExpenseDeleted>? deletedSub;
 
   setUp(() async {
+    // Create EventBroker first
+    eventBroker = EventBroker(); // Singleton instance
+
     // Create in-memory database for testing
     database = AppDatabase.forTesting(NativeDatabase.memory());
-    eventBroker = EventBroker(); // Singleton instance
 
     // Create repository
     repository = SyncedExpenseRepository(database, eventBroker);

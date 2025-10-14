@@ -1,11 +1,11 @@
 # FairShare Development Plan
 
-**Last Updated:** 2025-10-13
+**Last Updated:** 2025-10-14
 **Philosophy:** Build minimally, test thoroughly, iterate quickly.
 
 ---
 
-## Current Status: Phase 2.2 Architecture Implementation 🏗️
+## Current Status: Phase 2.4 Event-Driven Providers 🚀
 
 ### Recently Completed ✅
 
@@ -91,111 +91,200 @@
 
 ---
 
-### 2.2 Repository Integration (Week 1-2)
+### ✅ Phase 2.2: Repository Integration - COMPLETED (2025-10-14)
 
 **Goal:** Integrate EventBroker into repositories and update implementations
 
 **Tasks:**
-- [ ] **Update Repository Implementations**
-  - [ ] Inject `EventBroker` into `SyncedExpenseRepository`
-  - [ ] Inject `EventBroker` into `SyncedGroupRepository`
-  - [ ] Fire events after successful operations
-  - [ ] Maintain atomic transactions (DB + Queue + Events)
-  - [ ] Update repository providers
+- [x] **Update Repository Implementations**
+  - [x] Inject `EventBroker` into `SyncedExpenseRepository`
+  - [x] Inject `EventBroker` into `SyncedGroupRepository`
+  - [x] Fire events after successful operations
+  - [x] Maintain atomic transactions (DB + Queue + Events)
+  - [x] Update repository providers
 
-- [ ] **Update DAOs**
-  - [ ] Add `EventBroker` to `ExpensesDao`
-  - [ ] Add `EventBroker` to `GroupsDao`
-  - [ ] Implement `upsertFromSync()` methods that fire events
-  - [ ] Fire correct events for create/update/delete operations
+- [x] **Update DAOs**
+  - [x] Pass `EventBroker` to DAO sync methods (clean Drift-compatible approach)
+  - [x] Update `upsertExpenseFromSync()` to accept EventBroker parameter
+  - [x] Update `upsertGroupFromSync()` to accept EventBroker parameter
+  - [x] Update `upsertGroupMemberFromSync()` to accept EventBroker parameter
+  - [x] Fire correct events for create/update/delete operations
 
-- [ ] **Testing**
-  - [ ] Unit tests for repository event firing
-  - [ ] Integration tests for DAO sync operations
-  - [ ] Verify event payloads are correct
+- [x] **RealtimeSyncService Integration**
+  - [x] Add EventBroker to RealtimeSyncService constructor
+  - [x] Pass EventBroker to all DAO upsert calls
+  - [x] Update sync providers to inject EventBroker
 
-**Key Pattern:**
+- [x] **Testing**
+  - [x] Unit tests for repository event firing (137 tests passing)
+  - [x] Integration tests for realtime sync service (12 tests passing)
+  - [x] Test files updated with EventBroker mocks
+
+**Key Achievement:**
+✅ **Clean Architecture Maintained** - DAOs accept EventBroker as method parameters (not constructor), preserving Drift compatibility
+
+**Pattern Implemented:**
 ```dart
-// Repository fires events after successful operations
+// Repository fires events (local operations)
 Future<ExpenseEntity> createExpense(ExpenseEntity expense) async {
   await _database.transaction(() async {
     await _database.expensesDao.insertExpense(expense);
     await _database.syncDao.enqueueOperation(...);
   });
-
-  _eventBroker.fire(ExpenseCreated(expense)); // Event!
+  _eventBroker.fire(ExpenseCreated(expense)); ✅
   return expense;
+}
+
+// DAO fires events (sync operations)
+Future<void> upsertExpenseFromSync(
+  ExpenseEntity expense,
+  EventBroker eventBroker, // ✅ Passed as parameter
+) async {
+  final existing = await getExpenseById(expense.id);
+  if (existing == null) {
+    await into(expenses).insert(...);
+    eventBroker.fire(ExpenseCreated(expense)); ✅
+  } else if (expense.updatedAt.isAfter(existing.updatedAt)) {
+    await update(expenses).write(...);
+    eventBroker.fire(ExpenseUpdated(expense)); ✅
+  }
 }
 ```
 
 ---
 
-### 2.3 Realtime Sync with Events (Week 2)
+### ✅ Phase 2.3: Realtime Sync with Events - COMPLETED (2025-10-14)
 
 **Goal:** Ensure realtime sync operations fire events correctly
 
 **Tasks:**
-- [ ] **Firestore Services**
-  - [ ] Verify snapshot listener implementations
-  - [ ] Ensure proper error handling
-  - [ ] Test reconnection logic
+- [x] **RealtimeSyncService**
+  - [x] Inject EventBroker into service
+  - [x] Pass EventBroker to all DAO `upsertFromSync()` calls
+  - [x] Verify events fire for remote changes
+  - [x] Test hybrid listener strategy (12/12 tests passing)
 
-- [ ] **RealtimeSyncService**
-  - [ ] Verify hybrid listener strategy working
-  - [ ] Ensure calls to DAO `upsertFromSync()` methods
+- [x] **Repository & DAO Event Integration**
+  - [x] Repositories fire events on local operations
+  - [x] DAOs fire events on sync operations
+  - [x] Atomic transactions maintained
+
+- [⏳] **Manual Testing** (deferred)
   - [ ] Test foreground/background lifecycle
-  - [ ] Verify events fire for remote changes
-
-- [ ] **Upload Queue Service**
-  - [ ] Verify queue processing
-  - [ ] Test retry logic
-  - [ ] Ensure proper error handling
+  - [ ] Verify < 1 second realtime sync latency
+  - [ ] Multi-device testing
 
 **Expected Outcome:**
-- Events fire for BOTH local and remote changes
-- UI stays in sync across all devices
-- < 1 second realtime sync latency
+- ✅ Events fire for BOTH local and remote changes
+- ✅ Architecture supports event-driven UI
+- ⏳ Manual device testing deferred to later
 
 ---
 
-### 2.4 Presentation Layer (Week 3)
+### ⏳ Phase 2.4: Event-Driven Providers - IN PROGRESS
 
-**Goal:** Update providers to use Use Cases and react to events
+**Goal:** Create computed providers that react to events for reactive UI
+
+**Current Architecture Status:**
+- ✅ UI already calls Use Cases directly (no Notifiers needed!)
+- ✅ Stream providers exist for queries (`allExpenses`, `userGroups`, etc.)
+- ✅ Events fire for both local and remote changes
+- ⏳ Need: Computed providers that recalculate when events fire
 
 **Tasks:**
-- [ ] **Refactor Notifiers**
-  - [ ] Update `ExpenseNotifier` to call Use Cases
-  - [ ] Update `GroupNotifier` to call Use Cases
-  - [ ] Remove direct repository calls
-  - [ ] Handle validation errors properly
 
-- [ ] **Event-Driven Providers**
-  - [ ] Create `groupTotalProvider` (reacts to expense events)
-  - [ ] Create event-driven dashboard providers
-  - [ ] Optional: Activity feed provider
+**1. Event-Driven Computed Providers** (Primary Focus)
+- [ ] **Group Statistics Providers**
+  - [ ] `groupTotalProvider(groupId)` - Sum of expenses, reacts to ExpenseCreated/Updated/Deleted
+  - [ ] `groupExpenseCountProvider(groupId)` - Number of expenses per group
+  - [ ] `groupBalanceProvider(groupId)` - Per-member balances (future)
 
-- [ ] **UI Updates**
-  - [ ] Display validation errors to users
-  - [ ] Test reactive UI updates
-  - [ ] Verify multi-screen synchronization
+- [ ] **Dashboard Providers**
+  - [ ] `dashboardStatsProvider` - Aggregate stats across all groups
+  - [ ] `recentActivityProvider` - Recent 10 changes (expenses/groups)
+  - [ ] `totalSpendingProvider` - Total across all groups
 
-**Example:**
+- [ ] **Optional: Activity Feed**
+  - [ ] `activityFeedProvider` - Stream of all events for activity log
+  - [ ] `groupActivityProvider(groupId)` - Activity stream per group
+
+**2. UI Enhancements**
+- [ ] **Validation Error Display**
+  - [ ] Show validation errors from Use Cases in snackbars
+  - [ ] Form field error states
+  - [ ] Improve error messages
+
+- [ ] **Loading & Success States**
+  - [ ] Loading indicators during operations
+  - [ ] Success feedback (snackbars, animations)
+  - [ ] Optimistic UI updates
+
+**3. Testing & Verification**
+- [ ] **Reactive Behavior**
+  - [ ] Test providers update when events fire
+  - [ ] Test multiple screens update simultaneously
+  - [ ] Verify no duplicate calculations
+
+- [ ] **Performance**
+  - [ ] Profile event overhead (target: < 1ms per event)
+  - [ ] Check for memory leaks in providers
+  - [ ] Ensure efficient event filtering
+
+**Implementation Pattern:**
 ```dart
-// Notifier calls Use Case
-class ExpenseNotifier extends _$ExpenseNotifier {
-  Future<void> createExpense(ExpenseEntity expense) async {
-    state = const AsyncLoading();
+// Event-driven computed provider
+@riverpod
+Stream<double> groupTotal(Ref ref, String groupId) async* {
+  // Initial value
+  final expenses = await ref.watch(
+    expensesByGroupProvider(groupId).future
+  );
+  yield expenses.fold(0.0, (sum, e) => sum + e.amount);
 
-    final useCase = ref.read(createExpenseUseCaseProvider);
-    final result = await useCase.call(expense);
-
-    result.fold(
-      (_) => state = const AsyncData(null),
-      (error) => state = AsyncError(error, StackTrace.current),
-    );
+  // React to events
+  final eventBroker = ref.watch(eventBrokerProvider);
+  await for (final event in eventBroker.stream) {
+    // Only recalculate if event affects this group
+    if (event is ExpenseEvent && event.expense.groupId == groupId) {
+      final newExpenses = await ref.read(
+        expensesByGroupProvider(groupId).future
+      );
+      yield newExpenses.fold(0.0, (sum, e) => sum + e.amount);
+    }
   }
 }
+
+// Alternative: FutureProvider with auto-refresh
+@riverpod
+Future<double> groupTotalAlt(Ref ref, String groupId) async {
+  // Listen to events to trigger refresh
+  ref.listen(
+    expenseEventStreamProvider,
+    (prev, next) {
+      if (next.expense.groupId == groupId) {
+        ref.invalidateSelf(); // Trigger recalculation
+      }
+    },
+  );
+
+  final expenses = await ref.watch(
+    expensesByGroupProvider(groupId).future
+  );
+  return expenses.fold(0.0, (sum, e) => sum + e.amount);
+}
 ```
+
+**Architecture Notes:**
+- ✅ No Notifiers needed - UI already uses Use Cases correctly
+- ✅ Stream providers for queries remain unchanged
+- ✅ Computed providers layer on top via events
+- ✅ Events provide decoupling between data changes and UI updates
+
+**Next Steps:**
+1. Survey existing UI screens to identify needed computed values
+2. Implement `groupTotalProvider` as proof of concept
+3. Add dashboard providers for statistics
+4. Enhance UI feedback for operations
 
 ---
 

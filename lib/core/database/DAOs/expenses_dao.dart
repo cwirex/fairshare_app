@@ -1,13 +1,16 @@
 import 'package:drift/drift.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/core/database/tables/expenses_table.dart';
+import 'package:fairshare_app/core/events/event_broker.dart';
+import 'package:fairshare_app/core/events/expense_events.dart';
+import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 
 part 'expenses_dao.g.dart';
 
 @DriftAccessor(tables: [Expenses])
 class ExpensesDao extends DatabaseAccessor<AppDatabase>
-    with _$ExpensesDaoMixin {
+    with _$ExpensesDaoMixin, LoggerMixin {
   final AppDatabase db;
 
   ExpensesDao(this.db) : super(db);
@@ -122,8 +125,14 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Insert or update an expense from remote sync (bypasses queue)
-  Future<void> upsertExpenseFromSync(ExpenseEntity expense) async {
-    final existing = await getExpenseById(expense.id);
+  /// Fires events to update UI when remote changes arrive
+  ///
+  /// [eventBroker] is passed in to maintain clean DAO architecture
+  Future<void> upsertExpenseFromSync(
+    ExpenseEntity expense,
+    EventBroker eventBroker,
+  ) async {
+    final existing = await getExpenseById(expense.id, includeDeleted: true);
 
     if (existing == null) {
       // New expense from server - insert directly
@@ -142,6 +151,10 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
           deletedAt: Value(expense.deletedAt),
         ),
       );
+
+      // Fire event for remote creation
+      eventBroker.fire(ExpenseCreated(expense));
+      log.d('Remote expense created: ${expense.title}');
     } else {
       // Only update if remote version is newer (Last Write Wins)
       if (expense.updatedAt.isAfter(existing.updatedAt)) {
@@ -157,6 +170,10 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
             deletedAt: Value(expense.deletedAt),
           ),
         );
+
+        // Fire event for remote update
+        eventBroker.fire(ExpenseUpdated(expense));
+        log.d('Remote expense updated: ${expense.title}');
       }
     }
   }

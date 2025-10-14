@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fairshare_app/core/database/app_database.dart';
+import 'package:fairshare_app/core/events/event_broker.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/core/monitoring/sync_metrics.dart';
 import 'package:fairshare_app/features/expenses/data/services/firestore_expense_service.dart';
@@ -21,6 +22,7 @@ class RealtimeSyncService with LoggerMixin {
   final AppDatabase _database;
   final FirestoreGroupService _groupService;
   final FirestoreExpenseService _expenseService;
+  final EventBroker _eventBroker;
 
   String? _currentUserId;
 
@@ -38,9 +40,11 @@ class RealtimeSyncService with LoggerMixin {
     required AppDatabase database,
     required FirestoreGroupService groupService,
     required FirestoreExpenseService expenseService,
+    required EventBroker eventBroker,
   }) : _database = database,
        _groupService = groupService,
-       _expenseService = expenseService;
+       _expenseService = expenseService,
+       _eventBroker = eventBroker;
 
   /// Start real-time sync for user (Tier 1 - Global Listener)
   Future<void> startRealtimeSync(String userId) async {
@@ -154,8 +158,8 @@ class RealtimeSyncService with LoggerMixin {
           // TODO: Emit event for UI badge
         }
 
-        // Upsert group (bypasses queue)
-        await _database.groupsDao.upsertGroupFromSync(remoteGroup);
+        // Upsert group (bypasses queue) and fire event
+        await _database.groupsDao.upsertGroupFromSync(remoteGroup, _eventBroker);
 
         // Sync members
         await _syncGroupMembers(remoteGroup.id);
@@ -184,7 +188,7 @@ class RealtimeSyncService with LoggerMixin {
 
     for (final expense in remoteExpenses) {
       try {
-        await _database.expensesDao.upsertExpenseFromSync(expense);
+        await _database.expensesDao.upsertExpenseFromSync(expense, _eventBroker);
         await _syncExpenseShares(groupId, expense.id);
         SyncMetrics.instance.recordSyncSuccess();
       } catch (e) {
@@ -199,7 +203,7 @@ class RealtimeSyncService with LoggerMixin {
     final result = await _groupService.downloadGroupMembers(groupId);
     result.fold((members) async {
       for (final member in members) {
-        await _database.groupsDao.upsertGroupMemberFromSync(member);
+        await _database.groupsDao.upsertGroupMemberFromSync(member, _eventBroker);
       }
       log.d('Synced ${members.length} members for group $groupId');
     }, (error) => log.w('Failed to sync members for $groupId: $error'));
@@ -227,7 +231,7 @@ class RealtimeSyncService with LoggerMixin {
     final result = await _expenseService.downloadGroupExpenses(groupId);
     result.fold((expenses) async {
       for (final expense in expenses) {
-        await _database.expensesDao.upsertExpenseFromSync(expense);
+        await _database.expensesDao.upsertExpenseFromSync(expense, _eventBroker);
         await _syncExpenseShares(groupId, expense.id);
       }
       log.i('Fetched ${expenses.length} expenses for group $groupId');

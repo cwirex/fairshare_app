@@ -1219,18 +1219,27 @@ class MockGroupsDao extends _i1.Mock implements _i5.GroupsDao {
           as _i10.Future<void>);
 
   @override
-  _i10.Future<void> upsertGroupMemberFromSync(_i14.GroupMemberEntity? member) =>
+  _i10.Future<void> upsertGroupMemberFromSync(
+    _i14.GroupMemberEntity? member,
+    _i15.EventBroker? eventBroker,
+  ) =>
       (super.noSuchMethod(
-            Invocation.method(#upsertGroupMemberFromSync, [member]),
+            Invocation.method(#upsertGroupMemberFromSync, [
+              member,
+              eventBroker,
+            ]),
             returnValue: _i10.Future<void>.value(),
             returnValueForMissingStub: _i10.Future<void>.value(),
           )
           as _i10.Future<void>);
 
   @override
-  _i10.Future<void> upsertGroupFromSync(_i13.GroupEntity? group) =>
+  _i10.Future<void> upsertGroupFromSync(
+    _i13.GroupEntity? group,
+    _i15.EventBroker? eventBroker,
+  ) =>
       (super.noSuchMethod(
-            Invocation.method(#upsertGroupFromSync, [group]),
+            Invocation.method(#upsertGroupFromSync, [group, eventBroker]),
             returnValue: _i10.Future<void>.value(),
             returnValueForMissingStub: _i10.Future<void>.value(),
           )

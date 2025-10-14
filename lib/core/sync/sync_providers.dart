@@ -75,11 +75,13 @@ RealtimeSyncService realtimeSyncService(RealtimeSyncServiceRef ref) {
   final database = ref.watch(appDatabaseProvider);
   final groupService = ref.watch(firestoreGroupServiceProvider);
   final expenseService = ref.watch(firestoreExpenseServiceProvider);
+  final eventBroker = ref.watch(eventBrokerProvider);
 
   return RealtimeSyncService(
     database: database,
     groupService: groupService,
     expenseService: expenseService,
+    eventBroker: eventBroker,
   );
 }
 

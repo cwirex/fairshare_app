@@ -2,6 +2,8 @@ import 'package:drift/drift.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/core/database/tables/groups_table.dart';
 import 'package:fairshare_app/core/database/tables/members_table.dart';
+import 'package:fairshare_app/core/events/event_broker.dart';
+import 'package:fairshare_app/core/events/group_events.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
@@ -204,7 +206,16 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Insert or update a group member from remote sync (bypasses queue)
-  Future<void> upsertGroupMemberFromSync(GroupMemberEntity member) async {
+  /// Fires events to update UI when remote changes arrive
+  ///
+  /// [eventBroker] is passed in to maintain clean DAO architecture
+  Future<void> upsertGroupMemberFromSync(
+    GroupMemberEntity member,
+    EventBroker eventBroker,
+  ) async {
+    final existingMembers = await getGroupMembers(member.groupId);
+    final alreadyExists = existingMembers.contains(member.userId);
+
     await into(appGroupMembers).insert(
       AppGroupMembersCompanion(
         groupId: Value(member.groupId),
@@ -213,11 +224,23 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
       ),
       mode: InsertMode.insertOrReplace,
     );
+
+    // Fire event for remote member addition (only if new)
+    if (!alreadyExists) {
+      eventBroker.fire(MemberAdded(member));
+      log.d('Remote member added: ${member.userId} to group ${member.groupId}');
+    }
   }
 
   /// Insert or update a group from remote sync (bypasses queue)
-  Future<void> upsertGroupFromSync(GroupEntity group) async {
-    final existing = await getGroupById(group.id);
+  /// Fires events to update UI when remote changes arrive
+  ///
+  /// [eventBroker] is passed in to maintain clean DAO architecture
+  Future<void> upsertGroupFromSync(
+    GroupEntity group,
+    EventBroker eventBroker,
+  ) async {
+    final existing = await getGroupById(group.id, includeDeleted: true);
 
     if (existing == null) {
       // New group from server - insert directly
@@ -234,6 +257,10 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
           deletedAt: Value(group.deletedAt),
         ),
       );
+
+      // Fire event for remote creation
+      eventBroker.fire(GroupCreated(group));
+      log.d('Remote group created: ${group.displayName}');
     } else {
       // Only update if remote version is newer (Last Write Wins)
       if (group.updatedAt.isAfter(existing.updatedAt)) {
@@ -248,6 +275,10 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
             deletedAt: Value(group.deletedAt),
           ),
         );
+
+        // Fire event for remote update
+        eventBroker.fire(GroupUpdated(group));
+        log.d('Remote group updated: ${group.displayName}');
       }
     }
   }

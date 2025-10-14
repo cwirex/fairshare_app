@@ -15,12 +15,12 @@ import 'package:fairshare_app/core/database/DAOs/groups_dao.dart' as _i5;
 import 'package:fairshare_app/core/database/DAOs/sync_dao.dart' as _i8;
 import 'package:fairshare_app/core/database/DAOs/user_dao.dart' as _i4;
 import 'package:fairshare_app/core/events/app_event.dart' as _i16;
-import 'package:fairshare_app/core/events/event_broker.dart' as _i15;
+import 'package:fairshare_app/core/events/event_broker.dart' as _i14;
 import 'package:fairshare_app/core/logging/app_logger.dart' as _i11;
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart'
     as _i13;
 import 'package:fairshare_app/features/expenses/domain/entities/expense_share_entity.dart'
-    as _i14;
+    as _i15;
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:mockito/src/dummies.dart' as _i12;
 
@@ -1063,6 +1063,14 @@ class MockExpensesDao extends _i1.Mock implements _i6.ExpensesDao {
           as _i3.$ExpensesTable);
 
   @override
+  _i11.AppLogger get log =>
+      (super.noSuchMethod(
+            Invocation.getter(#log),
+            returnValue: _FakeAppLogger_32(this, Invocation.getter(#log)),
+          )
+          as _i11.AppLogger);
+
+  @override
   _i10.Future<void> insertExpense(_i13.ExpenseEntity? expense) =>
       (super.noSuchMethod(
             Invocation.method(#insertExpense, [expense]),
@@ -1153,9 +1161,12 @@ class MockExpensesDao extends _i1.Mock implements _i6.ExpensesDao {
           as _i10.Stream<List<_i13.ExpenseEntity>>);
 
   @override
-  _i10.Future<void> upsertExpenseFromSync(_i13.ExpenseEntity? expense) =>
+  _i10.Future<void> upsertExpenseFromSync(
+    _i13.ExpenseEntity? expense,
+    _i14.EventBroker? eventBroker,
+  ) =>
       (super.noSuchMethod(
-            Invocation.method(#upsertExpenseFromSync, [expense]),
+            Invocation.method(#upsertExpenseFromSync, [expense, eventBroker]),
             returnValue: _i10.Future<void>.value(),
             returnValueForMissingStub: _i10.Future<void>.value(),
           )
@@ -1751,7 +1762,7 @@ class MockExpenseSharesDao extends _i1.Mock implements _i7.ExpenseSharesDao {
           as _i3.$ExpenseSharesTable);
 
   @override
-  _i10.Future<void> insertExpenseShare(_i14.ExpenseShareEntity? share) =>
+  _i10.Future<void> insertExpenseShare(_i15.ExpenseShareEntity? share) =>
       (super.noSuchMethod(
             Invocation.method(#insertExpenseShare, [share]),
             returnValue: _i10.Future<void>.value(),
@@ -1760,16 +1771,16 @@ class MockExpenseSharesDao extends _i1.Mock implements _i7.ExpenseSharesDao {
           as _i10.Future<void>);
 
   @override
-  _i10.Future<List<_i14.ExpenseShareEntity>> getExpenseShares(
+  _i10.Future<List<_i15.ExpenseShareEntity>> getExpenseShares(
     String? expenseId,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#getExpenseShares, [expenseId]),
-            returnValue: _i10.Future<List<_i14.ExpenseShareEntity>>.value(
-              <_i14.ExpenseShareEntity>[],
+            returnValue: _i10.Future<List<_i15.ExpenseShareEntity>>.value(
+              <_i15.ExpenseShareEntity>[],
             ),
           )
-          as _i10.Future<List<_i14.ExpenseShareEntity>>);
+          as _i10.Future<List<_i15.ExpenseShareEntity>>);
 
   @override
   _i10.Future<void> deleteExpenseShares(String? expenseId) =>
@@ -2800,7 +2811,7 @@ class MockSyncDao extends _i1.Mock implements _i8.SyncDao {
 /// A class which mocks [EventBroker].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockEventBroker extends _i1.Mock implements _i15.EventBroker {
+class MockEventBroker extends _i1.Mock implements _i14.EventBroker {
   MockEventBroker() {
     _i1.throwOnMissingStub(this);
   }

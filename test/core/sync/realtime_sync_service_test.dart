@@ -5,6 +5,7 @@ import 'package:fairshare_app/core/database/DAOs/expenses_dao.dart';
 import 'package:fairshare_app/core/database/DAOs/groups_dao.dart';
 import 'package:fairshare_app/core/database/DAOs/user_dao.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
+import 'package:fairshare_app/core/events/event_broker.dart';
 import 'package:fairshare_app/core/sync/realtime_sync_service.dart';
 import 'package:fairshare_app/features/expenses/data/services/firestore_expense_service.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
@@ -27,6 +28,7 @@ import 'realtime_sync_service_test.mocks.dart';
   ExpensesDao,
   ExpenseSharesDao,
   UserDao,
+  EventBroker,
 ])
 void main() {
   late MockAppDatabase mockDatabase;
@@ -36,6 +38,7 @@ void main() {
   late MockExpensesDao mockExpensesDao;
   late MockExpenseSharesDao mockExpenseSharesDao;
   late MockUserDao mockUserDao;
+  late MockEventBroker mockEventBroker;
   late RealtimeSyncService service;
 
   setUp(() {
@@ -46,6 +49,7 @@ void main() {
     mockExpensesDao = MockExpensesDao();
     mockExpenseSharesDao = MockExpenseSharesDao();
     mockUserDao = MockUserDao();
+    mockEventBroker = MockEventBroker();
 
     // Provide dummy values for Result types
     provideDummy<ResultDart<List<GroupMemberEntity>, Exception>>(
@@ -64,6 +68,7 @@ void main() {
       database: mockDatabase,
       groupService: mockGroupService,
       expenseService: mockExpenseService,
+      eventBroker: mockEventBroker,
     );
   });
 
@@ -237,7 +242,7 @@ void main() {
               .thenAnswer((_) => controller.stream);
           when(mockGroupsDao.getGroupById(any))
               .thenAnswer((_) async => null);
-          when(mockGroupsDao.upsertGroupFromSync(any))
+          when(mockGroupsDao.upsertGroupFromSync(any, any))
               .thenAnswer((_) async {});
           when(mockGroupService.downloadGroupMembers(any))
               .thenAnswer((_) async => Success(<GroupMemberEntity>[]));
@@ -250,7 +255,7 @@ void main() {
           ); // Wait for processing
 
           // Assert
-          verify(mockGroupsDao.upsertGroupFromSync(testGroup)).called(1);
+          verify(mockGroupsDao.upsertGroupFromSync(testGroup, any)).called(1);
           verify(mockGroupService.downloadGroupMembers('group123')).called(1);
 
           // Cleanup
@@ -270,7 +275,7 @@ void main() {
             .thenAnswer((_) => controller.stream);
         when(mockGroupsDao.getGroupById(any))
             .thenAnswer((_) async => oldGroup);
-        when(mockGroupsDao.upsertGroupFromSync(any))
+        when(mockGroupsDao.upsertGroupFromSync(any, any))
             .thenAnswer((_) async {});
         when(mockGroupService.downloadGroupMembers(any))
             .thenAnswer((_) async => Success(<GroupMemberEntity>[]));
@@ -315,7 +320,7 @@ void main() {
         final controller = StreamController<List<ExpenseEntity>>();
         when(mockExpenseService.watchGroupExpenses('group123'))
             .thenAnswer((_) => controller.stream);
-        when(mockExpensesDao.upsertExpenseFromSync(any))
+        when(mockExpensesDao.upsertExpenseFromSync(any, any))
             .thenAnswer((_) async {});
         when(mockExpenseService.downloadExpenseShares(any, any))
             .thenAnswer((_) async => Success([]));
@@ -326,7 +331,7 @@ void main() {
         await Future.delayed(Duration(milliseconds: 100));
 
         // Assert
-        verify(mockExpensesDao.upsertExpenseFromSync(testExpense)).called(1);
+        verify(mockExpensesDao.upsertExpenseFromSync(testExpense, any)).called(1);
         verify(
           mockExpenseService.downloadExpenseShares('group123', 'expense123'),
         ).called(1);
@@ -413,11 +418,11 @@ void main() {
               .thenAnswer((_) => expensesController.stream);
           when(mockGroupsDao.getGroupById(any))
               .thenAnswer((_) async => null);
-          when(mockGroupsDao.upsertGroupFromSync(any))
+          when(mockGroupsDao.upsertGroupFromSync(any, any))
               .thenAnswer((_) async {});
           when(mockGroupService.downloadGroupMembers(any))
               .thenAnswer((_) async => Success([user1]));
-          when(mockExpensesDao.upsertExpenseFromSync(any))
+          when(mockExpensesDao.upsertExpenseFromSync(any, any))
               .thenAnswer((_) async {});
           when(mockExpenseService.downloadExpenseShares(any, any))
               .thenAnswer((_) async => Success([]));
@@ -435,9 +440,9 @@ void main() {
           await Future.delayed(Duration(milliseconds: 100));
 
           // Assert
-          verify(mockGroupsDao.upsertGroupFromSync(newGroup)).called(1);
+          verify(mockGroupsDao.upsertGroupFromSync(newGroup, any)).called(1);
           verify(mockGroupService.downloadGroupMembers('group789')).called(1);
-          verify(mockExpensesDao.upsertExpenseFromSync(newExpense)).called(1);
+          verify(mockExpensesDao.upsertExpenseFromSync(newExpense, any)).called(1);
           verify(
             mockExpenseService.downloadExpenseShares('group789', 'expense789'),
           ).called(1);
@@ -523,11 +528,11 @@ void main() {
               .thenAnswer((_) => expensesController1.stream);
           when(mockGroupsDao.getGroupById(any))
               .thenAnswer((_) async => null);
-          when(mockGroupsDao.upsertGroupFromSync(any))
+          when(mockGroupsDao.upsertGroupFromSync(any, any))
               .thenAnswer((_) async {});
           when(mockGroupService.downloadGroupMembers(any))
               .thenAnswer((_) async => Success([user1Member, user2Member]));
-          when(mockExpensesDao.upsertExpenseFromSync(any))
+          when(mockExpensesDao.upsertExpenseFromSync(any, any))
               .thenAnswer((_) async {});
           when(mockExpenseService.downloadExpenseShares(any, any))
               .thenAnswer((_) async => Success([]));
@@ -559,15 +564,15 @@ void main() {
 
           // Assert
           // Group was synced for both users
-          verify(mockGroupsDao.upsertGroupFromSync(sharedGroup)).called(2);
+          verify(mockGroupsDao.upsertGroupFromSync(sharedGroup, any)).called(2);
 
           // Members were downloaded when group synced
           verify(mockGroupService.downloadGroupMembers('group999'))
               .called(greaterThanOrEqualTo(2));
 
           // Both expenses were synced
-          verify(mockExpensesDao.upsertExpenseFromSync(expense1)).called(2);
-          verify(mockExpensesDao.upsertExpenseFromSync(expense2)).called(1);
+          verify(mockExpensesDao.upsertExpenseFromSync(expense1, any)).called(2);
+          verify(mockExpensesDao.upsertExpenseFromSync(expense2, any)).called(1);
 
           // Expense shares were downloaded
           verify(mockExpenseService.downloadExpenseShares('group999', any))

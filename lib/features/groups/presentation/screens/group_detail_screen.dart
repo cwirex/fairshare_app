@@ -9,6 +9,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../expenses/presentation/providers/expense_providers.dart';
 import '../../domain/entities/group_entity.dart';
 import '../providers/group_providers.dart';
+import '../providers/group_statistics_providers.dart';
 
 class GroupDetailScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -241,6 +242,8 @@ class _GroupExpensesTab extends ConsumerWidget with LoggerMixin {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final expensesAsync = ref.watch(expensesByGroupProvider(group.id));
+    // Use event-driven statistics provider for reactive updates
+    final statisticsAsync = ref.watch(groupStatisticsStreamProvider(group.id));
 
     return expensesAsync.when(
       data: (expenses) {
@@ -248,56 +251,59 @@ class _GroupExpensesTab extends ConsumerWidget with LoggerMixin {
           return _buildEmptyState(context, theme);
         }
 
-        // Calculate total
-        final total = expenses.fold<double>(
-          0,
-          (sum, expense) => sum + expense.amount,
-        );
-
         return Column(
           children: [
-            // Summary card
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primaryContainer,
-                    theme.colorScheme.secondaryContainer,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+            // Summary card with event-driven statistics
+            statisticsAsync.when(
+              data: (stats) => Container(
+                width: double.infinity,
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.colorScheme.primaryContainer,
+                      theme.colorScheme.secondaryContainer,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                borderRadius: BorderRadius.circular(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Total Expenses',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${group.defaultCurrency} ${stats.totalAmount.toStringAsFixed(2)}',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${stats.expenseCount} expense${stats.expenseCount == 1 ? '' : 's'}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Total Expenses',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${group.defaultCurrency} ${total.toStringAsFixed(2)}',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${expenses.length} expense${expenses.length == 1 ? '' : 's'}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                ],
+              loading: () => Container(
+                width: double.infinity,
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
+                child: const Center(child: CircularProgressIndicator()),
               ),
+              error: (_, __) => const SizedBox.shrink(),
             ),
 
             // Expenses list
