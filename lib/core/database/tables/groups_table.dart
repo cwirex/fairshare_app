@@ -4,7 +4,7 @@ import 'package:drift/drift.dart';
 ///
 /// Stores group information for expense sharing with timestamp-based sync.
 class AppGroups extends Table {
-  /// Unique group ID (6-digit code or personal_{userId})
+  /// Unique group ID (6-digit code or personal: {userId})
   TextColumn get id => text()();
 
   /// Group display name

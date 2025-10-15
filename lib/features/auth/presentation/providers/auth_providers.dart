@@ -51,6 +51,12 @@ AuthRepository authRepository(Ref ref) {
   );
 }
 
+@riverpod
+Stream<User?> authStateChanges(Ref ref) {
+  final authRepo = ref.watch(authRepositoryProvider);
+  return authRepo.authStateChanges();
+}
+
 /// Auth state notifier for managing authentication state
 @riverpod
 class AuthNotifier extends _$AuthNotifier with LoggerMixin {

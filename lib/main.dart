@@ -1,14 +1,11 @@
-import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:fairshare_app/core/logging/app_logger.dart';
-import 'package:fairshare_app/core/sync/sync_providers.dart';
-import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
-import 'package:fairshare_app/features/groups/presentation/providers/group_providers.dart';
+import 'package:fairshare_app/features/auth/presentation/providers/app_initializer_providers.dart';
 import 'package:fairshare_app/firebase_options.dart';
 import 'package:fairshare_app/shared/routes/app_router.dart';
 import 'package:fairshare_app/shared/theme/app_theme.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,11 +22,12 @@ class FairShareApp extends ConsumerWidget with LoggerMixin {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    log.d('Building FairShareApp widget...');
+
     final router = ref.watch(appRouterProvider);
+    ref.watch(appInitializerProvider);
 
     log.i('FairShare app starting...');
-
-    _ensurePersonalGroupExists(ref);
 
     return MaterialApp.router(
       title: 'FairShare',
@@ -39,18 +37,5 @@ class FairShareApp extends ConsumerWidget with LoggerMixin {
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );
-  }
-
-  void _ensurePersonalGroupExists(WidgetRef ref) {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser != null) {
-      final groupInitService = ref.read(groupInitializationServiceProvider);
-      groupInitService.ensurePersonalGroupExists(currentUser.id);
-
-      // Initialize sync service to start auto-sync
-      // The sync service will automatically start monitoring connectivity
-      // and sync when online. It receives userId from the provider.
-      ref.read(syncServiceProvider);
-    }
   }
 }

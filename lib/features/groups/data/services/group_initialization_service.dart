@@ -13,7 +13,7 @@ class GroupInitializationService with LoggerMixin {
   GroupInitializationService(this._repository);
 
   Future<void> ensurePersonalGroupExists(String userId) async {
-    final personalGroupId = 'personal_$userId';
+    final personalGroupId = userId;
 
     try {
       // Try to get the personal group
@@ -28,7 +28,7 @@ class GroupInitializationService with LoggerMixin {
 
   Future<void> _createPersonalGroup(String userId) async {
     final now = DateTime.now();
-    final personalGroupId = 'personal_$userId';
+    final personalGroupId = userId;
 
     final group = GroupEntity(
       id: personalGroupId,

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
+
 import '../../../../core/logging/app_logger.dart';
 import '../../../groups/presentation/providers/group_providers.dart';
 
@@ -16,7 +17,8 @@ class CreateExpenseScreen extends ConsumerStatefulWidget {
       _CreateExpenseScreenState();
 }
 
-class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> with LoggerMixin {
+class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen>
+    with LoggerMixin {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
@@ -47,13 +49,16 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> with 
       final title = _titleController.text.trim();
       final amount = double.parse(_amountController.text.trim());
 
-      log.i('Creating expense: $title - $amount $_selectedCurrency for group $_selectedGroupId');
+      log.i(
+        'Creating expense: $title - $amount $_selectedCurrency for group $_selectedGroupId',
+      );
 
       // Build expense entity
       final now = DateTime.now();
       final expense = ExpenseEntity(
         id: const Uuid().v4(),
-        groupId: _selectedGroupId ?? 'personal',
+        groupId:
+            _selectedGroupId ?? currentUser.id, // Default to personal group
         title: title,
         amount: amount,
         currency: _selectedCurrency,
@@ -111,13 +116,14 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> with 
         actions: [
           TextButton(
             onPressed: _isLoading ? null : _saveExpense,
-            child: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Save'),
+            child:
+                _isLoading
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Text('Save'),
           ),
         ],
       ),
@@ -209,12 +215,13 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> with 
                     labelText: 'Group',
                     prefixIcon: Icon(Icons.group),
                   ),
-                  items: groups.map((group) {
-                    return DropdownMenuItem(
-                      value: group.id,
-                      child: Text(group.displayName),
-                    );
-                  }).toList(),
+                  items:
+                      groups.map((group) {
+                        return DropdownMenuItem(
+                          value: group.id,
+                          child: Text(group.displayName),
+                        );
+                      }).toList(),
                   onChanged: (value) {
                     setState(() {
                       _selectedGroupId = value;
@@ -247,8 +254,9 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> with 
                   final date = await showDatePicker(
                     context: context,
                     initialDate: _selectedDate ?? DateTime.now(),
-                    firstDate:
-                        DateTime.now().subtract(const Duration(days: 365)),
+                    firstDate: DateTime.now().subtract(
+                      const Duration(days: 365),
+                    ),
                     lastDate: DateTime.now(),
                   );
                   if (date != null) {

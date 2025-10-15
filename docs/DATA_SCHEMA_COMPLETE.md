@@ -179,7 +179,7 @@ users                              groups
 
 | Column            | Type     | Constraints             | Description                                       |
 | ----------------- | -------- | ----------------------- | ------------------------------------------------- |
-| `id`              | TEXT     | PRIMARY KEY             | Group ID (6-digit code or `personal_{userId}`)    |
+| `id`              | TEXT     | PRIMARY KEY             | Group ID (6-digit code or `{userId}`)             |
 | `displayName`     | TEXT     | NOT NULL                | Group name                                        |
 | `avatarUrl`       | TEXT     | DEFAULT ''              | Group avatar URL                                  |
 | `isPersonal`      | BOOLEAN  | NOT NULL, DEFAULT FALSE | **Whether this is a personal (local-only) group** |
@@ -194,7 +194,7 @@ users                              groups
 - ✅ Added `deletedAt` for soft deletes
 - ❌ Removed `optimizeSharing`, `isOpen`, `autoExchangeCurrency` (unused complexity)
 
-**Personal Group Identifier**: `id = "personal_{userId}"` AND `isPersonal = true`
+**Personal Group Identifier**: `id = "$userId"` AND `isPersonal = true`
 
 ---
 
@@ -258,7 +258,7 @@ users                              groups
 - ✅ All queries filter `WHERE deletedAt IS NULL`
 - ✅ Foreign key to groups with CASCADE
 
-**Unified Model**: No separate `PersonalExpenseEntity` - personal expenses are just `ExpenseEntity` records with `groupId = "personal_{userId}"`
+**Unified Model**: No separate `PersonalExpenseEntity` - personal expenses are just `ExpenseEntity` records with `groupId = "userId"`
 
 ---
 
@@ -364,7 +364,7 @@ users                              groups
 ```json
 {
   "id": "exp123",
-  "groupId": "ABC123", // or "personal_user123"
+  "groupId": "ABC123", // or "user123"
   "title": "Hotel",
   "amount": 150.0,
   "currency": "USD",
@@ -379,7 +379,7 @@ users                              groups
 
 **✨ Key Design**: Personal expenses ARE synced here (for cloud backup), even though their parent group is not!
 
-- Path: `/groups/personal_{userId}/expenses/{expenseId}`
+- Path: `/groups/{userId}/expenses/{expenseId}`
 
 ---
 
@@ -433,28 +433,6 @@ users                              groups
 
 ---
 
-### 2. **Why Add `isPersonal` Flag?**
-
-**Problem**:
-
-- Original design used ID prefix `personal_` to identify personal groups
-- String checking is fragile
-- No explicit flag in schema
-
-**Solution**:
-
-- Boolean `isPersonal` field
-- Personal groups: `isPersonal = true`, NOT synced to Firestore
-- Shared groups: `isPersonal = false`, synced to Firestore
-
-**Benefits**:
-
-- ✅ Explicit, type-safe
-- ✅ Database-level distinction
-- ✅ Clear sync logic
-
----
-
 ### 3. **Why Delete `PersonalExpenseEntity`?**
 
 **Problem**:
@@ -466,7 +444,7 @@ users                              groups
 **Solution**:
 
 - One unified `ExpenseEntity`
-- Personal expenses = `ExpenseEntity` with `groupId = "personal_{userId}"`
+- Personal expenses = `ExpenseEntity` with `groupId = "userId"`
 - All expenses use same sync path: `/groups/{groupId}/expenses/`
 
 **Benefits**:
@@ -532,7 +510,7 @@ users                              groups
 **Solution**:
 
 - Personal groups: NOT synced (privacy)
-- Personal expenses: SYNCED to `/groups/personal_{userId}/expenses/` (backup)
+- Personal expenses: SYNCED to `/groups/{userId}/expenses/` (backup)
 
 **Benefits**:
 
@@ -545,10 +523,10 @@ users                              groups
 
 ```
 User creates personal expense:
-1. Personal group exists: id="personal_user123", isPersonal=true
-2. Expense created: groupId="personal_user123"
+1. Personal group exists: id="user123", isPersonal=true
+2. Expense created: groupId="user123"
 3. Group NOT synced (isPersonal=true)
-4. Expense IS synced to: /groups/personal_user123/expenses/exp123 ✅
+4. Expense IS synced to: /groups/user123/expenses/exp123 ✅
 ```
 
 ---
@@ -595,7 +573,7 @@ User creates personal expense:
 2. GroupInitializationService.ensurePersonalGroupExists()
    ├─ Check if personal group exists
    └─ If not:
-      ├─ Create group: id="personal_{userId}", isPersonal=true
+      ├─ Create group: id="userId", isPersonal=true
       ├─ Save to local DB only (NOT added to sync_queue)
       └─ Add user as member
 ```
@@ -622,7 +600,7 @@ LocalExpenseRepository.createExpense(expense):
 ### Concept 1: Personal Groups
 
 - **Definition**: Groups with `isPersonal = true`
-- **ID Format**: `"personal_{userId}"`
+- **ID Format**: `"userId"`
 - **Sync Behavior**: Group metadata NOT synced, but expenses ARE synced
 - **Purpose**: Private expense tracking with cloud backup
 
