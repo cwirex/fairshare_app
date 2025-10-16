@@ -1,3 +1,4 @@
+import 'package:fairshare_app/core/utils/timestamp_converter.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'group_entity.freezed.dart';
@@ -15,10 +16,10 @@ abstract class GroupEntity with _$GroupEntity {
     @Default('') String avatarUrl,
     @Default(false) bool isPersonal,
     @Default('USD') String defaultCurrency,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    required DateTime lastActivityAt,
-    DateTime? deletedAt,
+    @TimestampConverter() required DateTime createdAt,
+    @TimestampConverter() required DateTime updatedAt,
+    @TimestampConverter() required DateTime lastActivityAt,
+    @NullableTimestampConverter() DateTime? deletedAt,
   }) = _GroupEntity;
 
   factory GroupEntity.fromJson(Map<String, dynamic> json) =>

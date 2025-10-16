@@ -1,3 +1,4 @@
+import 'package:fairshare_app/core/utils/timestamp_converter.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'expense_entity.freezed.dart';
@@ -17,10 +18,10 @@ abstract class ExpenseEntity with _$ExpenseEntity {
     required String currency,
     required String paidBy,
     @Default(true) bool shareWithEveryone,
-    required DateTime expenseDate,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    DateTime? deletedAt,
+    @TimestampConverter() required DateTime expenseDate,
+    @TimestampConverter() required DateTime createdAt,
+    @TimestampConverter() required DateTime updatedAt,
+    @NullableTimestampConverter() DateTime? deletedAt,
   }) = _ExpenseEntity;
 
   factory ExpenseEntity.fromJson(Map<String, dynamic> json) =>
