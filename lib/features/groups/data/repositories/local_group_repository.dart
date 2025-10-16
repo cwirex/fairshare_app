@@ -7,8 +7,9 @@ import 'package:fairshare_app/features/groups/domain/repositories/group_reposito
 
 class LocalGroupRepository with LoggerMixin implements GroupRepository {
   final AppDatabase _database;
+  final String ownerId; // ID of the user who owns this repository instance
 
-  LocalGroupRepository(this._database);
+  LocalGroupRepository(this._database, this.ownerId);
 
   @override
   Future<GroupEntity> createGroup(GroupEntity group) async {
@@ -19,6 +20,7 @@ class LocalGroupRepository with LoggerMixin implements GroupRepository {
       // Only enqueue non-personal groups for sync
       if (!group.isPersonal) {
         await _database.syncDao.enqueueOperation(
+          ownerId: ownerId,
           entityType: EntityType.group,
           entityId: group.id,
           operationType: 'create',
@@ -52,6 +54,7 @@ class LocalGroupRepository with LoggerMixin implements GroupRepository {
       // Only enqueue non-personal groups for sync
       if (!group.isPersonal) {
         await _database.syncDao.enqueueOperation(
+          ownerId: ownerId,
           entityType: EntityType.group,
           entityId: group.id,
           operationType: 'update',
@@ -71,6 +74,7 @@ class LocalGroupRepository with LoggerMixin implements GroupRepository {
       // Only enqueue non-personal groups for sync
       if (group != null && !group.isPersonal) {
         await _database.syncDao.enqueueOperation(
+          ownerId: ownerId,
           entityType: EntityType.group,
           entityId: id,
           operationType: 'delete',

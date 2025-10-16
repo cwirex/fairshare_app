@@ -31,6 +31,8 @@ void main() {
   StreamSubscription<MemberAdded>? memberAddedSub;
   StreamSubscription<MemberRemoved>? memberRemovedSub;
 
+  const testUserId = 'test-user-123';
+
   setUp(() async {
     // Create EventBroker first
     eventBroker = EventBroker();
@@ -39,7 +41,7 @@ void main() {
     database = AppDatabase.forTesting(NativeDatabase.memory());
 
     // Create repository
-    repository = SyncedGroupRepository(database, eventBroker);
+    repository = SyncedGroupRepository(database, eventBroker, testUserId);
 
     // Create use cases
     createUseCase = CreateGroupUseCase(repository);
@@ -100,7 +102,7 @@ void main() {
         expect(storedGroup!.displayName, group.displayName);
 
         // Verify sync operation was enqueued
-        final syncOps = await database.syncDao.getPendingOperations();
+        final syncOps = await database.syncDao.getPendingOperations(ownerId: testUserId);
         expect(syncOps.length, greaterThan(0));
         expect(
           syncOps.any((op) =>
@@ -158,7 +160,7 @@ void main() {
         expect(storedGroup!.displayName, 'Updated Name');
 
         // Verify sync operation was enqueued
-        final syncOps = await database.syncDao.getPendingOperations();
+        final syncOps = await database.syncDao.getPendingOperations(ownerId: testUserId);
         expect(
           syncOps.any((op) =>
             op.entityId == group.id && op.operationType == 'update'),
@@ -222,7 +224,7 @@ void main() {
         expect(normalQuery, isNull);
 
         // Verify sync operation was enqueued
-        final syncOps = await database.syncDao.getPendingOperations();
+        final syncOps = await database.syncDao.getPendingOperations(ownerId: testUserId);
         expect(
           syncOps.any((op) =>
             op.entityId == group.id && op.operationType == 'delete'),
@@ -283,7 +285,7 @@ void main() {
         expect(members, contains('user123'));
 
         // Verify sync operation was enqueued
-        final syncOps = await database.syncDao.getPendingOperations();
+        final syncOps = await database.syncDao.getPendingOperations(ownerId: testUserId);
         expect(
           syncOps.any((op) =>
             op.entityId == '${group.id}_user123' &&
@@ -351,7 +353,7 @@ void main() {
         expect(members, isNot(contains('user456')));
 
         // Verify sync operation was enqueued
-        final syncOps = await database.syncDao.getPendingOperations();
+        final syncOps = await database.syncDao.getPendingOperations(ownerId: testUserId);
         expect(
           syncOps.any((op) =>
             op.entityId == '${group.id}_user456' &&
@@ -404,7 +406,7 @@ void main() {
       expect(storedGroup, isNull);
 
       // Verify NO sync operation was enqueued
-      final syncOps = await database.syncDao.getPendingOperations();
+      final syncOps = await database.syncDao.getPendingOperations(ownerId: testUserId);
       expect(
         syncOps.any((op) => op.entityId == invalidGroup.id),
         false,

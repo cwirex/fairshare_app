@@ -8,6 +8,12 @@ import 'package:fairshare_app/features/groups/domain/entities/group_member_entit
 ///
 /// All methods throw exceptions on failure (no `Result<T>` wrapping).
 /// Use cases are responsible for catching exceptions and wrapping in `Result<T>`.
+///
+/// For multi-user offline-first architecture:
+/// - Repository implementations are user-scoped (created with a specific ownerId)
+/// - The ownerId is injected via constructor, not passed to each method
+/// - This ensures sync queue entries are scoped to the correct user
+/// - Prevents cross-user data leakage during sign-out/sign-in
 abstract class GroupRepository {
   /// Create a new group
   Future<GroupEntity> createGroup(GroupEntity group);

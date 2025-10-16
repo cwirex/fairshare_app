@@ -15,11 +15,13 @@ import 'package:result_dart/result_dart.dart';
 /// - NO Firestore calls (handled by sync services)
 /// - Uses atomic transactions for data integrity
 /// - Fires events after successful operations
+/// - User-scoped: ownerId is injected at construction time
 class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
   final AppDatabase _database;
   final EventBroker _eventBroker;
+  final String ownerId; // ID of the user who owns this repository instance
 
-  SyncedExpenseRepository(this._database, this._eventBroker);
+  SyncedExpenseRepository(this._database, this._eventBroker, this.ownerId);
 
   @override
   Future<ExpenseEntity> createExpense(ExpenseEntity expense) async {
@@ -27,6 +29,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
     await _database.transaction<void>(() async {
       await _database.expensesDao.insertExpense(expense);
       await _database.syncDao.enqueueOperation(
+        ownerId: ownerId,
         entityType: EntityType.expense,
         entityId: expense.id,
         operationType: 'create',
@@ -36,7 +39,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
 
     // Fire event after successful operation
     _eventBroker.fire(ExpenseCreated(expense));
-    log.d('Created expense: ${expense.title}');
+    log.d('Created expense: ${expense.title} by owner: $ownerId');
     return expense;
   }
 
@@ -66,6 +69,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
     await _database.transaction<void>(() async {
       await _database.expensesDao.updateExpense(expense);
       await _database.syncDao.enqueueOperation(
+        ownerId: ownerId,
         entityType: EntityType.expense,
         entityId: expense.id,
         operationType: 'update',
@@ -75,6 +79,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
 
     // Fire event after successful operation
     _eventBroker.fire(ExpenseUpdated(expense));
+    log.d('Updated expense: ${expense.title} by owner: $ownerId');
     return expense;
   }
 
@@ -91,6 +96,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
     await _database.transaction<void>(() async {
       await _database.expensesDao.softDeleteExpense(id);
       await _database.syncDao.enqueueOperation(
+        ownerId: ownerId,
         entityType: EntityType.expense,
         entityId: id,
         operationType: 'delete',
@@ -100,7 +106,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
 
     // Fire event after successful operation
     _eventBroker.fire(ExpenseDeleted(id, expense.groupId));
-    log.d('Deleted expense: ${expense.title}');
+    log.d('Deleted expense: ${expense.title} by owner: $ownerId');
     return Future.value();
   }
 
@@ -114,13 +120,13 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
     return _database.expensesDao.watchAllExpenses();
   }
 
-  @override
   Future<Result<void>> addExpenseShare(ExpenseShareEntity share) async {
     try {
       // Atomic transaction: Add share + Queue entry
       await _database.transaction<void>(() async {
         await _database.expenseSharesDao.insertExpenseShare(share);
         await _database.syncDao.enqueueOperation(
+          ownerId: ownerId,
           entityType: EntityType.expenseShare,
           entityId: '${share.expenseId}_${share.userId}',
           operationType: 'create',

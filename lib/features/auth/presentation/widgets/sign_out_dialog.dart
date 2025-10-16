@@ -171,73 +171,32 @@ class SafeSignOutDialog extends ConsumerWidget {
   }
 }
 
-/// Data loss warning dialog - unsynced data exists
-class DataLossWarningDialog extends ConsumerStatefulWidget {
+/// Pending sync warning dialog - unsynced data exists (but preserved)
+class DataLossWarningDialog extends ConsumerWidget {
   const DataLossWarningDialog({super.key});
 
   @override
-  ConsumerState<DataLossWarningDialog> createState() =>
-      _DataLossWarningDialogState();
-}
-
-class _DataLossWarningDialogState extends ConsumerState<DataLossWarningDialog> {
-  bool _showTypeConfirmation = false;
-  final _confirmationController = TextEditingController();
-  bool _isTypedCorrectly = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _confirmationController.addListener(_onConfirmationTextChanged);
-  }
-
-  @override
-  void dispose() {
-    _confirmationController.dispose();
-    super.dispose();
-  }
-
-  void _onConfirmationTextChanged() {
-    setState(() {
-      _isTypedCorrectly =
-          _confirmationController.text.trim().toUpperCase() == 'DELETE';
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    if (!_showTypeConfirmation) {
-      return _buildWarningScreen(theme);
-    }
-
-    return _buildTypeConfirmationScreen(theme);
-  }
-
-  Widget _buildWarningScreen(ThemeData theme) {
     return AlertDialog(
-      icon: Icon(Icons.warning, color: theme.colorScheme.error, size: 32),
-      title: Text(
-        'WARNING: Data Loss Risk',
-        style: TextStyle(color: theme.colorScheme.error),
-      ),
+      icon: Icon(Icons.cloud_sync, color: theme.colorScheme.primary, size: 32),
+      title: const Text('Pending Sync Operations'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'You have unsynced expenses that will be PERMANENTLY LOST.',
+            'You have data that hasn\'t synced to the cloud yet.',
             style: theme.textTheme.bodyLarge?.copyWith(
               fontWeight: FontWeight.w600,
-              color: theme.colorScheme.error,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: theme.colorScheme.errorContainer,
+              color: theme.colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Column(
@@ -245,49 +204,37 @@ class _DataLossWarningDialogState extends ConsumerState<DataLossWarningDialog> {
                 Row(
                   children: [
                     Icon(
-                      Icons.receipt,
-                      size: 16,
-                      color: theme.colorScheme.onErrorContainer,
+                      Icons.info_outline,
+                      size: 20,
+                      color: theme.colorScheme.onPrimaryContainer,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      'Unsynced data will be lost',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onErrorContainer,
-                        fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: Text(
+                        'Your data is safely stored on this device',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                // TODO: Show actual unsynced item counts when sync providers are integrated
-                // const SizedBox(height: 8),
-                // ...ref.watch(unsyncedItemDescriptionsProvider).when(
-                //   data: (descriptions) => descriptions.map((desc) =>
-                //     Padding(
-                //       padding: const EdgeInsets.only(bottom: 4),
-                //       child: Row(
-                //         children: [
-                //           Icon(Icons.warning, size: 12, color: theme.colorScheme.onErrorContainer),
-                //           const SizedBox(width: 8),
-                //           Text(desc, style: theme.textTheme.bodySmall?.copyWith(
-                //             color: theme.colorScheme.onErrorContainer,
-                //           )),
-                //         ],
-                //       ),
-                //     ),
-                //   ).toList(),
-                //   loading: () => [const SizedBox()],
-                //   error: (_, __) => [const SizedBox()],
-                // ),
+                const SizedBox(height: 8),
+                Text(
+                  'When you sign back in, everything will sync automatically. No data will be lost.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            'This action cannot be undone.',
+            'Would you like to sync now, or sign out and sync later?',
             style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.error,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
             textAlign: TextAlign.center,
           ),
@@ -305,88 +252,21 @@ class _DataLossWarningDialogState extends ConsumerState<DataLossWarningDialog> {
               const SnackBar(content: Text('Sync not implemented yet')),
             );
           },
-          child: const Text('Try Sync First'),
+          child: const Text('Sync Now'),
         ),
         FilledButton(
-          onPressed: () {
-            setState(() {
-              _showTypeConfirmation = true;
-            });
-          },
+          onPressed: () => _performSignOut(context, ref),
           style: FilledButton.styleFrom(
-            backgroundColor: theme.colorScheme.error,
+            backgroundColor: theme.colorScheme.primary,
           ),
-          child: const Text('Continue Anyway'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTypeConfirmationScreen(ThemeData theme) {
-    return AlertDialog(
-      icon: Icon(Icons.dangerous, color: theme.colorScheme.error, size: 32),
-      title: Text(
-        'Final Confirmation',
-        style: TextStyle(color: theme.colorScheme.error),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'This will permanently delete all local data.',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          Text('Type DELETE to confirm:', style: theme.textTheme.bodyMedium),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _confirmationController,
-            decoration: InputDecoration(
-              hintText: 'DELETE',
-              border: OutlineInputBorder(
-                borderSide: BorderSide(color: theme.colorScheme.error),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: theme.colorScheme.error,
-                  width: 2,
-                ),
-              ),
-            ),
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-              letterSpacing: 2,
-            ),
-            textAlign: TextAlign.center,
-            textCapitalization: TextCapitalization.characters,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed:
-              _isTypedCorrectly ? () => _performSignOut(context, ref) : null,
-          style: FilledButton.styleFrom(
-            backgroundColor:
-                _isTypedCorrectly
-                    ? theme.colorScheme.error
-                    : theme.colorScheme.surfaceContainerHighest,
-          ),
-          child: const Text('Delete & Sign Out'),
+          child: const Text('Sign Out Anyway'),
         ),
       ],
     );
   }
 }
 
-/// Offline warning dialog - no internet connection
+/// Offline warning dialog - no internet connection (but signing out is safe)
 class OfflineWarningDialog extends ConsumerWidget {
   const OfflineWarningDialog({super.key});
 
@@ -395,35 +275,51 @@ class OfflineWarningDialog extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return AlertDialog(
-      icon: Icon(Icons.wifi_off, color: theme.colorScheme.outline, size: 32),
-      title: const Text('No Internet Connection'),
+      icon: Icon(Icons.cloud_off, color: theme.colorScheme.primary, size: 32),
+      title: const Text('Sign Out Offline'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Internet connection is required to sign out safely.',
-            style: theme.textTheme.bodyLarge,
+            'You\'re currently offline, but signing out is safe.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
+              color: theme.colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Row(
+            child: Column(
               children: [
-                Icon(
-                  Icons.info_outline,
-                  size: 16,
-                  color: theme.colorScheme.primary,
+                Row(
+                  children: [
+                    Icon(
+                      Icons.shield,
+                      size: 20,
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Your data is preserved',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'This ensures your data is properly synced before signing out.',
-                    style: theme.textTheme.bodySmall,
+                const SizedBox(height: 8),
+                Text(
+                  'All your data is safely stored on this device. When you sign back in with an internet connection, everything will sync automatically.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onPrimaryContainer,
                   ),
                 ),
               ],
@@ -437,27 +333,11 @@ class OfflineWarningDialog extends ConsumerWidget {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-            // TODO: Navigate to connectivity/sync screen
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text(
-                  'Check your internet connection and try again',
-                ),
-                action: SnackBarAction(
-                  label: 'Retry',
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => const SignOutDialog(),
-                    );
-                  },
-                ),
-              ),
-            );
-          },
-          child: const Text('Check Connection'),
+          onPressed: () => _performSignOut(context, ref),
+          style: FilledButton.styleFrom(
+            backgroundColor: theme.colorScheme.primary,
+          ),
+          child: const Text('Sign Out'),
         ),
       ],
     );
@@ -539,7 +419,7 @@ class SignOutProgressDialog extends StatelessWidget {
           CircularProgressIndicator(color: theme.colorScheme.primary),
           const SizedBox(height: 16),
           Text(
-            'Signing out and clearing data...',
+            'Signing out...',
             style: theme.textTheme.bodyLarge,
             textAlign: TextAlign.center,
           ),

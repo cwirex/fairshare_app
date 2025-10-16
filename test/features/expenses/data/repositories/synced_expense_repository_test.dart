@@ -12,7 +12,13 @@ import 'package:mockito/mockito.dart';
 
 import 'synced_expense_repository_test.mocks.dart';
 
-@GenerateMocks([AppDatabase, ExpensesDao, ExpenseSharesDao, SyncDao, EventBroker])
+@GenerateMocks([
+  AppDatabase,
+  ExpensesDao,
+  ExpenseSharesDao,
+  SyncDao,
+  EventBroker,
+])
 void main() {
   late MockAppDatabase mockDatabase;
   late MockExpensesDao mockExpensesDao;
@@ -27,13 +33,18 @@ void main() {
     mockExpenseSharesDao = MockExpenseSharesDao();
     mockSyncDao = MockSyncDao();
     mockEventBroker = MockEventBroker();
+    const testUserId = 'testUserId';
 
     // Wire up the DAOs to the mock database
     when(mockDatabase.expensesDao).thenReturn(mockExpensesDao);
     when(mockDatabase.expenseSharesDao).thenReturn(mockExpenseSharesDao);
     when(mockDatabase.syncDao).thenReturn(mockSyncDao);
 
-    repository = SyncedExpenseRepository(mockDatabase, mockEventBroker);
+    repository = SyncedExpenseRepository(
+      mockDatabase,
+      mockEventBroker,
+      testUserId,
+    );
   });
 
   group('SyncedExpenseRepository', () {
@@ -62,6 +73,7 @@ void main() {
         when(mockExpensesDao.insertExpense(any)).thenAnswer((_) async {});
         when(
           mockSyncDao.enqueueOperation(
+            ownerId: anyNamed('ownerId'),
             entityType: anyNamed('entityType'),
             entityId: anyNamed('entityId'),
             operationType: anyNamed('operationType'),
@@ -78,6 +90,7 @@ void main() {
         verify(mockExpensesDao.insertExpense(testExpense)).called(1);
         verify(
           mockSyncDao.enqueueOperation(
+            ownerId: 'testUserId',
             entityType: 'expense',
             entityId: 'expense123',
             operationType: 'create',
@@ -139,6 +152,7 @@ void main() {
         when(mockExpensesDao.updateExpense(any)).thenAnswer((_) async {});
         when(
           mockSyncDao.enqueueOperation(
+            ownerId: anyNamed('ownerId'),
             entityType: anyNamed('entityType'),
             entityId: anyNamed('entityId'),
             operationType: anyNamed('operationType'),
@@ -155,6 +169,7 @@ void main() {
         verify(mockExpensesDao.updateExpense(testExpense)).called(1);
         verify(
           mockSyncDao.enqueueOperation(
+            ownerId: 'testUserId',
             entityType: 'expense',
             entityId: 'expense123',
             operationType: 'update',
@@ -180,6 +195,7 @@ void main() {
           when(mockExpensesDao.softDeleteExpense(any)).thenAnswer((_) async {});
           when(
             mockSyncDao.enqueueOperation(
+              ownerId: anyNamed('ownerId'),
               entityType: anyNamed('entityType'),
               entityId: anyNamed('entityId'),
               operationType: anyNamed('operationType'),
@@ -195,6 +211,7 @@ void main() {
           verify(mockExpensesDao.softDeleteExpense('expense123')).called(1);
           verify(
             mockSyncDao.enqueueOperation(
+              ownerId: 'testUserId',
               entityType: 'expense',
               entityId: 'expense123',
               operationType: 'delete',
@@ -204,18 +221,21 @@ void main() {
         },
       );
 
-      test('should throw exception if expense not found for deletion', () async {
-        // Arrange
-        when(
-          mockExpensesDao.getExpenseById('nonexistent'),
-        ).thenAnswer((_) async => null);
+      test(
+        'should throw exception if expense not found for deletion',
+        () async {
+          // Arrange
+          when(
+            mockExpensesDao.getExpenseById('nonexistent'),
+          ).thenAnswer((_) async => null);
 
-        // Act & Assert
-        expect(
-          () => repository.deleteExpense('nonexistent'),
-          throwsA(isA<Exception>()),
-        );
-      });
+          // Act & Assert
+          expect(
+            () => repository.deleteExpense('nonexistent'),
+            throwsA(isA<Exception>()),
+          );
+        },
+      );
     });
 
     group('addExpenseShare', () {
@@ -237,6 +257,7 @@ void main() {
         ).thenAnswer((_) async {});
         when(
           mockSyncDao.enqueueOperation(
+            ownerId: anyNamed('ownerId'),
             entityType: anyNamed('entityType'),
             entityId: anyNamed('entityId'),
             operationType: anyNamed('operationType'),
@@ -253,6 +274,7 @@ void main() {
         verify(mockExpenseSharesDao.insertExpenseShare(testShare)).called(1);
         verify(
           mockSyncDao.enqueueOperation(
+            ownerId: 'testUserId',
             entityType: 'expense_share',
             entityId: 'expense123_user456',
             operationType: 'create',

@@ -21,21 +21,39 @@ GoRouter appRouter(Ref ref) {
     initialLocation: Routes.auth,
     redirect: (context, state) {
       // Watch auth state for automatic redirects
-      final isAuthenticated = ref.read(isAuthenticatedProvider);
+      final authState = ref.watch(authNotifierProvider);
       final currentRoute = state.uri.toString();
 
-      // If user is authenticated but on auth page, redirect to home
-      if (isAuthenticated && currentRoute == Routes.auth) {
-        return Routes.home;
-      }
+      return authState.when(
+        loading: () {
+          // During loading, don't redirect - stay on current route
+          // This prevents accessing authenticated screens before user is ready
+          return null;
+        },
+        data: (user) {
+          final isAuthenticated = user != null;
 
-      // If user is not authenticated and not on auth page, redirect to auth
-      if (!isAuthenticated && Routes.requiresAuth(currentRoute)) {
-        return Routes.auth;
-      }
+          // If authenticated and on auth page, redirect to home
+          if (isAuthenticated && currentRoute == Routes.auth) {
+            return Routes.home;
+          }
 
-      // No redirect needed
-      return null;
+          // If user is not authenticated and trying to access protected route, redirect to auth
+          if (!isAuthenticated && Routes.requiresAuth(currentRoute)) {
+            return Routes.auth;
+          }
+
+          // No redirect needed
+          return null;
+        },
+        error: (_, __) {
+          // On error, redirect to auth page unless already there
+          if (currentRoute != Routes.auth) {
+            return Routes.auth;
+          }
+          return null;
+        },
+      );
     },
     routes: [
       // === AUTHENTICATION ===

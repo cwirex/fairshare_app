@@ -167,24 +167,62 @@ class FirebaseAuthService implements AuthRepository {
   }
 
   /// Get detailed sync status information for risk assessment
+  ///
+  /// Checks the user-scoped sync queue for pending operations.
+  /// With the new multi-user architecture, data is preserved between sessions,
+  /// so pending operations will sync automatically when the user signs back in.
   Future<SyncStatusInfo> _getDetailedSyncStatus() async {
-    // TODO: Implement timestamp-based sync status checking
-    // For now, return zero counts since we removed isSynced tracking
-    final totalUnsynced = 0;
+    final currentUserId = _firebaseAuth.currentUser?.uid;
+    if (currentUserId == null) {
+      // No user signed in, return empty status
+      return SyncStatusInfo(
+        unsyncedUsers: 0,
+        unsyncedGroups: 0,
+        unsyncedExpenses: 0,
+        unsyncedGroupMembers: 0,
+        unsyncedExpenseShares: 0,
+      );
+    }
 
-    final unsyncedExpenses = 0;
-    final unsyncedGroups = 0;
-    final unsyncedUsers = 0;
+    // Get all pending operations for this user from the sync queue
+    final pendingOps = await _database.syncDao.getPendingOperations(
+      ownerId: currentUserId,
+    );
+
+    // Count by entity type
+    int unsyncedExpenses = 0;
+    int unsyncedGroups = 0;
+    int unsyncedUsers = 0;
+    int unsyncedGroupMembers = 0;
+    int unsyncedExpenseShares = 0;
+
+    for (final op in pendingOps) {
+      switch (op.entityType) {
+        case 'expense':
+          unsyncedExpenses++;
+          break;
+        case 'group':
+          unsyncedGroups++;
+          break;
+        case 'user':
+          unsyncedUsers++;
+          break;
+        case 'group_member':
+          unsyncedGroupMembers++;
+          break;
+        case 'expense_share':
+          unsyncedExpenseShares++;
+          break;
+      }
+    }
 
     return SyncStatusInfo(
       unsyncedUsers: unsyncedUsers,
       unsyncedGroups: unsyncedGroups,
       unsyncedExpenses: unsyncedExpenses,
-      unsyncedGroupMembers: 0, // TODO: Implement
-      unsyncedExpenseShares: 0, // TODO: Implement
-      lastSyncTime: DateTime.now().subtract(
-        const Duration(minutes: 15),
-      ), // TODO: Get real last sync time
+      unsyncedGroupMembers: unsyncedGroupMembers,
+      unsyncedExpenseShares: unsyncedExpenseShares,
+      lastSyncTime: pendingOps.isNotEmpty ? pendingOps.first.createdAt : null,
     );
   }
 
@@ -205,8 +243,9 @@ class FirebaseAuthService implements AuthRepository {
       // Sign out from Google
       await _googleSignIn.signOut();
 
-      // Clear all local data
-      await _database.clearAllData();
+      // DO NOT clear local data - it's scoped by user and preserved for next login
+      // When the user logs out, Riverpod will automatically invalidate user-scoped
+      // providers (repositories, services), preventing cross-user data leakage
 
       return Success.unit();
     } catch (e) {

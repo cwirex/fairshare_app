@@ -37,34 +37,64 @@ FirestoreExpenseService firestoreExpenseService(Ref ref) {
 }
 
 /// Synced group repository provider (clean architecture - DB + Queue only)
+/// User-scoped: Automatically recreated when user changes
 @riverpod
 GroupRepository groupRepository(Ref ref) {
   final database = ref.watch(appDatabaseProvider);
   final eventBroker = ref.watch(eventBrokerProvider);
-  return SyncedGroupRepository(database, eventBroker);
+  final currentUser = ref.watch(currentUserProvider);
+
+  final userId = currentUser?.id;
+  if (userId == null) {
+    throw Exception(
+      'GroupRepository requires an authenticated user. Please sign in.',
+    );
+  }
+
+  return SyncedGroupRepository(database, eventBroker, userId);
 }
 
 /// Synced expense repository provider (clean architecture - DB + Queue only)
+/// User-scoped: Automatically recreated when user changes
 @riverpod
 ExpenseRepository expenseRepository(Ref ref) {
   final database = ref.watch(appDatabaseProvider);
   final eventBroker = ref.watch(eventBrokerProvider);
-  return SyncedExpenseRepository(database, eventBroker);
+  final currentUser = ref.watch(currentUserProvider);
+
+  final userId = currentUser?.id;
+  if (userId == null) {
+    throw Exception(
+      'ExpenseRepository requires an authenticated user. Please sign in.',
+    );
+  }
+
+  return SyncedExpenseRepository(database, eventBroker, userId);
 }
 
 /// Upload queue service provider
+/// User-scoped: Automatically recreated when user changes
 @riverpod
 UploadQueueService uploadQueueService(Ref ref) {
   final database = ref.watch(appDatabaseProvider);
   final expenseService = ref.watch(firestoreExpenseServiceProvider);
   final groupService = ref.watch(firestoreGroupServiceProvider);
   final firestore = ref.watch(firestoreProvider);
+  final currentUser = ref.watch(currentUserProvider);
+
+  final userId = currentUser?.id;
+  if (userId == null) {
+    throw Exception(
+      'UploadQueueService requires an authenticated user. Please sign in.',
+    );
+  }
 
   return UploadQueueService(
     database: database,
     expenseService: expenseService,
     groupService: groupService,
     firestore: firestore,
+    ownerId: userId,
   );
 }
 
@@ -85,7 +115,8 @@ RealtimeSyncService realtimeSyncService(Ref ref) {
 }
 
 /// Sync service provider (orchestrator)
-@Riverpod(keepAlive: true)
+/// Note: keepAlive removed to allow proper disposal on user change
+@riverpod
 SyncService syncService(Ref ref) {
   final database = ref.watch(appDatabaseProvider);
   final uploadQueueService = ref.watch(uploadQueueServiceProvider);

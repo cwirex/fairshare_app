@@ -14,25 +14,29 @@ import 'package:fairshare_app/features/groups/data/services/firestore_group_serv
 /// Service responsible for processing the upload queue.
 ///
 /// Processes queued operations, handles retries, server timestamps, and hard deletes.
+/// User-scoped: Only processes operations for the specified owner.
 class UploadQueueService with LoggerMixin {
   final AppDatabase _database;
   final FirestoreExpenseService _expenseService;
   final FirestoreGroupService _groupService;
   final FirebaseFirestore _firestore;
+  final String ownerId; // ID of the user whose queue to process
 
   UploadQueueService({
     required AppDatabase database,
     required FirestoreExpenseService expenseService,
     required FirestoreGroupService groupService,
     required FirebaseFirestore firestore,
+    required this.ownerId,
   }) : _database = database,
        _expenseService = expenseService,
        _groupService = groupService,
        _firestore = firestore;
 
-  /// Process all pending operations in the queue
+  /// Process all pending operations in the queue for this user
   Future<UploadQueueResult> processQueue() async {
     final operations = await _database.syncDao.getPendingOperations(
+      ownerId: ownerId,
       limit: FeatureFlags.uploadBatchSize,
     );
 
@@ -75,10 +79,10 @@ class UploadQueueService with LoggerMixin {
       }
     }
 
-    final remaining = await _database.syncDao.getPendingOperationCount();
+    final remaining = await _database.syncDao.getPendingOperationCount(ownerId);
     SyncMetrics.instance.updateQueueDepth(remaining);
 
-    log.i('✅ Queue processed: $successCount succeeded, $failureCount failed');
+    log.i('✅ Queue processed for user $ownerId: $successCount succeeded, $failureCount failed');
 
     return UploadQueueResult(
       totalProcessed: operations.length,
@@ -90,7 +94,7 @@ class UploadQueueService with LoggerMixin {
   /// Process a single operation from the queue
   Future<void> _processOperation(SyncQueueData operation) async {
     log.d(
-      'Processing: ${operation.entityType}/${operation.entityId} (${operation.operationType})',
+      'Processing: ${operation.entityType}/${operation.entityId} (${operation.operationType}) for owner $ownerId',
     );
 
     switch (operation.entityType) {
@@ -297,9 +301,9 @@ class UploadQueueService with LoggerMixin {
     }
   }
 
-  /// Get count of pending operations
+  /// Get count of pending operations for this user
   Future<int> getPendingCount() async {
-    return _database.syncDao.getPendingOperationCount();
+    return _database.syncDao.getPendingOperationCount(ownerId);
   }
 }
 

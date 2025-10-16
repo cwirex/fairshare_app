@@ -1,13 +1,19 @@
 import 'package:drift/drift.dart';
+import 'package:fairshare_app/core/database/tables/users_table.dart';
 
 /// Table definition for upload queue in the FairShare app.
 ///
 /// Implements Option D: Separate Upload Queue Table strategy.
 /// Stores operations performed offline that need to be synced to Firebase.
-/// Uses a UNIQUE constraint to ensure only one pending operation per entity.
+/// Uses a UNIQUE constraint to ensure only one pending operation per entity per owner.
 class SyncQueue extends Table {
   /// Auto-incrementing ID for sync operations
   IntColumn get id => integer().autoIncrement()();
+
+  /// Owner ID - the user who initiated this sync operation
+  /// This scopes sync queue entries to prevent cross-user data leakage on sign-out
+  TextColumn get ownerId =>
+      text().references(AppUsers, #id, onDelete: KeyAction.cascade)();
 
   /// Type of entity: 'expense', 'group', 'user', etc.
   TextColumn get entityType => text()();
@@ -32,6 +38,6 @@ class SyncQueue extends Table {
 
   @override
   List<Set<Column>> get uniqueKeys => [
-        {entityType, entityId}
+        {ownerId, entityType, entityId}
       ];
 }

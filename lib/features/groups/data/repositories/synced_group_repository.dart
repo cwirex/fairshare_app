@@ -15,11 +15,13 @@ import 'package:fairshare_app/features/groups/domain/repositories/group_reposito
 /// - NO connectivity checks (handled by SyncService)
 /// - Uses atomic transactions for data integrity
 /// - Fires events after successful operations
+/// - User-scoped: ownerId is injected at construction time
 class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   final AppDatabase _database;
   final EventBroker _eventBroker;
+  final String ownerId; // ID of the user who owns this repository instance
 
-  SyncedGroupRepository(this._database, this._eventBroker);
+  SyncedGroupRepository(this._database, this._eventBroker, this.ownerId);
 
   @override
   Future<GroupEntity> createGroup(GroupEntity group) async {
@@ -28,6 +30,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
       await _database.transaction<void>(() async {
         await _database.groupsDao.insertGroup(group);
         await _database.syncDao.enqueueOperation(
+          ownerId: ownerId,
           entityType: EntityType.group,
           entityId: group.id,
           operationType: 'create',
@@ -36,7 +39,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
 
       // Fire event after successful operation
       _eventBroker.fire(GroupCreated(group));
-      log.d('Created group: ${group.displayName}');
+      log.d('Created group: ${group.displayName} by owner: $ownerId');
       return group;
     } catch (e) {
       log.e('Failed to create group: $e');
@@ -76,6 +79,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
       await _database.transaction<void>(() async {
         await _database.groupsDao.updateGroup(group);
         await _database.syncDao.enqueueOperation(
+          ownerId: ownerId,
           entityType: EntityType.group,
           entityId: group.id,
           operationType: 'update',
@@ -84,7 +88,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
 
       // Fire event after successful operation
       _eventBroker.fire(GroupUpdated(group));
-      log.d('Updated group: ${group.displayName}');
+      log.d('Updated group: ${group.displayName} by owner: $ownerId');
       return group;
     } catch (e) {
       log.e('Failed to update group ${group.id}: $e');
@@ -99,6 +103,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
       await _database.transaction<void>(() async {
         await _database.groupsDao.softDeleteGroup(id);
         await _database.syncDao.enqueueOperation(
+          ownerId: ownerId,
           entityType: EntityType.group,
           entityId: id,
           operationType: 'delete',
@@ -107,7 +112,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
 
       // Fire event after successful operation
       _eventBroker.fire(GroupDeleted(id));
-      log.d('Deleted group: $id');
+      log.d('Deleted group: $id by owner: $ownerId');
     } catch (e) {
       log.e('Failed to delete group $id: $e');
       throw Exception('Failed to delete group: $e');
@@ -121,6 +126,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
       await _database.transaction<void>(() async {
         await _database.groupsDao.addGroupMember(member);
         await _database.syncDao.enqueueOperation(
+          ownerId: ownerId,
           entityType: EntityType.groupMember,
           entityId: '${member.groupId}_${member.userId}',
           operationType: 'create',
@@ -130,7 +136,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
 
       // Fire event after successful operation
       _eventBroker.fire(MemberAdded(member));
-      log.d('Added member ${member.userId} to group ${member.groupId}');
+      log.d('Added member ${member.userId} to group ${member.groupId} by owner: $ownerId');
     } catch (e) {
       log.e('Failed to add member: $e');
       throw Exception('Failed to add member: $e');
@@ -144,6 +150,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
       await _database.transaction<void>(() async {
         await _database.groupsDao.removeGroupMember(groupId, userId);
         await _database.syncDao.enqueueOperation(
+          ownerId: ownerId,
           entityType: EntityType.groupMember,
           entityId: '${groupId}_$userId',
           operationType: 'delete',
@@ -153,7 +160,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
 
       // Fire event after successful operation
       _eventBroker.fire(MemberRemoved(groupId, userId));
-      log.d('Removed member $userId from group $groupId');
+      log.d('Removed member $userId from group $groupId by owner: $ownerId');
     } catch (e) {
       log.e('Failed to remove member: $e');
       throw Exception('Failed to remove member: $e');

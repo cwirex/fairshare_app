@@ -244,21 +244,20 @@ class ProfileScreen extends ConsumerWidget with LoggerMixin {
   ) {
     return Column(
       children: [
-        // Sync status warning (if needed)
-        // TODO: Show this only when there's unsynced data
+        // Sync status info
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
+            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: theme.colorScheme.outline.withOpacity(0.2),
+              color: theme.colorScheme.primary.withValues(alpha: 0.2),
             ),
           ),
           child: Row(
             children: [
               Icon(
-                Icons.cloud_sync,
+                Icons.cloud_done,
                 color: theme.colorScheme.primary,
                 size: 20,
               ),
@@ -268,13 +267,14 @@ class ProfileScreen extends ConsumerWidget with LoggerMixin {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Data Sync Status',
+                      'Multi-User Offline-First',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                     Text(
-                      'Your data is automatically backed up when online',
+                      'Your data is preserved locally per user. Sign out anytime - everything syncs when you return.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -313,7 +313,7 @@ class ProfileScreen extends ConsumerWidget with LoggerMixin {
 
         // Sign out help text
         Text(
-          'Your data will be safely stored in the cloud',
+          'Your data is preserved locally and will sync when you sign back in',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

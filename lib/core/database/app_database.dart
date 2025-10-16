@@ -44,54 +44,17 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor executor) : super(executor);
 
   @override
-  int get schemaVersion => 6; // Increment when changing tables
+  int get schemaVersion => 1; // Clean slate for multi-user architecture
 
   @override
-  MigrationStrategy get migration => _migrationStrategy();
-
-  /// Clear all data from all tables (used during sign-out)
-  Future<void> clearAllData() async {
-    await transaction(() async {
-      await delete(syncQueue).go();
-      await delete(expenseShares).go();
-      await delete(expenses).go();
-      await delete(appGroupBalances).go();
-      await delete(appGroupMembers).go();
-      await delete(appGroups).go();
-      await delete(appUsers).go();
-    });
-  }
-
-  MigrationStrategy _migrationStrategy() {
-    return MigrationStrategy(
-      onCreate: (Migrator m) async {
-        await m.createAll();
-      },
-      onUpgrade: (Migrator m, int from, int to) async {
-        if (from < 5) {
-          // Major schema refactoring - drop and recreate all tables
-          // This is acceptable since the user was told all data will be wiped
-          await m.deleteTable('expense_shares');
-          await m.deleteTable('expenses');
-          await m.deleteTable('group_members');
-          await m.deleteTable('groups');
-          await m.deleteTable('users');
-          await m.deleteTable('sync_queue');
-
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (Migrator m) async {
           await m.createAll();
-        }
-        if (from < 6) {
-          // Add lastActivityAt column to groups table
-          await m.addColumn(appGroups, appGroups.lastActivityAt);
-
-          // Populate lastActivityAt with updatedAt for existing groups
-          await customStatement(
-            'UPDATE groups SET last_activity_at = updated_at WHERE last_activity_at IS NULL',
-          );
-        }
-      },
-    );
-  }
+        },
+        onUpgrade: (Migrator m, int from, int to) async {
+          // Future migrations will go here
+        },
+      );
 }
 
 LazyDatabase _openConnection() {

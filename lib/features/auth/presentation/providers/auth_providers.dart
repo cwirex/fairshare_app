@@ -125,11 +125,23 @@ class AuthNotifier extends _$AuthNotifier with LoggerMixin {
   }
 }
 
-/// Convenience provider for current user (synchronous)
+/// Convenience provider for current user
+///
+/// This provider watches the auth state stream and returns the current user.
+/// It automatically updates when the user signs in or out, triggering
+/// invalidation of all dependent providers (repositories, sync services, etc.)
+///
+/// Returns null while loading or when no user is authenticated.
 @riverpod
 User? currentUser(Ref ref) {
-  final authRepo = ref.watch(authRepositoryProvider);
-  return authRepo.getCurrentUser();
+  // Watch the auth notifier stream - this will rebuild when auth state changes
+  final authState = ref.watch(authNotifierProvider);
+
+  return authState.when(
+    data: (user) => user,
+    loading: () => null,
+    error: (_, __) => null,
+  );
 }
 
 /// Convenience provider for authentication status

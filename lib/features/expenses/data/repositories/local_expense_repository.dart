@@ -4,10 +4,12 @@ import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.d
 import 'package:fairshare_app/features/expenses/domain/repositories/expense_repository.dart';
 
 /// Local implementation of ExpenseRepository using Drift database.
+/// User-scoped: ownerId is injected at construction time.
 class LocalExpenseRepository implements ExpenseRepository {
   final AppDatabase _database;
+  final String ownerId; // ID of the user who owns this repository instance
 
-  LocalExpenseRepository(this._database);
+  LocalExpenseRepository(this._database, this.ownerId);
 
   @override
   Future<ExpenseEntity> createExpense(ExpenseEntity expense) async {
@@ -16,6 +18,7 @@ class LocalExpenseRepository implements ExpenseRepository {
       await _database.expensesDao.insertExpense(expense);
       // All expenses are synced (personal group expenses too - for backup)
       await _database.syncDao.enqueueOperation(
+        ownerId: ownerId,
         entityType: EntityType.expense,
         entityId: expense.id,
         operationType: 'create',
@@ -52,6 +55,7 @@ class LocalExpenseRepository implements ExpenseRepository {
 
       // All expenses are synced (personal group expenses too - for backup)
       await _database.syncDao.enqueueOperation(
+        ownerId: ownerId,
         entityType: EntityType.expense,
         entityId: expense.id,
         operationType: 'update',
@@ -70,6 +74,7 @@ class LocalExpenseRepository implements ExpenseRepository {
 
       // All expenses are synced (personal group expenses too - for backup)
       await _database.syncDao.enqueueOperation(
+        ownerId: ownerId,
         entityType: EntityType.expense,
         entityId: id,
         operationType: 'delete',

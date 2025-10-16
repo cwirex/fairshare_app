@@ -491,15 +491,6 @@ class MockAppDatabase extends _i1.Mock implements _i3.AppDatabase {
           as _i2.DatabaseConnectionUser);
 
   @override
-  _i10.Future<void> clearAllData() =>
-      (super.noSuchMethod(
-            Invocation.method(#clearAllData, []),
-            returnValue: _i10.Future<void>.value(),
-            returnValueForMissingStub: _i10.Future<void>.value(),
-          )
-          as _i10.Future<void>);
-
-  @override
   _i2.Migrator createMigrator() =>
       (super.noSuchMethod(
             Invocation.method(#createMigrator, []),
@@ -1791,6 +1782,17 @@ class MockSyncDao extends _i1.Mock implements _i8.SyncDao {
           as _i2.DatabaseConnectionUser);
 
   @override
+  _i3.$AppUsersTable get appUsers =>
+      (super.noSuchMethod(
+            Invocation.getter(#appUsers),
+            returnValue: _Fake$AppUsersTable_1(
+              this,
+              Invocation.getter(#appUsers),
+            ),
+          )
+          as _i3.$AppUsersTable);
+
+  @override
   _i3.$SyncQueueTable get syncQueue =>
       (super.noSuchMethod(
             Invocation.getter(#syncQueue),
@@ -1811,6 +1813,7 @@ class MockSyncDao extends _i1.Mock implements _i8.SyncDao {
 
   @override
   _i10.Future<void> enqueueOperation({
+    required String? ownerId,
     required String? entityType,
     required String? entityId,
     required String? operationType,
@@ -1818,6 +1821,7 @@ class MockSyncDao extends _i1.Mock implements _i8.SyncDao {
   }) =>
       (super.noSuchMethod(
             Invocation.method(#enqueueOperation, [], {
+              #ownerId: ownerId,
               #entityType: entityType,
               #entityId: entityId,
               #operationType: operationType,
@@ -1829,9 +1833,15 @@ class MockSyncDao extends _i1.Mock implements _i8.SyncDao {
           as _i10.Future<void>);
 
   @override
-  _i10.Future<List<_i3.SyncQueueData>> getPendingOperations({int? limit}) =>
+  _i10.Future<List<_i3.SyncQueueData>> getPendingOperations({
+    required String? ownerId,
+    int? limit,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#getPendingOperations, [], {#limit: limit}),
+            Invocation.method(#getPendingOperations, [], {
+              #ownerId: ownerId,
+              #limit: limit,
+            }),
             returnValue: _i10.Future<List<_i3.SyncQueueData>>.value(
               <_i3.SyncQueueData>[],
             ),
@@ -1857,9 +1867,9 @@ class MockSyncDao extends _i1.Mock implements _i8.SyncDao {
           as _i10.Future<void>);
 
   @override
-  _i10.Future<int> getPendingOperationCount() =>
+  _i10.Future<int> getPendingOperationCount(String? ownerId) =>
       (super.noSuchMethod(
-            Invocation.method(#getPendingOperationCount, []),
+            Invocation.method(#getPendingOperationCount, [ownerId]),
             returnValue: _i10.Future<int>.value(0),
           )
           as _i10.Future<int>);

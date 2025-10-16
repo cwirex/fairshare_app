@@ -13,19 +13,25 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
   SyncDao(this.db) : super(db);
 
   /// Enqueue an operation to the upload queue
-  /// Uses INSERT OR REPLACE to ensure only one operation per entity
+  /// Uses INSERT OR REPLACE to ensure only one operation per entity per user
+  ///
+  /// [ownerId] is the ID of the user who initiated this sync operation
   Future<void> enqueueOperation({
+    required String ownerId,
     required String entityType,
     required String entityId,
     required String operationType,
     String? metadata,
   }) async {
-    log.d('📤 Enqueueing: $entityType/$entityId ($operationType)');
+    log.d('📤 Enqueueing: $entityType/$entityId ($operationType) for user $ownerId');
 
-    // Check if already exists
+    // Check if already exists for this user
     final existing =
         await (select(syncQueue)..where(
-          (q) => q.entityType.equals(entityType) & q.entityId.equals(entityId),
+          (q) =>
+              q.ownerId.equals(ownerId) &
+              q.entityType.equals(entityType) &
+              q.entityId.equals(entityId),
         )).getSingleOrNull();
 
     if (existing != null) {
@@ -44,6 +50,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
       // Insert new entry
       await into(syncQueue).insert(
         SyncQueueCompanion(
+          ownerId: Value(ownerId),
           entityType: Value(entityType),
           entityId: Value(entityId),
           operationType: Value(operationType),
@@ -62,9 +69,15 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
   // without triggering new upload queue operations.
   // They bypass repositories and write directly to the database.
 
-  /// Get all pending operations from the upload queue
-  Future<List<SyncQueueData>> getPendingOperations({int? limit}) async {
+  /// Get all pending operations from the upload queue for a specific user
+  ///
+  /// [ownerId] is the ID of the user whose operations to retrieve
+  Future<List<SyncQueueData>> getPendingOperations({
+    required String ownerId,
+    int? limit,
+  }) async {
     final query = select(syncQueue)
+      ..where((s) => s.ownerId.equals(ownerId))
       ..orderBy([(s) => OrderingTerm.asc(s.createdAt)]);
     if (limit != null) {
       query.limit(limit);
@@ -89,9 +102,13 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
-  /// Get count of pending operations
-  Future<int> getPendingOperationCount() async {
-    final query = selectOnly(syncQueue)..addColumns([syncQueue.id.count()]);
+  /// Get count of pending operations for a specific user
+  ///
+  /// [ownerId] is the ID of the user whose operation count to retrieve
+  Future<int> getPendingOperationCount(String ownerId) async {
+    final query = selectOnly(syncQueue)
+      ..addColumns([syncQueue.id.count()])
+      ..where(syncQueue.ownerId.equals(ownerId));
     final result = await query.getSingle();
     return result.read(syncQueue.id.count()) ?? 0;
   }

@@ -2,14 +2,20 @@ import 'package:result_dart/result_dart.dart';
 import '../entities/user.dart';
 
 /// Enum representing the risk level of signing out
+///
+/// With the multi-user offline-first architecture, signing out is much safer
+/// because data is preserved locally per user. Pending operations will sync
+/// automatically when the user signs back in.
 enum SignOutRisk {
-  /// All data is synced - safe to sign out with standard warning
+  /// No pending operations - safe to sign out
   safe,
 
-  /// Unsynced data exists - requires extra confirmation
+  /// Pending operations exist - informational only
+  /// Data is preserved and will sync on next login
   dataLoss,
 
-  /// No internet connection - cannot sign out safely
+  /// No internet connection (deprecated - may be removed)
+  /// Signing out offline is now safe due to data preservation
   offline,
 }
 
@@ -24,20 +30,28 @@ abstract class AuthRepository {
   /// Returns [User] on success or [Exception] on failure.
   Future<Result<User>> signInWithGoogle();
 
-  /// Check the risk level of signing out based on sync status.
+  /// Check the risk level of signing out based on pending sync operations.
+  ///
+  /// With the multi-user offline-first architecture:
+  /// - Data is preserved locally per user between sessions
+  /// - Pending operations will sync automatically on next login
+  /// - Signing out is now much safer even with pending operations
   ///
   /// Returns:
-  /// - [SignOutRisk.safe] if all data is synced
-  /// - [SignOutRisk.dataLoss] if unsynced data exists
-  /// - [SignOutRisk.offline] if no internet connection
+  /// - [SignOutRisk.safe] if no pending sync operations exist
+  /// - [SignOutRisk.dataLoss] if pending operations exist (informational - data is preserved)
+  /// - [SignOutRisk.offline] if no internet connection (deprecated, may be removed)
   Future<Result<SignOutRisk>> checkSignOutRisk();
 
-  /// Sign out current user and clear all local data.
+  /// Sign out current user while preserving local data.
   ///
-  /// Requires internet connection and should only be called after
-  /// risk assessment via [checkSignOutRisk].
+  /// With the multi-user offline-first architecture:
+  /// - Local data is preserved and scoped by user ID
+  /// - Pending sync operations remain in queue for next login
+  /// - Riverpod automatically invalidates user-scoped providers
+  /// - No risk of cross-user data leakage
   ///
-  /// WARNING: This permanently deletes all local data!
+  /// Should be called after risk assessment via [checkSignOutRisk].
   Future<Result<void>> signOut();
 
   /// Get currently authenticated user from local cache.

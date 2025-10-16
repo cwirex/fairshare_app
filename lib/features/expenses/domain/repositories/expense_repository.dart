@@ -4,6 +4,12 @@ import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.d
 ///
 /// Abstracts the data source (local database, remote API, etc.)
 /// to keep the domain layer independent of implementation details.
+///
+/// For multi-user offline-first architecture:
+/// - Repository implementations are user-scoped (created with a specific ownerId)
+/// - The ownerId is injected via constructor, not passed to each method
+/// - This ensures sync queue entries are scoped to the correct user
+/// - Prevents cross-user data leakage during sign-out/sign-in
 abstract class ExpenseRepository {
   /// Create a new expense
   Future<ExpenseEntity> createExpense(ExpenseEntity expense);

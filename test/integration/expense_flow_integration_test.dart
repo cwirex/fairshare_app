@@ -26,6 +26,9 @@ void main() {
   StreamSubscription<ExpenseUpdated>? updatedSub;
   StreamSubscription<ExpenseDeleted>? deletedSub;
 
+  // Test user ID for user-scoped repository
+  const testUserId = 'test-user-123';
+
   setUp(() async {
     // Create EventBroker first
     eventBroker = EventBroker(); // Singleton instance
@@ -33,8 +36,8 @@ void main() {
     // Create in-memory database for testing
     database = AppDatabase.forTesting(NativeDatabase.memory());
 
-    // Create repository
-    repository = SyncedExpenseRepository(database, eventBroker);
+    // Create user-scoped repository with test user ID
+    repository = SyncedExpenseRepository(database, eventBroker, testUserId);
 
     // Create use cases
     createUseCase = CreateExpenseUseCase(repository);
@@ -95,7 +98,7 @@ void main() {
         expect(storedExpense.amount, expense.amount);
 
         // Verify sync operation was enqueued
-        final syncOps = await database.syncDao.getPendingOperations();
+        final syncOps = await database.syncDao.getPendingOperations(ownerId: testUserId);
         expect(syncOps.length, greaterThan(0));
         expect(
           syncOps.any((op) =>
@@ -189,7 +192,7 @@ void main() {
         expect(storedExpense!.title, 'Updated Title');
 
         // Verify sync operation was enqueued
-        final syncOps = await database.syncDao.getPendingOperations();
+        final syncOps = await database.syncDao.getPendingOperations(ownerId: testUserId);
         expect(
           syncOps.any((op) =>
             op.entityId == expense.id && op.operationType == 'update'),
@@ -255,7 +258,7 @@ void main() {
         expect(normalQuery, isNull);
 
         // Verify sync operation was enqueued
-        final syncOps = await database.syncDao.getPendingOperations();
+        final syncOps = await database.syncDao.getPendingOperations(ownerId: testUserId);
         expect(
           syncOps.any((op) =>
             op.entityId == expense.id && op.operationType == 'delete'),
@@ -307,7 +310,7 @@ void main() {
       expect(storedExpense, isNull);
 
       // Verify NO sync operation was enqueued
-      final syncOps = await database.syncDao.getPendingOperations();
+      final syncOps = await database.syncDao.getPendingOperations(ownerId: testUserId);
       expect(
         syncOps.any((op) => op.entityId == invalidExpense.id),
         false,

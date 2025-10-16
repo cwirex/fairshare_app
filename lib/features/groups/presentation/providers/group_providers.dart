@@ -10,7 +10,8 @@ part 'group_providers.g.dart';
 
 // Group repository is now provided by sync_providers.dart
 
-@Riverpod(keepAlive: true)
+/// Provider for GroupInitializationService
+@riverpod
 GroupInitializationService groupInitializationService(Ref ref) {
   final repository = ref.watch(groupRepositoryProvider);
   return GroupInitializationService(repository);

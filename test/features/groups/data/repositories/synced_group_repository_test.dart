@@ -1,6 +1,6 @@
-import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/core/database/DAOs/groups_dao.dart';
 import 'package:fairshare_app/core/database/DAOs/sync_dao.dart';
+import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/core/events/event_broker.dart';
 import 'package:fairshare_app/features/groups/data/repositories/synced_group_repository.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
@@ -24,12 +24,17 @@ void main() {
     mockGroupsDao = MockGroupsDao();
     mockSyncDao = MockSyncDao();
     mockEventBroker = MockEventBroker();
+    const testUserId = 'testUserId';
 
     // Wire up the DAOs to the mock database
     when(mockDatabase.groupsDao).thenReturn(mockGroupsDao);
     when(mockDatabase.syncDao).thenReturn(mockSyncDao);
 
-    repository = SyncedGroupRepository(mockDatabase, mockEventBroker);
+    repository = SyncedGroupRepository(
+      mockDatabase,
+      mockEventBroker,
+      testUserId,
+    );
   });
 
   group('SyncedGroupRepository', () {
@@ -56,6 +61,7 @@ void main() {
         when(mockGroupsDao.insertGroup(any)).thenAnswer((_) async {});
         when(
           mockSyncDao.enqueueOperation(
+            ownerId: anyNamed('ownerId'),
             entityType: anyNamed('entityType'),
             entityId: anyNamed('entityId'),
             operationType: anyNamed('operationType'),
@@ -72,6 +78,7 @@ void main() {
         verify(mockGroupsDao.insertGroup(testGroup)).called(1);
         verify(
           mockSyncDao.enqueueOperation(
+            ownerId: 'testUserId',
             entityType: 'group',
             entityId: 'group123',
             operationType: 'create',
@@ -81,7 +88,9 @@ void main() {
 
       test('should throw exception if database operation fails', () async {
         // Arrange
-        when(mockDatabase.transaction<void>(any)).thenThrow(Exception('DB Error'));
+        when(
+          mockDatabase.transaction<void>(any),
+        ).thenThrow(Exception('DB Error'));
 
         // Act & Assert
         expect(
@@ -131,6 +140,7 @@ void main() {
         when(mockGroupsDao.updateGroup(any)).thenAnswer((_) async {});
         when(
           mockSyncDao.enqueueOperation(
+            ownerId: anyNamed('ownerId'),
             entityType: anyNamed('entityType'),
             entityId: anyNamed('entityId'),
             operationType: anyNamed('operationType'),
@@ -147,6 +157,7 @@ void main() {
         verify(mockGroupsDao.updateGroup(testGroup)).called(1);
         verify(
           mockSyncDao.enqueueOperation(
+            ownerId: 'testUserId',
             entityType: 'group',
             entityId: 'group123',
             operationType: 'update',
@@ -168,6 +179,7 @@ void main() {
           when(mockGroupsDao.softDeleteGroup(any)).thenAnswer((_) async {});
           when(
             mockSyncDao.enqueueOperation(
+              ownerId: anyNamed('ownerId'),
               entityType: anyNamed('entityType'),
               entityId: anyNamed('entityId'),
               operationType: anyNamed('operationType'),
@@ -183,6 +195,7 @@ void main() {
           verify(mockGroupsDao.softDeleteGroup('group123')).called(1);
           verify(
             mockSyncDao.enqueueOperation(
+              ownerId: 'testUserId',
               entityType: 'group',
               entityId: 'group123',
               operationType: 'delete',
@@ -209,6 +222,7 @@ void main() {
         when(mockGroupsDao.addGroupMember(any)).thenAnswer((_) async {});
         when(
           mockSyncDao.enqueueOperation(
+            ownerId: anyNamed('ownerId'),
             entityType: anyNamed('entityType'),
             entityId: anyNamed('entityId'),
             operationType: anyNamed('operationType'),
@@ -224,6 +238,7 @@ void main() {
         verify(mockGroupsDao.addGroupMember(testMember)).called(1);
         verify(
           mockSyncDao.enqueueOperation(
+            ownerId: 'testUserId',
             entityType: 'group_member',
             entityId: 'group123_user456',
             operationType: 'create',
@@ -241,9 +256,12 @@ void main() {
           await callback();
           return null;
         });
-        when(mockGroupsDao.removeGroupMember(any, any)).thenAnswer((_) async {});
+        when(
+          mockGroupsDao.removeGroupMember(any, any),
+        ).thenAnswer((_) async {});
         when(
           mockSyncDao.enqueueOperation(
+            ownerId: anyNamed('ownerId'),
             entityType: anyNamed('entityType'),
             entityId: anyNamed('entityId'),
             operationType: anyNamed('operationType'),
@@ -261,6 +279,7 @@ void main() {
         ).called(1);
         verify(
           mockSyncDao.enqueueOperation(
+            ownerId: 'testUserId',
             entityType: 'group_member',
             entityId: 'group123_user456',
             operationType: 'delete',
@@ -281,6 +300,7 @@ void main() {
         when(mockGroupsDao.insertGroup(any)).thenAnswer((_) async {});
         when(
           mockSyncDao.enqueueOperation(
+            ownerId: anyNamed('ownerId'),
             entityType: anyNamed('entityType'),
             entityId: anyNamed('entityId'),
             operationType: anyNamed('operationType'),
@@ -291,9 +311,7 @@ void main() {
         // Act & Assert
         expect(
           () => repository.createGroup(testGroup),
-          throwsA(
-            predicate((e) => e.toString().contains('Queue error')),
-          ),
+          throwsA(predicate((e) => e.toString().contains('Queue error'))),
         );
       });
     });

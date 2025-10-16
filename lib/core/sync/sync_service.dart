@@ -165,7 +165,8 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
 
   /// Get pending upload count (for UI badges)
   Future<int> getPendingUploadCount() async {
-    return await _database.syncDao.getPendingOperationCount();
+    if (_currentUserId == null) return 0;
+    return await _database.syncDao.getPendingOperationCount(_currentUserId!);
   }
 
   /// Get sync status (for debugging)
