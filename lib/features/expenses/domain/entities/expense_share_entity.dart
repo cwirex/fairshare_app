@@ -20,3 +20,10 @@ extension ExpenseShareEntityX on ExpenseShareEntity {
   /// Unique key for this object
   String get key => '$expenseId-$userId';
 }
+
+/// Firestore field names for ExpenseShareEntity
+abstract class ExpenseShareFields {
+  static const String expenseId = 'expense_id';
+  static const String userId = 'user_id';
+  static const String shareAmount = 'share_amount';
+}

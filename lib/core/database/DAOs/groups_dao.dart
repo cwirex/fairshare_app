@@ -244,7 +244,8 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
 
     if (existing == null) {
       // New group from server - insert directly
-      await into(appGroups).insert(
+      // Use insertOrIgnore to handle race condition where initial sync and listener both try to insert
+      final inserted = await into(appGroups).insert(
         AppGroupsCompanion(
           id: Value(group.id),
           displayName: Value(group.displayName),
@@ -256,11 +257,14 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
           lastActivityAt: Value(group.lastActivityAt),
           deletedAt: Value(group.deletedAt),
         ),
+        mode: InsertMode.insertOrIgnore,
       );
 
-      // Fire event for remote creation
-      eventBroker.fire(GroupCreated(group));
-      log.d('Remote group created: ${group.displayName}');
+      // Fire event for remote creation (only if actually inserted, not ignored)
+      if (inserted > 0) {
+        eventBroker.fire(GroupCreated(group));
+        log.d('Remote group created: ${group.displayName}');
+      }
     } else {
       // Only update if remote version is newer (Last Write Wins)
       if (group.updatedAt.isAfter(existing.updatedAt)) {

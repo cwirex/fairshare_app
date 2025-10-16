@@ -20,3 +20,10 @@ extension GroupMemberEntityX on GroupMemberEntity {
   /// Unique key for this object
   String get key => '$groupId-$userId';
 }
+
+/// Firestore field names for GroupMemberEntity
+abstract class GroupMemberFields {
+  static const String groupId = 'group_id';
+  static const String userId = 'user_id';
+  static const String joinedAt = 'joined_at';
+}

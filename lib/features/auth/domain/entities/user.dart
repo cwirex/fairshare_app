@@ -58,3 +58,15 @@ extension UserX on User {
   /// Whether user has ever synced
   bool get hasNeverSynced => lastSyncTimestamp == null;
 }
+
+/// Firestore field names for User
+abstract class UserFields {
+  static const String id = 'id';
+  static const String displayName = 'display_name';
+  static const String email = 'email';
+  static const String avatarUrl = 'avatar_url';
+  static const String phone = 'phone';
+  static const String lastSyncTimestamp = 'last_sync_timestamp';
+  static const String createdAt = 'created_at';
+  static const String updatedAt = 'updated_at';
+}

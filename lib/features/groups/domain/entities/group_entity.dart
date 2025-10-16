@@ -35,3 +35,16 @@ extension GroupEntityX on GroupEntity {
   /// Whether this group is active (not deleted)
   bool get isActive => deletedAt == null;
 }
+
+/// Firestore field names for GroupEntity
+abstract class GroupFields {
+  static const String id = 'id';
+  static const String displayName = 'display_name';
+  static const String avatarUrl = 'avatar_url';
+  static const String isPersonal = 'is_personal';
+  static const String defaultCurrency = 'default_currency';
+  static const String createdAt = 'created_at';
+  static const String updatedAt = 'updated_at';
+  static const String lastActivityAt = 'last_activity_at';
+  static const String deletedAt = 'deleted_at';
+}

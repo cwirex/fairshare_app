@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fairshare_app/core/constants/firestore_collections.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
+import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:result_dart/result_dart.dart';
 
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
@@ -12,30 +14,26 @@ class FirestoreExpenseService with LoggerMixin {
 
   FirestoreExpenseService(this._firestore);
 
-  static const String _groupsCollection = 'groups';
-  static const String _expensesSubcollection = 'expenses';
-  static const String _sharesSubcollection = 'shares';
-
   /// Upload an expense to Firestore under its group with server timestamp.
   /// Personal expenses ARE synced for backup, but personal groups are NOT synced.
   Future<Result<void>> uploadExpense(ExpenseEntity expense) async {
     try {
       final expenseData = expense.toJson();
       // Use server timestamp for accurate conflict resolution
-      expenseData['updatedAt'] = FieldValue.serverTimestamp();
+      expenseData[ExpenseFields.updatedAt] = FieldValue.serverTimestamp();
 
       await _firestore
-          .collection(_groupsCollection)
+          .collection(FirestoreCollections.groups)
           .doc(expense.groupId)
-          .collection(_expensesSubcollection)
+          .collection(FirestoreCollections.expenses)
           .doc(expense.id)
           .set(expenseData, SetOptions(merge: true));
 
       // Update group's lastActivityAt
       await _firestore
-          .collection(_groupsCollection)
+          .collection(FirestoreCollections.groups)
           .doc(expense.groupId)
-          .update({'lastActivityAt': FieldValue.serverTimestamp()});
+          .update({GroupFields.lastActivityAt: FieldValue.serverTimestamp()});
 
       log.d('Uploaded expense: ${expense.id}');
       return Success.unit();
@@ -52,8 +50,8 @@ class FirestoreExpenseService with LoggerMixin {
 
       // Find the group for this expense first
       final expenseQuery = await _firestore
-          .collectionGroup(_expensesSubcollection)
-          .where('id', isEqualTo: share.expenseId)
+          .collectionGroup(FirestoreCollections.expenses)
+          .where(ExpenseFields.id, isEqualTo: share.expenseId)
           .limit(1)
           .get();
 
@@ -66,11 +64,11 @@ class FirestoreExpenseService with LoggerMixin {
       final groupId = expenseDoc.reference.parent.parent!.id;
 
       await _firestore
-          .collection(_groupsCollection)
+          .collection(FirestoreCollections.groups)
           .doc(groupId)
-          .collection(_expensesSubcollection)
+          .collection(FirestoreCollections.expenses)
           .doc(share.expenseId)
-          .collection(_sharesSubcollection)
+          .collection(FirestoreCollections.shares)
           .doc(share.userId)
           .set(shareData, SetOptions(merge: true));
 
@@ -85,9 +83,9 @@ class FirestoreExpenseService with LoggerMixin {
       String groupId, String expenseId) async {
     try {
       final doc = await _firestore
-          .collection(_groupsCollection)
+          .collection(FirestoreCollections.groups)
           .doc(groupId)
-          .collection(_expensesSubcollection)
+          .collection(FirestoreCollections.expenses)
           .doc(expenseId)
           .get();
 
@@ -108,9 +106,9 @@ class FirestoreExpenseService with LoggerMixin {
       String groupId) async {
     try {
       final querySnapshot = await _firestore
-          .collection(_groupsCollection)
+          .collection(FirestoreCollections.groups)
           .doc(groupId)
-          .collection(_expensesSubcollection)
+          .collection(FirestoreCollections.expenses)
           .get();
 
       final expenses = querySnapshot.docs.map((doc) {
@@ -129,11 +127,11 @@ class FirestoreExpenseService with LoggerMixin {
       String groupId, String expenseId) async {
     try {
       final querySnapshot = await _firestore
-          .collection(_groupsCollection)
+          .collection(FirestoreCollections.groups)
           .doc(groupId)
-          .collection(_expensesSubcollection)
+          .collection(FirestoreCollections.expenses)
           .doc(expenseId)
-          .collection(_sharesSubcollection)
+          .collection(FirestoreCollections.shares)
           .get();
 
       final shares = querySnapshot.docs
@@ -151,11 +149,11 @@ class FirestoreExpenseService with LoggerMixin {
     try {
       // Delete all shares first
       final sharesSnapshot = await _firestore
-          .collection(_groupsCollection)
+          .collection(FirestoreCollections.groups)
           .doc(groupId)
-          .collection(_expensesSubcollection)
+          .collection(FirestoreCollections.expenses)
           .doc(expenseId)
-          .collection(_sharesSubcollection)
+          .collection(FirestoreCollections.shares)
           .get();
 
       for (final doc in sharesSnapshot.docs) {
@@ -164,9 +162,9 @@ class FirestoreExpenseService with LoggerMixin {
 
       // Delete the expense
       await _firestore
-          .collection(_groupsCollection)
+          .collection(FirestoreCollections.groups)
           .doc(groupId)
-          .collection(_expensesSubcollection)
+          .collection(FirestoreCollections.expenses)
           .doc(expenseId)
           .delete();
 
@@ -179,9 +177,9 @@ class FirestoreExpenseService with LoggerMixin {
   /// Listen to changes in a group's expenses.
   Stream<List<ExpenseEntity>> watchGroupExpenses(String groupId) {
     return _firestore
-        .collection(_groupsCollection)
+        .collection(FirestoreCollections.groups)
         .doc(groupId)
-        .collection(_expensesSubcollection)
+        .collection(FirestoreCollections.expenses)
         .snapshots()
         .map((snapshot) {
       return snapshot.docs.map((doc) {
@@ -194,9 +192,9 @@ class FirestoreExpenseService with LoggerMixin {
   /// Listen to changes in an expense.
   Stream<ExpenseEntity> watchExpense(String groupId, String expenseId) {
     return _firestore
-        .collection(_groupsCollection)
+        .collection(FirestoreCollections.groups)
         .doc(groupId)
-        .collection(_expensesSubcollection)
+        .collection(FirestoreCollections.expenses)
         .doc(expenseId)
         .snapshots()
         .where((doc) => doc.exists)
@@ -210,11 +208,11 @@ class FirestoreExpenseService with LoggerMixin {
   Stream<List<ExpenseShareEntity>> watchExpenseShares(
       String groupId, String expenseId) {
     return _firestore
-        .collection(_groupsCollection)
+        .collection(FirestoreCollections.groups)
         .doc(groupId)
-        .collection(_expensesSubcollection)
+        .collection(FirestoreCollections.expenses)
         .doc(expenseId)
-        .collection(_sharesSubcollection)
+        .collection(FirestoreCollections.shares)
         .snapshots()
         .map((snapshot) {
       return snapshot.docs

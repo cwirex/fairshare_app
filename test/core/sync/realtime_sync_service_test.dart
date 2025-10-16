@@ -57,12 +57,26 @@ void main() {
     provideDummy<ResultDart<List<ExpenseEntity>, Exception>>(
         Success(<ExpenseEntity>[]));
     provideDummy<ResultDart<List<ExpenseShareEntity>, Exception>>(Success([]));
+    provideDummy<ResultDart<List<GroupEntity>, Exception>>(
+        Success(<GroupEntity>[]));
 
     // Stub the DAO getters on the database mock - this must be done BEFORE any method calls
     when(mockDatabase.groupsDao).thenReturn(mockGroupsDao);
     when(mockDatabase.expensesDao).thenReturn(mockExpensesDao);
     when(mockDatabase.expenseSharesDao).thenReturn(mockExpenseSharesDao);
     when(mockDatabase.userDao).thenReturn(mockUserDao);
+
+    // Stub initial sync methods to prevent MissingStubError
+    when(mockGroupService.downloadUserGroups(any))
+        .thenAnswer((_) async => Success(<GroupEntity>[]));
+    when(mockExpenseService.downloadGroupExpenses(any))
+        .thenAnswer((_) async => Success(<ExpenseEntity>[]));
+    when(mockGroupService.downloadGroupMembers(any))
+        .thenAnswer((_) async => Success(<GroupMemberEntity>[]));
+    when(mockExpenseService.downloadExpenseShares(any, any))
+        .thenAnswer((_) async => Success(<ExpenseShareEntity>[]));
+    when(mockGroupsDao.upsertGroupFromSync(any, any))
+        .thenAnswer((_) async {});
 
     service = RealtimeSyncService(
       database: mockDatabase,

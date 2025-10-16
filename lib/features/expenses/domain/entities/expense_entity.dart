@@ -37,3 +37,18 @@ extension ExpenseEntityX on ExpenseEntity {
   /// Unique key for this object
   String get key => id;
 }
+
+/// Firestore field names for ExpenseEntity
+abstract class ExpenseFields {
+  static const String id = 'id';
+  static const String groupId = 'group_id';
+  static const String title = 'title';
+  static const String amount = 'amount';
+  static const String currency = 'currency';
+  static const String paidBy = 'paid_by';
+  static const String shareWithEveryone = 'share_with_everyone';
+  static const String expenseDate = 'expense_date';
+  static const String createdAt = 'created_at';
+  static const String updatedAt = 'updated_at';
+  static const String deletedAt = 'deleted_at';
+}

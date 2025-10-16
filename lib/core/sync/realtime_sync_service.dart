@@ -58,6 +58,9 @@ class RealtimeSyncService with LoggerMixin {
 
     log.i('🔥 Starting real-time sync for user: $userId');
 
+    // Perform initial fetch of all user data before starting listeners
+    await _performInitialSync(userId);
+
     _globalGroupsListener = _groupService
         .watchUserGroups(userId)
         .listen(
@@ -141,6 +144,43 @@ class RealtimeSyncService with LoggerMixin {
     _activeGroupId = null;
   }
 
+  /// Perform initial sync of all user data (one-time fetch before listeners)
+  Future<void> _performInitialSync(String userId) async {
+    log.i('📦 Performing initial sync for user: $userId');
+
+    try {
+      // Fetch all groups the user is a member of
+      final groupsResult = await _groupService.downloadUserGroups(userId);
+
+      await groupsResult.fold((groups) async {
+        log.i('Initial sync: Found ${groups.length} groups');
+
+        for (final group in groups) {
+          try {
+            // Upsert group to local DB
+            await _database.groupsDao.upsertGroupFromSync(group, _eventBroker);
+
+            // Sync members for this group
+            await _syncGroupMembers(group.id);
+
+            // Fetch all expenses for this group
+            await _fetchGroupExpenses(group.id);
+
+            log.d('Initial sync completed for group: ${group.displayName}');
+          } catch (e) {
+            log.e('Failed to sync group ${group.id} during initial sync: $e');
+          }
+        }
+
+        log.i('✅ Initial sync completed: ${groups.length} groups synced');
+      }, (error) {
+        log.e('Initial sync failed: $error');
+      });
+    } catch (e) {
+      log.e('Initial sync error: $e');
+    }
+  }
+
   /// Handle groups changed (Tier 1 listener callback)
   Future<void> _onGroupsChanged(List<GroupEntity> remoteGroups) async {
     log.d('📥 Groups changed: ${remoteGroups.length} groups');
@@ -149,12 +189,18 @@ class RealtimeSyncService with LoggerMixin {
       try {
         final local = await _database.groupsDao.getGroupById(remoteGroup.id);
 
-        // Check if lastActivityAt changed for inactive groups (Tier 3 detection)
-        if (local != null &&
-            remoteGroup.lastActivityAt.isAfter(local.lastActivityAt) &&
+        // Determine if we need to fetch expenses for this group
+        bool shouldFetchExpenses = false;
+
+        if (local == null) {
+          // New group - fetch expenses on first sync
+          log.i('🆕 New group detected: ${remoteGroup.displayName}');
+          shouldFetchExpenses = true;
+        } else if (remoteGroup.lastActivityAt.isAfter(local.lastActivityAt) &&
             remoteGroup.id != _activeGroupId) {
+          // Existing group with new activity - fetch expenses
           log.i('🔔 Group ${remoteGroup.displayName} has new activity');
-          _groupsNeedingRefresh.add(remoteGroup.id);
+          shouldFetchExpenses = true;
           // TODO: Emit event for UI badge
         }
 
@@ -164,11 +210,9 @@ class RealtimeSyncService with LoggerMixin {
         // Sync members
         await _syncGroupMembers(remoteGroup.id);
 
-        // If this group needs refresh and it's not active, fetch expenses (Tier 3)
-        if (_groupsNeedingRefresh.contains(remoteGroup.id) &&
-            remoteGroup.id != _activeGroupId) {
+        // Fetch expenses if needed (Tier 3) - unless it's the active group
+        if (shouldFetchExpenses && remoteGroup.id != _activeGroupId) {
           await _fetchGroupExpenses(remoteGroup.id);
-          _groupsNeedingRefresh.remove(remoteGroup.id);
         }
 
         SyncMetrics.instance.recordSyncSuccess();

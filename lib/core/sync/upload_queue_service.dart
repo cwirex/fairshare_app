@@ -2,10 +2,13 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fairshare_app/core/config/feature_flags.dart';
+import 'package:fairshare_app/core/constants/firestore_collections.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/core/monitoring/sync_metrics.dart';
+import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 import 'package:fairshare_app/features/expenses/data/services/firestore_expense_service.dart';
+import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:fairshare_app/features/groups/data/services/firestore_group_service.dart';
 
 /// Service responsible for processing the upload queue.
@@ -127,15 +130,15 @@ class UploadQueueService with LoggerMixin {
         // Fetch server timestamp and update local DB
         final doc =
             await _firestore
-                .collection('groups')
+                .collection(FirestoreCollections.groups)
                 .doc(expense.groupId)
-                .collection('expenses')
+                .collection(FirestoreCollections.expenses)
                 .doc(expense.id)
                 .get();
 
         if (doc.exists) {
           final data = doc.data()!;
-          final serverTimestamp = (data['updatedAt'] as Timestamp).toDate();
+          final serverTimestamp = (data[ExpenseFields.updatedAt] as Timestamp).toDate();
           await _database.expensesDao.updateExpenseTimestamp(
             expense.id,
             serverTimestamp,
@@ -188,11 +191,11 @@ class UploadQueueService with LoggerMixin {
         uploadResult.fold((_) => null, (error) => throw error);
 
         // Fetch server timestamp and update local DB
-        final doc = await _firestore.collection('groups').doc(group.id).get();
+        final doc = await _firestore.collection(FirestoreCollections.groups).doc(group.id).get();
 
         if (doc.exists) {
           final data = doc.data()!;
-          final serverTimestamp = (data['updatedAt'] as Timestamp).toDate();
+          final serverTimestamp = (data[GroupFields.updatedAt] as Timestamp).toDate();
           await _database.groupsDao.updateGroupTimestamp(
             group.id,
             serverTimestamp,
