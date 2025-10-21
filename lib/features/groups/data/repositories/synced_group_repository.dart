@@ -2,6 +2,7 @@ import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/core/events/event_broker.dart';
 import 'package:fairshare_app/core/events/group_events.dart';
+import 'package:fairshare_app/core/events/sync_events.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
@@ -42,9 +43,14 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
         }
       });
 
-      // Fire event after successful operation
+      // Fire events after successful operation
       _eventBroker.fire(GroupCreated(group));
-      log.d('Created group: ${group.displayName} (personal: ${group.isPersonal}) by owner: $ownerId');
+      if (!group.isPersonal) {
+        _eventBroker.fire(UploadQueueItemAdded('createGroup'));
+      }
+      log.d(
+        'Created group: ${group.displayName} (personal: ${group.isPersonal}) by owner: $ownerId',
+      );
       return group;
     } catch (e) {
       log.e('Failed to create group: $e');
@@ -95,9 +101,14 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
         }
       });
 
-      // Fire event after successful operation
+      // Fire events after successful operation
       _eventBroker.fire(GroupUpdated(group));
-      log.d('Updated group: ${group.displayName} (personal: ${group.isPersonal}) by owner: $ownerId');
+      if (!group.isPersonal) {
+        _eventBroker.fire(UploadQueueItemAdded('updateGroup'));
+      }
+      log.d(
+        'Updated group: ${group.displayName} (personal: ${group.isPersonal}) by owner: $ownerId',
+      );
       return group;
     } catch (e) {
       log.e('Failed to update group ${group.id}: $e');
@@ -127,8 +138,11 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
         }
       });
 
-      // Fire event after successful operation
+      // Fire events after successful operation
       _eventBroker.fire(GroupDeleted(id));
+      if (!isPersonal) {
+        _eventBroker.fire(UploadQueueItemAdded('deleteGroup'));
+      }
       log.d('Deleted group: $id (personal: $isPersonal) by owner: $ownerId');
     } catch (e) {
       log.e('Failed to delete group $id: $e');
@@ -151,9 +165,12 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
         );
       });
 
-      // Fire event after successful operation
+      // Fire events after successful operation
       _eventBroker.fire(MemberAdded(member));
-      log.d('Added member ${member.userId} to group ${member.groupId} by owner: $ownerId');
+      _eventBroker.fire(UploadQueueItemAdded('addMember'));
+      log.d(
+        'Added member ${member.userId} to group ${member.groupId} by owner: $ownerId',
+      );
     } catch (e) {
       log.e('Failed to add member: $e');
       throw Exception('Failed to add member: $e');
@@ -175,8 +192,9 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
         );
       });
 
-      // Fire event after successful operation
+      // Fire events after successful operation
       _eventBroker.fire(MemberRemoved(groupId, userId));
+      _eventBroker.fire(UploadQueueItemAdded('removeMember'));
       log.d('Removed member $userId from group $groupId by owner: $ownerId');
     } catch (e) {
       log.e('Failed to remove member: $e');

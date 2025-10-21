@@ -2,6 +2,7 @@ import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/core/events/event_broker.dart';
 import 'package:fairshare_app/core/events/expense_events.dart';
+import 'package:fairshare_app/core/events/sync_events.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_share_entity.dart';
@@ -37,8 +38,9 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
       );
     });
 
-    // Fire event after successful operation
+    // Fire events after successful operation
     _eventBroker.fire(ExpenseCreated(expense));
+    _eventBroker.fire(UploadQueueItemAdded('createExpense'));
     log.d('Created expense: ${expense.title} by owner: $ownerId');
     return expense;
   }
@@ -77,8 +79,9 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
       );
     });
 
-    // Fire event after successful operation
+    // Fire events after successful operation
     _eventBroker.fire(ExpenseUpdated(expense));
+    _eventBroker.fire(UploadQueueItemAdded('updateExpense'));
     log.d('Updated expense: ${expense.title} by owner: $ownerId');
     return expense;
   }
@@ -104,8 +107,9 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
       );
     });
 
-    // Fire event after successful operation
+    // Fire events after successful operation
     _eventBroker.fire(ExpenseDeleted(id, expense.groupId));
+    _eventBroker.fire(UploadQueueItemAdded('deleteExpense'));
     log.d('Deleted expense: ${expense.title} by owner: $ownerId');
     return Future.value();
   }
@@ -134,8 +138,9 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
         );
       });
 
-      // Fire event after successful operation
+      // Fire events after successful operation
       _eventBroker.fire(ExpenseShareAdded(share));
+      _eventBroker.fire(UploadQueueItemAdded('addExpenseShare'));
       log.d('Added share for expense ${share.expenseId}');
       return Success.unit();
     } catch (e) {

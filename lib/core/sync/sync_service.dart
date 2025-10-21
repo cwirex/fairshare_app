@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
+import 'package:fairshare_app/core/events/event_broker.dart';
+import 'package:fairshare_app/core/events/sync_events.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/core/monitoring/sync_metrics.dart';
 import 'package:fairshare_app/core/sync/realtime_sync_service.dart';
@@ -28,9 +30,11 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
   final UploadQueueService _uploadQueueService;
   final RealtimeSyncService _realtimeSyncService;
   final GroupInitializationService _groupInitializationService;
+  final EventBroker _eventBroker;
   final Connectivity _connectivity;
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  final List<StreamSubscription<void>> _eventSubscriptions = [];
   bool _isOnline = false;
   bool _isAppInForeground = true;
   String? _currentUserId;
@@ -40,11 +44,13 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
     required UploadQueueService uploadQueueService,
     required RealtimeSyncService realtimeSyncService,
     required GroupInitializationService groupInitializationService,
+    required EventBroker eventBroker,
     Connectivity? connectivity,
   }) : _database = database,
        _uploadQueueService = uploadQueueService,
        _realtimeSyncService = realtimeSyncService,
        _groupInitializationService = groupInitializationService,
+       _eventBroker = eventBroker,
        _connectivity = connectivity ?? Connectivity();
 
   /// Start auto-sync monitoring
@@ -63,7 +69,10 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
     // 2. Listen to app lifecycle
     WidgetsBinding.instance.addObserver(this);
 
-    // 3. Listen to connectivity changes
+    // 3. Listen to domain events to trigger immediate upload
+    _setupEventListeners();
+
+    // 4. Listen to connectivity changes
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen((
       results,
     ) {
@@ -79,8 +88,34 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
       }
     });
 
-    // 4. Initial sync check
+    // 5. Initial sync check
     _checkConnectivityAndSync(userId);
+  }
+
+  /// Setup event listeners to trigger immediate sync when data changes
+  void _setupEventListeners() {
+    // Listen to the single UploadQueueItemAdded event
+    // This is domain-agnostic and fired by repositories whenever they enqueue an item
+    _eventSubscriptions.add(
+      _eventBroker.on<UploadQueueItemAdded>().listen((event) {
+        log.d('📤 Queue item added: ${event.toString()})');
+        _triggerUploadQueue();
+      }),
+    );
+
+    log.d('Event listeners setup for automatic upload queue processing');
+  }
+
+  /// Trigger upload queue processing if online
+  void _triggerUploadQueue() {
+    if (_isOnline && _isAppInForeground) {
+      log.d('📤 Triggering upload queue processing due to data change');
+      _uploadQueueService.processQueue();
+    } else {
+      log.d(
+        '⏳ Upload queued (offline=${!_isOnline}, background=${!_isAppInForeground})',
+      );
+    }
   }
 
   /// Stop auto-sync monitoring
@@ -90,6 +125,13 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _connectivitySubscription?.cancel();
     _connectivitySubscription = null;
+
+    // Cancel all event subscriptions
+    for (final subscription in _eventSubscriptions) {
+      subscription.cancel();
+    }
+    _eventSubscriptions.clear();
+
     _realtimeSyncService.stopRealtimeSync();
     _currentUserId = null;
 

@@ -1,5 +1,16 @@
 import 'package:fairshare_app/core/events/app_event.dart';
 
+/// Event fired when an item is added to the upload queue.
+/// This is a domain-agnostic sync event that triggers queue processing.
+class UploadQueueItemAdded extends AppEvent {
+  final String? message;
+
+  UploadQueueItemAdded(this.message);
+
+  @override
+  String toString() => 'UploadQueueItemAdded($message)';
+}
+
 /// Event fired when sync queue is processed.
 class SyncQueueProcessed extends AppEvent {
   final int successCount;

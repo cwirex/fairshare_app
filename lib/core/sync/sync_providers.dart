@@ -150,12 +150,14 @@ SyncService syncService(Ref ref) {
   final uploadQueueService = ref.watch(uploadQueueServiceProvider);
   final realtimeSyncService = ref.watch(realtimeSyncServiceProvider);
   final groupInitService = ref.watch(groupInitializationServiceProvider);
+  final eventBroker = ref.watch(eventBrokerProvider);
 
   final service = SyncService(
     database: database,
     uploadQueueService: uploadQueueService,
     realtimeSyncService: realtimeSyncService,
     groupInitializationService: groupInitService,
+    eventBroker: eventBroker,
   );
 
   // Start auto-sync when the service is created
