@@ -11,7 +11,11 @@ import 'package:fairshare_app/features/groups/domain/entities/group_member_entit
     as _i5;
 import 'package:fairshare_app/features/groups/domain/repositories/group_repository.dart'
     as _i3;
+import 'package:fairshare_app/features/groups/domain/services/remote_group_service.dart'
+    as _i6;
 import 'package:mockito/mockito.dart' as _i1;
+import 'package:mockito/src/dummies.dart' as _i8;
+import 'package:result_dart/result_dart.dart' as _i7;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -146,20 +150,147 @@ class MockGroupRepository extends _i1.Mock implements _i3.GroupRepository {
             returnValue: _i4.Stream<List<_i2.GroupEntity>>.empty(),
           )
           as _i4.Stream<List<_i2.GroupEntity>>);
+}
+
+/// A class which mocks [RemoteGroupService].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockRemoteGroupService extends _i1.Mock
+    implements _i6.RemoteGroupService {
+  MockRemoteGroupService() {
+    _i1.throwOnMissingStub(this);
+  }
 
   @override
-  _i4.Future<_i2.GroupEntity> joinGroupByCode(
-    String? groupCode,
-    String? userId,
+  _i4.Future<_i7.ResultDart<void, Exception>> uploadGroup(
+    _i2.GroupEntity? group,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#joinGroupByCode, [groupCode, userId]),
-            returnValue: _i4.Future<_i2.GroupEntity>.value(
-              _FakeGroupEntity_0(
+            Invocation.method(#uploadGroup, [group]),
+            returnValue: _i4.Future<_i7.ResultDart<void, Exception>>.value(
+              _i8.dummyValue<_i7.ResultDart<void, Exception>>(
                 this,
-                Invocation.method(#joinGroupByCode, [groupCode, userId]),
+                Invocation.method(#uploadGroup, [group]),
               ),
             ),
           )
-          as _i4.Future<_i2.GroupEntity>);
+          as _i4.Future<_i7.ResultDart<void, Exception>>);
+
+  @override
+  _i4.Future<_i7.ResultDart<void, Exception>> uploadGroupMember(
+    _i5.GroupMemberEntity? member, {
+    bool? isPersonalGroup = false,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(
+              #uploadGroupMember,
+              [member],
+              {#isPersonalGroup: isPersonalGroup},
+            ),
+            returnValue: _i4.Future<_i7.ResultDart<void, Exception>>.value(
+              _i8.dummyValue<_i7.ResultDart<void, Exception>>(
+                this,
+                Invocation.method(
+                  #uploadGroupMember,
+                  [member],
+                  {#isPersonalGroup: isPersonalGroup},
+                ),
+              ),
+            ),
+          )
+          as _i4.Future<_i7.ResultDart<void, Exception>>);
+
+  @override
+  _i4.Future<_i7.ResultDart<_i2.GroupEntity, Exception>> downloadGroup(
+    String? groupId,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#downloadGroup, [groupId]),
+            returnValue:
+                _i4.Future<_i7.ResultDart<_i2.GroupEntity, Exception>>.value(
+                  _i8.dummyValue<_i7.ResultDart<_i2.GroupEntity, Exception>>(
+                    this,
+                    Invocation.method(#downloadGroup, [groupId]),
+                  ),
+                ),
+          )
+          as _i4.Future<_i7.ResultDart<_i2.GroupEntity, Exception>>);
+
+  @override
+  _i4.Future<_i7.ResultDart<List<_i2.GroupEntity>, Exception>>
+  downloadUserGroups(String? userId) =>
+      (super.noSuchMethod(
+            Invocation.method(#downloadUserGroups, [userId]),
+            returnValue: _i4.Future<
+              _i7.ResultDart<List<_i2.GroupEntity>, Exception>
+            >.value(
+              _i8.dummyValue<_i7.ResultDart<List<_i2.GroupEntity>, Exception>>(
+                this,
+                Invocation.method(#downloadUserGroups, [userId]),
+              ),
+            ),
+          )
+          as _i4.Future<_i7.ResultDart<List<_i2.GroupEntity>, Exception>>);
+
+  @override
+  _i4.Future<_i7.ResultDart<List<_i5.GroupMemberEntity>, Exception>>
+  downloadGroupMembers(String? groupId) =>
+      (super.noSuchMethod(
+            Invocation.method(#downloadGroupMembers, [groupId]),
+            returnValue: _i4.Future<
+              _i7.ResultDart<List<_i5.GroupMemberEntity>, Exception>
+            >.value(
+              _i8.dummyValue<
+                _i7.ResultDart<List<_i5.GroupMemberEntity>, Exception>
+              >(this, Invocation.method(#downloadGroupMembers, [groupId])),
+            ),
+          )
+          as _i4.Future<
+            _i7.ResultDart<List<_i5.GroupMemberEntity>, Exception>
+          >);
+
+  @override
+  _i4.Future<_i7.ResultDart<void, Exception>> deleteGroup(String? groupId) =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteGroup, [groupId]),
+            returnValue: _i4.Future<_i7.ResultDart<void, Exception>>.value(
+              _i8.dummyValue<_i7.ResultDart<void, Exception>>(
+                this,
+                Invocation.method(#deleteGroup, [groupId]),
+              ),
+            ),
+          )
+          as _i4.Future<_i7.ResultDart<void, Exception>>);
+
+  @override
+  _i4.Future<_i7.ResultDart<void, Exception>> removeGroupMember(
+    String? groupId,
+    String? userId,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#removeGroupMember, [groupId, userId]),
+            returnValue: _i4.Future<_i7.ResultDart<void, Exception>>.value(
+              _i8.dummyValue<_i7.ResultDart<void, Exception>>(
+                this,
+                Invocation.method(#removeGroupMember, [groupId, userId]),
+              ),
+            ),
+          )
+          as _i4.Future<_i7.ResultDart<void, Exception>>);
+
+  @override
+  _i4.Stream<_i2.GroupEntity> watchGroup(String? groupId) =>
+      (super.noSuchMethod(
+            Invocation.method(#watchGroup, [groupId]),
+            returnValue: _i4.Stream<_i2.GroupEntity>.empty(),
+          )
+          as _i4.Stream<_i2.GroupEntity>);
+
+  @override
+  _i4.Stream<List<_i2.GroupEntity>> watchUserGroups(String? userId) =>
+      (super.noSuchMethod(
+            Invocation.method(#watchUserGroups, [userId]),
+            returnValue: _i4.Stream<List<_i2.GroupEntity>>.empty(),
+          )
+          as _i4.Stream<List<_i2.GroupEntity>>);
 }

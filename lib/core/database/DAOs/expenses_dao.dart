@@ -136,6 +136,7 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
 
     if (existing == null) {
       // New expense from server - insert directly
+      // Use insertOrReplace to handle race conditions and duplicate inserts
       await into(expenses).insert(
         ExpensesCompanion(
           id: Value(expense.id),
@@ -150,6 +151,7 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
           updatedAt: Value(expense.updatedAt),
           deletedAt: Value(expense.deletedAt),
         ),
+        mode: InsertMode.insertOrReplace,
       );
 
       // Fire event for remote creation

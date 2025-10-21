@@ -3,16 +3,20 @@ import 'package:fairshare_app/core/constants/firestore_collections.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
+import 'package:fairshare_app/features/groups/domain/services/remote_group_service.dart';
 import 'package:result_dart/result_dart.dart';
 
-/// Firestore service for syncing groups with remote database.
-class FirestoreGroupService with LoggerMixin {
+/// Firestore implementation of RemoteGroupService.
+///
+/// Handles all remote group operations using Cloud Firestore.
+class FirestoreGroupService with LoggerMixin implements RemoteGroupService {
   final FirebaseFirestore _firestore;
 
   FirestoreGroupService(this._firestore);
 
   /// Upload a group to Firestore with server timestamp.
   /// All groups including personal groups are synced for backup.
+  @override
   Future<Result<void>> uploadGroup(GroupEntity group) async {
     try {
       final groupData = group.toJson();
@@ -35,6 +39,7 @@ class FirestoreGroupService with LoggerMixin {
 
   /// Upload a group member to Firestore.
   /// All members including personal group members are synced for backup.
+  @override
   Future<Result<void>> uploadGroupMember(
     GroupMemberEntity member, {
     bool isPersonalGroup = false,
@@ -56,10 +61,14 @@ class FirestoreGroupService with LoggerMixin {
   }
 
   /// Download a group from Firestore.
+  @override
   Future<Result<GroupEntity>> downloadGroup(String groupId) async {
     try {
       final doc =
-          await _firestore.collection(FirestoreCollections.groups).doc(groupId).get();
+          await _firestore
+              .collection(FirestoreCollections.groups)
+              .doc(groupId)
+              .get();
 
       if (!doc.exists) {
         return Failure(Exception('Group not found: $groupId'));
@@ -74,6 +83,7 @@ class FirestoreGroupService with LoggerMixin {
   }
 
   /// Download all groups that the user is a member of.
+  @override
   Future<Result<List<GroupEntity>>> downloadUserGroups(String userId) async {
     try {
       log.d('Querying groups for user: $userId');
@@ -118,6 +128,7 @@ class FirestoreGroupService with LoggerMixin {
   }
 
   /// Download all members of a group.
+  @override
   Future<Result<List<GroupMemberEntity>>> downloadGroupMembers(
     String groupId,
   ) async {
@@ -141,6 +152,7 @@ class FirestoreGroupService with LoggerMixin {
   }
 
   /// Delete a group from Firestore.
+  @override
   Future<Result<void>> deleteGroup(String groupId) async {
     try {
       // Delete all members first
@@ -156,7 +168,10 @@ class FirestoreGroupService with LoggerMixin {
       }
 
       // Delete the group
-      await _firestore.collection(FirestoreCollections.groups).doc(groupId).delete();
+      await _firestore
+          .collection(FirestoreCollections.groups)
+          .doc(groupId)
+          .delete();
 
       return Success.unit();
     } catch (e) {
@@ -165,6 +180,7 @@ class FirestoreGroupService with LoggerMixin {
   }
 
   /// Remove a member from a group in Firestore.
+  @override
   Future<Result<void>> removeGroupMember(String groupId, String userId) async {
     try {
       await _firestore
@@ -181,6 +197,7 @@ class FirestoreGroupService with LoggerMixin {
   }
 
   /// Listen to changes in a group.
+  @override
   Stream<GroupEntity> watchGroup(String groupId) {
     return _firestore
         .collection(FirestoreCollections.groups)
@@ -194,6 +211,7 @@ class FirestoreGroupService with LoggerMixin {
   }
 
   /// Listen to changes in user's groups.
+  @override
   Stream<List<GroupEntity>> watchUserGroups(String userId) {
     return _firestore
         .collectionGroup(FirestoreCollections.members)

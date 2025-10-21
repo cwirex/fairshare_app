@@ -29,17 +29,22 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
       // Atomic transaction: DB write + Queue entry (all or nothing)
       await _database.transaction<void>(() async {
         await _database.groupsDao.insertGroup(group);
-        await _database.syncDao.enqueueOperation(
-          ownerId: ownerId,
-          entityType: EntityType.group,
-          entityId: group.id,
-          operationType: 'create',
-        );
+
+        // Only enqueue non-personal groups for sync
+        // Personal groups are local-only and don't need Firestore sync
+        if (!group.isPersonal) {
+          await _database.syncDao.enqueueOperation(
+            ownerId: ownerId,
+            entityType: EntityType.group,
+            entityId: group.id,
+            operationType: 'create',
+          );
+        }
       });
 
       // Fire event after successful operation
       _eventBroker.fire(GroupCreated(group));
-      log.d('Created group: ${group.displayName} by owner: $ownerId');
+      log.d('Created group: ${group.displayName} (personal: ${group.isPersonal}) by owner: $ownerId');
       return group;
     } catch (e) {
       log.e('Failed to create group: $e');
@@ -78,17 +83,21 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
       // Atomic transaction: DB update + Queue entry
       await _database.transaction<void>(() async {
         await _database.groupsDao.updateGroup(group);
-        await _database.syncDao.enqueueOperation(
-          ownerId: ownerId,
-          entityType: EntityType.group,
-          entityId: group.id,
-          operationType: 'update',
-        );
+
+        // Only enqueue non-personal groups for sync
+        if (!group.isPersonal) {
+          await _database.syncDao.enqueueOperation(
+            ownerId: ownerId,
+            entityType: EntityType.group,
+            entityId: group.id,
+            operationType: 'update',
+          );
+        }
       });
 
       // Fire event after successful operation
       _eventBroker.fire(GroupUpdated(group));
-      log.d('Updated group: ${group.displayName} by owner: $ownerId');
+      log.d('Updated group: ${group.displayName} (personal: ${group.isPersonal}) by owner: $ownerId');
       return group;
     } catch (e) {
       log.e('Failed to update group ${group.id}: $e');
@@ -99,20 +108,28 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   @override
   Future<void> deleteGroup(String id) async {
     try {
+      // Check if group is personal before enqueueing
+      final group = await _database.groupsDao.getGroupById(id);
+      final isPersonal = group?.isPersonal ?? false;
+
       // Atomic transaction: Soft delete + Queue entry
       await _database.transaction<void>(() async {
         await _database.groupsDao.softDeleteGroup(id);
-        await _database.syncDao.enqueueOperation(
-          ownerId: ownerId,
-          entityType: EntityType.group,
-          entityId: id,
-          operationType: 'delete',
-        );
+
+        // Only enqueue non-personal groups for sync
+        if (!isPersonal) {
+          await _database.syncDao.enqueueOperation(
+            ownerId: ownerId,
+            entityType: EntityType.group,
+            entityId: id,
+            operationType: 'delete',
+          );
+        }
       });
 
       // Fire event after successful operation
       _eventBroker.fire(GroupDeleted(id));
-      log.d('Deleted group: $id by owner: $ownerId');
+      log.d('Deleted group: $id (personal: $isPersonal) by owner: $ownerId');
     } catch (e) {
       log.e('Failed to delete group $id: $e');
       throw Exception('Failed to delete group: $e');
@@ -196,19 +213,6 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
     } catch (e) {
       log.e('Failed to get group members: $e');
       throw Exception('Failed to get group members: $e');
-    }
-  }
-
-  @override
-  Future<GroupEntity> joinGroupByCode(String code, String userId) async {
-    try {
-      // This is a special case - we need to fetch from Firestore first
-      // This will be handled by a separate service, not the repository
-      // For now, throw an exception
-      throw Exception('Join group by code not implemented yet');
-    } catch (e) {
-      log.e('Failed to join group: $e');
-      throw Exception('Failed to join group: $e');
     }
   }
 }

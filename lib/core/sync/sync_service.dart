@@ -6,6 +6,7 @@ import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/core/monitoring/sync_metrics.dart';
 import 'package:fairshare_app/core/sync/realtime_sync_service.dart';
 import 'package:fairshare_app/core/sync/upload_queue_service.dart';
+import 'package:fairshare_app/features/groups/data/services/group_initialization_service.dart';
 import 'package:flutter/widgets.dart';
 import 'package:result_dart/result_dart.dart';
 
@@ -19,12 +20,14 @@ import 'package:result_dart/result_dart.dart';
 /// **Components:**
 /// - [UploadQueueService]: Processes local changes → Firestore
 /// - [RealtimeSyncService]: Manages Firestore listeners → Local DB
+/// - [GroupInitializationService]: Ensures personal group exists
 /// - Connectivity monitoring: Start/stop sync based on network
 /// - App lifecycle: Start/stop listeners based on foreground/background
 class SyncService with LoggerMixin, WidgetsBindingObserver {
   final AppDatabase _database;
   final UploadQueueService _uploadQueueService;
   final RealtimeSyncService _realtimeSyncService;
+  final GroupInitializationService _groupInitializationService;
   final Connectivity _connectivity;
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
@@ -36,10 +39,12 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
     required AppDatabase database,
     required UploadQueueService uploadQueueService,
     required RealtimeSyncService realtimeSyncService,
+    required GroupInitializationService groupInitializationService,
     Connectivity? connectivity,
   }) : _database = database,
        _uploadQueueService = uploadQueueService,
        _realtimeSyncService = realtimeSyncService,
+       _groupInitializationService = groupInitializationService,
        _connectivity = connectivity ?? Connectivity();
 
   /// Start auto-sync monitoring
@@ -52,10 +57,13 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
     _currentUserId = userId;
     log.i('🚀 Starting auto-sync for user: $userId');
 
-    // Listen to app lifecycle
+    // 1. Ensure personal group exists FIRST (before any sync operations)
+    _groupInitializationService.ensurePersonalGroupExists(userId);
+
+    // 2. Listen to app lifecycle
     WidgetsBinding.instance.addObserver(this);
 
-    // Listen to connectivity changes
+    // 3. Listen to connectivity changes
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen((
       results,
     ) {
@@ -71,7 +79,7 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
       }
     });
 
-    // Initial sync check
+    // 4. Initial sync check
     _checkConnectivityAndSync(userId);
   }
 

@@ -19,32 +19,21 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
 
   // Add your group-related database methods here
   Future<void> insertGroup(GroupEntity group) async {
-    try {
-      await into(appGroups).insert(
-        AppGroupsCompanion(
-          id: Value(group.id),
-          displayName: Value(group.displayName),
-          avatarUrl: Value(group.avatarUrl),
-          isPersonal: Value(group.isPersonal),
-          defaultCurrency: Value(group.defaultCurrency),
-          createdAt: Value(group.createdAt),
-          updatedAt: Value(group.updatedAt),
-          lastActivityAt: Value(group.lastActivityAt),
-          deletedAt: Value(group.deletedAt),
-        ),
-      );
-      log.d('✅ Inserted group: ${group.id} (${group.displayName})');
-    } catch (e) {
-      log.e('❌ Failed to insert group ${group.id}: $e');
-      // Check if it already exists
-      final existing = await getGroupById(group.id);
-      if (existing != null) {
-        log.w('⚠️ Group ${group.id} already exists, updating instead');
-        await updateGroup(group);
-      } else {
-        rethrow;
-      }
-    }
+    await into(appGroups).insert(
+      AppGroupsCompanion(
+        id: Value(group.id),
+        displayName: Value(group.displayName),
+        avatarUrl: Value(group.avatarUrl),
+        isPersonal: Value(group.isPersonal),
+        defaultCurrency: Value(group.defaultCurrency),
+        createdAt: Value(group.createdAt),
+        updatedAt: Value(group.updatedAt),
+        lastActivityAt: Value(group.lastActivityAt),
+        deletedAt: Value(group.deletedAt),
+      ),
+      mode: InsertMode.insertOrReplace,
+    );
+    log.d('✅ Inserted group: ${group.id} (${group.displayName})');
   }
 
   /// Get group by ID
@@ -94,20 +83,15 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> addGroupMember(GroupMemberEntity member) async {
-    try {
-      await into(appGroupMembers).insert(
-        AppGroupMembersCompanion(
-          groupId: Value(member.groupId),
-          userId: Value(member.userId),
-          joinedAt: Value(member.joinedAt),
-        ),
-      );
-      log.d('✅ Added member: ${member.userId} to group ${member.groupId}');
-    } catch (e) {
-      log.e('❌ Failed to add member: $e');
-      log.e('   Group: ${member.groupId}, User: ${member.userId}');
-      rethrow;
-    }
+    await into(appGroupMembers).insert(
+      AppGroupMembersCompanion(
+        groupId: Value(member.groupId),
+        userId: Value(member.userId),
+        joinedAt: Value(member.joinedAt),
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+    log.d('✅ Added member: ${member.userId} to group ${member.groupId}');
   }
 
   Future<void> removeGroupMember(String groupId, String userId) async {

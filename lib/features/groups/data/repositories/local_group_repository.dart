@@ -117,14 +117,4 @@ class LocalGroupRepository with LoggerMixin implements GroupRepository {
   Stream<List<GroupEntity>> watchUserGroups(String userId) {
     return _database.groupsDao.watchUserGroups(userId);
   }
-
-  @override
-  Future<GroupEntity> joinGroupByCode(String groupCode, String userId) {
-    log.e('Attempted to join group by code in LocalGroupRepository');
-    log.d('Group code: $groupCode, User ID: $userId');
-    // Local repository doesn't support joining remote groups
-    throw Exception(
-      'Cannot join remote groups in offline mode. Please check your internet connection.',
-    );
-  }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,13 +17,37 @@ import 'routes.dart';
 
 part 'app_router.g.dart';
 
-@riverpod
+/// Helper class to convert a Stream into a Listenable for GoRouter
+class GoRouterRefreshStream extends ChangeNotifier {
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    notifyListeners();
+    _subscription = stream.asBroadcastStream().listen(
+          (dynamic _) => notifyListeners(),
+        );
+  }
+
+  late final StreamSubscription<dynamic> _subscription;
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
+
+@Riverpod(keepAlive: true)
 GoRouter appRouter(Ref ref) {
   return GoRouter(
     initialLocation: Routes.auth,
+    // Use refreshListenable to reactively update when auth changes
+    // This is the correct way to integrate Riverpod with GoRouter
+    refreshListenable: GoRouterRefreshStream(
+      ref.watch(authNotifierProvider.selectAsync((data) => data)).asStream(),
+    ),
     redirect: (context, state) {
-      // Watch auth state for automatic redirects
-      final authState = ref.watch(authNotifierProvider);
+      // Read (not watch!) the current auth state
+      // Watching here causes infinite loops
+      final authState = ref.read(authNotifierProvider);
       final currentRoute = state.uri.toString();
 
       return authState.when(

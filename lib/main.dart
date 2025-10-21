@@ -1,5 +1,4 @@
 import 'package:fairshare_app/core/logging/app_logger.dart';
-import 'package:fairshare_app/features/auth/presentation/providers/app_initializer_providers.dart';
 import 'package:fairshare_app/firebase_options.dart';
 import 'package:fairshare_app/shared/routes/app_router.dart';
 import 'package:fairshare_app/shared/theme/app_theme.dart';
@@ -25,7 +24,6 @@ class FairShareApp extends ConsumerWidget with LoggerMixin {
     log.d('Building FairShareApp widget...');
 
     final router = ref.watch(appRouterProvider);
-    ref.watch(appInitializerProvider);
 
     log.i('FairShare app starting...');
 

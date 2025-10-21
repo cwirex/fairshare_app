@@ -11,6 +11,8 @@ import 'package:fairshare_app/features/expenses/domain/repositories/expense_repo
 import 'package:fairshare_app/features/groups/data/repositories/synced_group_repository.dart';
 import 'package:fairshare_app/features/groups/data/services/firestore_group_service.dart';
 import 'package:fairshare_app/features/groups/domain/repositories/group_repository.dart';
+import 'package:fairshare_app/features/groups/domain/services/remote_group_service.dart';
+import 'package:fairshare_app/features/groups/presentation/providers/group_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -22,7 +24,16 @@ FirebaseFirestore firestore(Ref ref) {
   return FirebaseFirestore.instance;
 }
 
-/// Firestore group service provider
+/// Remote group service provider (abstraction)
+@riverpod
+RemoteGroupService remoteGroupService(Ref ref) {
+  final firestore = ref.watch(firestoreProvider);
+  return FirestoreGroupService(firestore);
+}
+
+/// Firestore group service provider (concrete implementation)
+/// Note: This is kept for backward compatibility with existing services
+@Deprecated('Use remoteGroupServiceProvider instead')
 @riverpod
 FirestoreGroupService firestoreGroupService(Ref ref) {
   final firestore = ref.watch(firestoreProvider);
@@ -99,8 +110,17 @@ UploadQueueService uploadQueueService(Ref ref) {
 }
 
 /// Realtime sync service provider
+/// User-scoped: Automatically recreated when user changes
 @riverpod
 RealtimeSyncService realtimeSyncService(Ref ref) {
+  final currentUser = ref.watch(currentUserProvider);
+
+  if (currentUser == null) {
+    throw Exception(
+      'RealtimeSyncService requires an authenticated user. Please sign in.',
+    );
+  }
+
   final database = ref.watch(appDatabaseProvider);
   final groupService = ref.watch(firestoreGroupServiceProvider);
   final expenseService = ref.watch(firestoreExpenseServiceProvider);
@@ -115,24 +135,33 @@ RealtimeSyncService realtimeSyncService(Ref ref) {
 }
 
 /// Sync service provider (orchestrator)
-/// Note: keepAlive removed to allow proper disposal on user change
+/// User-scoped: Automatically recreated when user changes
 @riverpod
 SyncService syncService(Ref ref) {
+  final currentUser = ref.watch(currentUserProvider);
+
+  if (currentUser == null) {
+    throw Exception(
+      'SyncService requires an authenticated user. Please sign in.',
+    );
+  }
+
   final database = ref.watch(appDatabaseProvider);
   final uploadQueueService = ref.watch(uploadQueueServiceProvider);
   final realtimeSyncService = ref.watch(realtimeSyncServiceProvider);
-  final currentUser = ref.watch(currentUserProvider);
+  final groupInitService = ref.watch(groupInitializationServiceProvider);
 
   final service = SyncService(
     database: database,
     uploadQueueService: uploadQueueService,
     realtimeSyncService: realtimeSyncService,
+    groupInitializationService: groupInitService,
   );
 
-  // Start auto-sync when the service is created, passing userId
-  service.startAutoSync(currentUser?.id);
+  // Start auto-sync when the service is created
+  service.startAutoSync(currentUser.id);
 
-  // Dispose when the provider is disposed
+  // Dispose when the provider is disposed (on logout or user change)
   ref.onDispose(() {
     service.dispose();
   });

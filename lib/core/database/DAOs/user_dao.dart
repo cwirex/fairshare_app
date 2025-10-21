@@ -11,7 +11,7 @@ class UserDao extends DatabaseAccessor<AppDatabase> with _$UserDaoMixin {
 
   UserDao(this.db) : super(db);
 
-  /// Insert a new user into the database
+  /// Insert or update a user in the database (UPSERT)
   Future<void> insertUser(User user) async {
     await into(appUsers).insert(
       AppUsersCompanion(
@@ -24,6 +24,7 @@ class UserDao extends DatabaseAccessor<AppDatabase> with _$UserDaoMixin {
         createdAt: Value(user.createdAt),
         updatedAt: Value(user.updatedAt),
       ),
+      mode: InsertMode.insertOrReplace,
     );
   }
 

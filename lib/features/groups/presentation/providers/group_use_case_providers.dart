@@ -41,8 +41,10 @@ RemoveMemberUseCase removeMemberUseCase(Ref ref) {
 }
 
 /// Provider for JoinGroupByCode
+/// This use case orchestrates both local repository and remote service
 @riverpod
 JoinGroupByCodeUseCase joinGroupByCodeUseCase(Ref ref) {
   final repository = ref.watch(groupRepositoryProvider);
-  return JoinGroupByCodeUseCase(repository);
+  final remoteService = ref.watch(remoteGroupServiceProvider);
+  return JoinGroupByCodeUseCase(repository, remoteService);
 }

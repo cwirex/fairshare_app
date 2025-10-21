@@ -190,6 +190,12 @@ class UploadQueueService with LoggerMixin {
           throw Exception('Group not found: ${operation.entityId}');
         }
 
+        // Skip personal groups - they are not synced to Firestore
+        if (group.isPersonal) {
+          log.d('Skipping personal group sync: ${group.id}');
+          return;
+        }
+
         // Upload to Firestore (server timestamp added by service)
         final uploadResult = await _groupService.uploadGroup(group);
         uploadResult.fold((_) => null, (error) => throw error);

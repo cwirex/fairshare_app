@@ -146,20 +146,4 @@ class MockGroupRepository extends _i1.Mock implements _i3.GroupRepository {
             returnValue: _i4.Stream<List<_i2.GroupEntity>>.empty(),
           )
           as _i4.Stream<List<_i2.GroupEntity>>);
-
-  @override
-  _i4.Future<_i2.GroupEntity> joinGroupByCode(
-    String? groupCode,
-    String? userId,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#joinGroupByCode, [groupCode, userId]),
-            returnValue: _i4.Future<_i2.GroupEntity>.value(
-              _FakeGroupEntity_0(
-                this,
-                Invocation.method(#joinGroupByCode, [groupCode, userId]),
-              ),
-            ),
-          )
-          as _i4.Future<_i2.GroupEntity>);
 }

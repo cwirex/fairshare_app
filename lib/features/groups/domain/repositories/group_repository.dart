@@ -47,7 +47,4 @@ abstract class GroupRepository {
 
   /// Watch all groups for a user (stream)
   Stream<List<GroupEntity>> watchUserGroups(String userId);
-
-  /// Join a group by code (requires internet connection)
-  Future<GroupEntity> joinGroupByCode(String groupCode, String userId);
 }
