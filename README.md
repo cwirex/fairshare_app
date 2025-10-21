@@ -43,26 +43,23 @@ FairShare makes group expense management effortless by combining the best of mod
 
 ## Key Features
 
-### Current (Phase 2.2 Complete - Basic Expense & Group Tracking)
-- ✅ Google Sign-In authentication
-- ✅ Offline-first local database (SQLite via Drift)
-- ✅ Sign-out risk assessment (warns about unsynced data)
-- ✅ Modern Material 3 UI with theme switching
-- ✅ **Create and save expenses**
-- ✅ **View expense list**
-- ✅ **Auto-created "Personal" group for individual expenses**
-- ✅ **Create and manage shared groups**
-- ✅ **Join groups via 6-digit code**
-- ✅ **Firebase sync with upload queue system**
-- ✅ **Unified data model (personal & shared groups)**
-- ✅ **Soft delete support for undo capability**
-- ✅ **Foreign key constraints for data integrity**
+### Current (Phase 2.4 - Event-Driven Architecture)
+- ✅ **Authentication:** Google Sign-In with Firebase Auth
+- ✅ **Offline-First:** SQLite database via Drift as source of truth
+- ✅ **Expense Tracking:** Create, view, edit, and delete expenses
+- ✅ **Group Management:** Create shared groups and join via 6-digit code
+- ✅ **Personal Groups:** Auto-created private group for individual expenses
+- ✅ **Real-Time Sync:** Firestore integration with upload queue and event-driven updates
+- ✅ **Use Case Layer:** Business logic isolated with validation
+- ✅ **Event System:** Domain events for reactive UI updates
+- ✅ **Data Integrity:** Foreign key constraints and soft delete support
+- ✅ **Modern UI:** Material 3 design with dark/light themes
 
-### Next (Phase 2.3 - Balance Calculations)
-- 🚧 Calculate balances per group
-- 🚧 Display who owes whom
-- 🚧 Show settlement amounts
-- 🚧 Balance tracking table implementation
+### Next (Phase 2.5 - Testing & Polish)
+- 🚧 Comprehensive testing (unit, integration, E2E)
+- 🚧 Event-driven computed providers (dashboard stats, totals)
+- 🚧 Performance optimization and profiling
+- 🚧 Balance calculations (who owes whom)
 
 ### Future (Full Feature Set)
 - 📋 Advanced split options (percentage, exact amounts, unequal)
@@ -178,25 +175,26 @@ flutter run
 
 ## Project Status
 
-Currently in **Phase 2.2 Complete** - Full expense tracking, group management, and sync working end-to-end!
+Currently in **Phase 2.4** - Event-Driven Architecture implementation complete! 🎉
 
 ### What's Working:
-- ✅ Offline-first with SQLite database
-- ✅ Personal groups (local-only, expenses sync to cloud for backup)
-- ✅ Shared groups (full sync with Firestore)
-- ✅ Join groups via 6-digit code
-- ✅ Upload queue system for reliable sync
-- ✅ Soft deletes with restore capability
-- ✅ Firebase authentication with Google Sign-In
+- ✅ **Complete Use Case Layer:** All 10 use cases with validation (expenses + groups)
+- ✅ **Event System:** EventBroker fires domain events for local & remote changes
+- ✅ **Repository Integration:** Atomic transactions (DB + Queue + Events)
+- ✅ **Real-Time Sync:** Firestore listeners with hybrid strategy (global + active group)
+- ✅ **Clean Architecture:** Repositories throw exceptions, Use Cases return `Result<T>`
+- ✅ **Offline-First:** Local SQLite as source of truth with upload queue
+- ✅ **Join Groups:** 6-digit code system working end-to-end
+- ✅ **Personal Groups:** Auto-created, metadata stays local, expenses sync for backup
 
-### Recent Major Refactoring:
-- ✅ **Schema v5**: Unified data model, removed denormalized data
-- ✅ **Personal groups**: Marked with `isPersonal: true`, metadata stays local
-- ✅ **Expense sync**: All expenses sync (including personal for cloud backup)
-- ✅ **Data integrity**: Foreign key constraints with cascade deletes
-- ✅ **Balance tracking**: Schema ready (calculation service to be implemented)
+### Recent Architecture Improvements:
+- ✅ **Use Cases:** Business logic isolated with validation (Phase 2.1)
+- ✅ **Events:** Repositories and DAOs fire events after operations (Phase 2.2)
+- ✅ **Sync Integration:** Real-time sync fires events for reactive UI (Phase 2.3)
+- ✅ **Testing:** 137 repository tests + 12 sync service tests passing
+- ✅ **Multi-User Schema:** User-scoped data with foreign key constraints (schema v1)
 
-**Next**: Phase 2.3 - Balance calculations and display (who owes whom).
+**Next**: Phase 2.5 - Event-driven computed providers, comprehensive testing, and balance calculations.
 
 See [docs/PLAN.md](docs/PLAN.md) for detailed roadmap and [docs/DATA_SCHEMA_COMPLETE.md](docs/DATA_SCHEMA_COMPLETE.md) for complete schema documentation.
 

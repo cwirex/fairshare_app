@@ -45,7 +45,7 @@
 - [x] Personal groups (auto-created)
 - [x] Shared groups (create & join)
 - [x] Firebase sync with upload queue
-- [x] Schema v5 refactoring (unified model)
+- [x] Multi-user architecture (clean schema v1)
 - [x] Soft delete support
 - [x] Foreign key constraints
 

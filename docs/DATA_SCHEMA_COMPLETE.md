@@ -1,7 +1,7 @@
 # FairShare Data Schema - Complete Reference
 
-**Date**: 2025-10-01
-**Schema Version**: 5
+**Date**: 2025-10-21
+**Schema Version**: 1 (clean slate for multi-user architecture)
 **Status**: Production Ready
 
 ---
@@ -186,6 +186,7 @@ users                              groups
 | `defaultCurrency` | TEXT     | NOT NULL, DEFAULT 'USD' | Default currency for the group                    |
 | `createdAt`       | DATETIME | NOT NULL                | Group creation timestamp                          |
 | `updatedAt`       | DATETIME | NOT NULL                | Last update timestamp                             |
+| `lastActivityAt`  | DATETIME | NOT NULL                | **Last activity timestamp (for hybrid listeners)** |
 | `deletedAt`       | DATETIME | NULLABLE                | **Soft delete timestamp**                         |
 
 **Key Changes**:
@@ -280,18 +281,21 @@ users                              groups
 
 **Purpose**: Track pending sync operations (Option D: Upload Queue strategy)
 
-| Column          | Type     | Constraints               | Description                              |
-| --------------- | -------- | ------------------------- | ---------------------------------------- |
-| `id`            | INTEGER  | PRIMARY KEY AUTOINCREMENT | Queue entry ID                           |
-| `entityType`    | TEXT     | NOT NULL                  | 'expense', 'group', 'user'               |
-| `entityId`      | TEXT     | NOT NULL                  | ID of entity to sync                     |
-| `operationType` | TEXT     | NOT NULL                  | 'create', 'update', 'delete'             |
-| `metadata`      | TEXT     | NULLABLE                  | JSON context (e.g., groupId for deletes) |
-| `createdAt`     | DATETIME | NOT NULL                  | When queued                              |
-| `retryCount`    | INTEGER  | NOT NULL, DEFAULT 0       | Number of retry attempts                 |
-| `lastError`     | TEXT     | NULLABLE                  | Last error message                       |
+| Column          | Type     | Constraints                            | Description                              |
+| --------------- | -------- | -------------------------------------- | ---------------------------------------- |
+| `id`            | INTEGER  | PRIMARY KEY AUTOINCREMENT              | Queue entry ID                           |
+| `ownerId`       | TEXT     | NOT NULL, FK → `users.id` (CASCADE)    | **User who initiated this operation**    |
+| `entityType`    | TEXT     | NOT NULL                               | 'expense', 'group', 'user'               |
+| `entityId`      | TEXT     | NOT NULL                               | ID of entity to sync                     |
+| `operationType` | TEXT     | NOT NULL                               | 'create', 'update', 'delete'             |
+| `metadata`      | TEXT     | NULLABLE                               | JSON context (e.g., groupId for deletes) |
+| `createdAt`     | DATETIME | NOT NULL                               | When queued                              |
+| `retryCount`    | INTEGER  | NOT NULL, DEFAULT 0                    | Number of retry attempts                 |
+| `lastError`     | TEXT     | NULLABLE                               | Last error message                       |
 
-**Unique Constraint**: `(entityType, entityId)` - ensures one operation per entity
+**Unique Constraint**: `(ownerId, entityType, entityId)` - ensures one operation per entity per user
+
+**Key Design:** `ownerId` enables multi-user architecture by scoping sync queue entries to prevent cross-user data leakage on sign-out.
 
 ---
 
