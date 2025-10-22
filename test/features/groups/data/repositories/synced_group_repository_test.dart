@@ -168,9 +168,22 @@ void main() {
 
     group('deleteGroup', () {
       test(
-        'should soft delete group and enqueue operation atomically',
+        'should soft delete shared group and enqueue operation atomically',
         () async {
-          // Arrange
+          // Arrange - stub getGroupById to return a shared group
+          final sharedGroup = GroupEntity(
+            id: 'group123',
+            displayName: 'Test Group',
+            avatarUrl: '',
+            isPersonal: false, // Shared group
+            defaultCurrency: 'USD',
+            createdAt: DateTime(2025, 1, 1),
+            updatedAt: DateTime(2025, 1, 1),
+            lastActivityAt: DateTime(2025, 1, 1),
+            deletedAt: null,
+          );
+          when(mockGroupsDao.getGroupById('group123'))
+              .thenAnswer((_) async => sharedGroup);
           when(mockDatabase.transaction(any)).thenAnswer((invocation) async {
             final callback = invocation.positionalArguments[0] as Function();
             await callback();
@@ -191,6 +204,7 @@ void main() {
           await repository.deleteGroup('group123');
 
           // Assert
+          verify(mockGroupsDao.getGroupById('group123')).called(1);
           verify(mockDatabase.transaction<void>(any)).called(1);
           verify(mockGroupsDao.softDeleteGroup('group123')).called(1);
           verify(
@@ -201,6 +215,51 @@ void main() {
               operationType: 'delete',
             ),
           ).called(1);
+          verify(mockEventBroker.fire(any)).called(2); // GroupDeleted + UploadQueueItemAdded
+        },
+      );
+
+      test(
+        'should soft delete personal group without enqueueing',
+        () async {
+          // Arrange - stub getGroupById to return a personal group
+          final personalGroup = GroupEntity(
+            id: 'user123',
+            displayName: 'Personal Expenses',
+            avatarUrl: '',
+            isPersonal: true, // Personal group
+            defaultCurrency: 'USD',
+            createdAt: DateTime(2025, 1, 1),
+            updatedAt: DateTime(2025, 1, 1),
+            lastActivityAt: DateTime(2025, 1, 1),
+            deletedAt: null,
+          );
+          when(mockGroupsDao.getGroupById('user123'))
+              .thenAnswer((_) async => personalGroup);
+          when(mockDatabase.transaction(any)).thenAnswer((invocation) async {
+            final callback = invocation.positionalArguments[0] as Function();
+            await callback();
+            return null;
+          });
+          when(mockGroupsDao.softDeleteGroup(any)).thenAnswer((_) async {});
+
+          // Act
+          await repository.deleteGroup('user123');
+
+          // Assert
+          verify(mockGroupsDao.getGroupById('user123')).called(1);
+          verify(mockDatabase.transaction<void>(any)).called(1);
+          verify(mockGroupsDao.softDeleteGroup('user123')).called(1);
+          verifyNever(
+            mockSyncDao.enqueueOperation(
+              ownerId: anyNamed('ownerId'),
+              entityType: anyNamed('entityType'),
+              entityId: anyNamed('entityId'),
+              operationType: anyNamed('operationType'),
+              metadata: anyNamed('metadata'),
+            ),
+          ); // Should NOT enqueue for personal groups
+          verify(mockEventBroker.fire(any)).called(1); // Only GroupDeleted event
         },
       );
     });
