@@ -1,9 +1,11 @@
 import 'package:fairshare_app/core/domain/use_case.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 import 'package:fairshare_app/features/expenses/domain/repositories/expense_repository.dart';
+import 'package:fairshare_app/features/expenses/domain/use_cases/expense_use_case_interfaces.dart';
 
 /// Use case for creating a new expense.
-class CreateExpenseUseCase extends UseCase<ExpenseEntity, ExpenseEntity> {
+class CreateExpenseUseCase extends UseCase<ExpenseEntity, ExpenseEntity>
+    implements ICreateExpenseUseCase {
   final ExpenseRepository _repository;
 
   CreateExpenseUseCase(this._repository);

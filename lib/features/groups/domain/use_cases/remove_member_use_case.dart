@@ -1,5 +1,6 @@
 import 'package:fairshare_app/core/domain/use_case.dart';
 import 'package:fairshare_app/features/groups/domain/repositories/group_repository.dart';
+import 'package:fairshare_app/features/groups/domain/use_cases/group_use_case_interfaces.dart';
 import 'package:result_dart/result_dart.dart';
 
 /// Parameters for removing a member from a group.
@@ -14,7 +15,8 @@ class RemoveMemberParams {
 }
 
 /// Use case for removing a member from a group.
-class RemoveMemberUseCase extends UseCase<RemoveMemberParams, Unit> {
+class RemoveMemberUseCase extends UseCase<RemoveMemberParams, Unit>
+    implements IRemoveMemberUseCase {
   final GroupRepository _repository;
 
   RemoveMemberUseCase(this._repository);

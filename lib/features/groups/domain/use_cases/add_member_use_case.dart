@@ -1,10 +1,12 @@
 import 'package:fairshare_app/core/domain/use_case.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
 import 'package:fairshare_app/features/groups/domain/repositories/group_repository.dart';
+import 'package:fairshare_app/features/groups/domain/use_cases/group_use_case_interfaces.dart';
 import 'package:result_dart/result_dart.dart';
 
 /// Use case for adding a member to a group.
-class AddMemberUseCase extends UseCase<GroupMemberEntity, Unit> {
+class AddMemberUseCase extends UseCase<GroupMemberEntity, Unit>
+    implements IAddMemberUseCase {
   final GroupRepository _repository;
 
   AddMemberUseCase(this._repository);

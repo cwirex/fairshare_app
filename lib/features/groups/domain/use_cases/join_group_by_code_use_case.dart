@@ -3,6 +3,7 @@ import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart'
 import 'package:fairshare_app/features/groups/domain/entities/group_member_entity.dart';
 import 'package:fairshare_app/features/groups/domain/repositories/group_repository.dart';
 import 'package:fairshare_app/features/groups/domain/services/remote_group_service.dart';
+import 'package:fairshare_app/features/groups/domain/use_cases/group_use_case_interfaces.dart';
 
 /// Parameters for joining a group by code.
 class JoinGroupByCodeParams {
@@ -21,7 +22,8 @@ class JoinGroupByCodeParams {
 ///
 /// This is the orchestration layer that coordinates RemoteGroupService and GroupRepository.
 class JoinGroupByCodeUseCase
-    extends UseCase<JoinGroupByCodeParams, GroupEntity> {
+    extends UseCase<JoinGroupByCodeParams, GroupEntity>
+    implements IJoinGroupByCodeUseCase {
   final GroupRepository _repository;
   final RemoteGroupService _remoteService;
 

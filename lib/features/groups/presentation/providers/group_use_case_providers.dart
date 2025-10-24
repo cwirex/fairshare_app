@@ -2,6 +2,7 @@ import 'package:fairshare_app/core/sync/sync_providers.dart';
 import 'package:fairshare_app/features/groups/domain/use_cases/add_member_use_case.dart';
 import 'package:fairshare_app/features/groups/domain/use_cases/create_group_use_case.dart';
 import 'package:fairshare_app/features/groups/domain/use_cases/delete_group_use_case.dart';
+import 'package:fairshare_app/features/groups/domain/use_cases/group_use_case_interfaces.dart';
 import 'package:fairshare_app/features/groups/domain/use_cases/join_group_by_code_use_case.dart';
 import 'package:fairshare_app/features/groups/domain/use_cases/remove_member_use_case.dart';
 import 'package:fairshare_app/features/groups/domain/use_cases/update_group_use_case.dart';
@@ -11,31 +12,31 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'group_use_case_providers.g.dart';
 
 @riverpod
-CreateGroupUseCase createGroupUseCase(Ref ref) {
+ICreateGroupUseCase createGroupUseCase(Ref ref) {
   final repository = ref.watch(groupRepositoryProvider);
   return CreateGroupUseCase(repository);
 }
 
 @riverpod
-UpdateGroupUseCase updateGroupUseCase(Ref ref) {
+IUpdateGroupUseCase updateGroupUseCase(Ref ref) {
   final repository = ref.watch(groupRepositoryProvider);
   return UpdateGroupUseCase(repository);
 }
 
 @riverpod
-DeleteGroupUseCase deleteGroupUseCase(Ref ref) {
+IDeleteGroupUseCase deleteGroupUseCase(Ref ref) {
   final repository = ref.watch(groupRepositoryProvider);
   return DeleteGroupUseCase(repository);
 }
 
 @riverpod
-AddMemberUseCase addMemberUseCase(Ref ref) {
+IAddMemberUseCase addMemberUseCase(Ref ref) {
   final repository = ref.watch(groupRepositoryProvider);
   return AddMemberUseCase(repository);
 }
 
 @riverpod
-RemoveMemberUseCase removeMemberUseCase(Ref ref) {
+IRemoveMemberUseCase removeMemberUseCase(Ref ref) {
   final repository = ref.watch(groupRepositoryProvider);
   return RemoveMemberUseCase(repository);
 }
@@ -43,7 +44,7 @@ RemoveMemberUseCase removeMemberUseCase(Ref ref) {
 /// Provider for JoinGroupByCode
 /// This use case orchestrates both local repository and remote service
 @riverpod
-JoinGroupByCodeUseCase joinGroupByCodeUseCase(Ref ref) {
+IJoinGroupByCodeUseCase joinGroupByCodeUseCase(Ref ref) {
   final repository = ref.watch(groupRepositoryProvider);
   final remoteService = ref.watch(remoteGroupServiceProvider);
   return JoinGroupByCodeUseCase(repository, remoteService);

@@ -1,9 +1,11 @@
 import 'package:fairshare_app/core/domain/use_case.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:fairshare_app/features/groups/domain/repositories/group_repository.dart';
+import 'package:fairshare_app/features/groups/domain/use_cases/group_use_case_interfaces.dart';
 
 /// Use case for creating a new group.
-class CreateGroupUseCase extends UseCase<GroupEntity, GroupEntity> {
+class CreateGroupUseCase extends UseCase<GroupEntity, GroupEntity>
+    implements ICreateGroupUseCase {
   final GroupRepository _repository;
 
   CreateGroupUseCase(this._repository);
