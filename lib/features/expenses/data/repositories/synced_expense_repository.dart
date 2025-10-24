@@ -1,6 +1,7 @@
 import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
-import 'package:fairshare_app/core/events/event_broker.dart';
+import 'package:fairshare_app/core/database/interfaces/dao_interfaces.dart';
+import 'package:fairshare_app/core/events/event_broker_interface.dart';
 import 'package:fairshare_app/core/events/expense_events.dart';
 import 'package:fairshare_app/core/events/sync_events.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
@@ -19,17 +20,31 @@ import 'package:result_dart/result_dart.dart';
 /// - User-scoped: ownerId is injected at construction time
 class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
   final AppDatabase _database;
-  final EventBroker _eventBroker;
+  final IExpensesDao _expensesDao;
+  final IExpenseSharesDao _expenseSharesDao;
+  final ISyncDao _syncDao;
+  final IEventBroker _eventBroker;
   final String ownerId; // ID of the user who owns this repository instance
 
-  SyncedExpenseRepository(this._database, this._eventBroker, this.ownerId);
+  SyncedExpenseRepository({
+    required AppDatabase database,
+    required IExpensesDao expensesDao,
+    required IExpenseSharesDao expenseSharesDao,
+    required ISyncDao syncDao,
+    required IEventBroker eventBroker,
+    required this.ownerId,
+  }) : _database = database,
+       _expensesDao = expensesDao,
+       _expenseSharesDao = expenseSharesDao,
+       _syncDao = syncDao,
+       _eventBroker = eventBroker;
 
   @override
   Future<ExpenseEntity> createExpense(ExpenseEntity expense) async {
     // Atomic transaction: DB insert + Queue entry
     await _database.transaction<void>(() async {
-      await _database.expensesDao.insertExpense(expense);
-      await _database.syncDao.enqueueOperation(
+      await _expensesDao.insertExpense(expense);
+      await _syncDao.enqueueOperation(
         ownerId: ownerId,
         entityType: EntityType.expense,
         entityId: expense.id,
@@ -47,7 +62,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
 
   @override
   Future<ExpenseEntity> getExpenseById(String id) async {
-    final expense = await _database.expensesDao.getExpenseById(id);
+    final expense = await _expensesDao.getExpenseById(id);
     if (expense == null) {
       throw Exception('Expense not found: $id');
     }
@@ -56,21 +71,21 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
 
   @override
   Future<List<ExpenseEntity>> getExpensesByGroup(String groupId) async {
-    final expenses = await _database.expensesDao.getExpensesByGroup(groupId);
+    final expenses = await _expensesDao.getExpensesByGroup(groupId);
     return expenses;
   }
 
   @override
   Future<List<ExpenseEntity>> getAllExpenses() async {
-    final expenses = await _database.expensesDao.getAllExpenses();
+    final expenses = await _expensesDao.getAllExpenses();
     return expenses;
   }
 
   @override
   Future<ExpenseEntity> updateExpense(ExpenseEntity expense) async {
     await _database.transaction<void>(() async {
-      await _database.expensesDao.updateExpense(expense);
-      await _database.syncDao.enqueueOperation(
+      await _expensesDao.updateExpense(expense);
+      await _syncDao.enqueueOperation(
         ownerId: ownerId,
         entityType: EntityType.expense,
         entityId: expense.id,
@@ -89,7 +104,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
   @override
   Future<void> deleteExpense(String id) async {
     // Get expense first to retrieve groupId
-    final expense = await _database.expensesDao.getExpenseById(id);
+    final expense = await _expensesDao.getExpenseById(id);
     if (expense == null) {
       log.e('Expense not found for deletion: $id');
       throw Exception('Expense not found: $id');
@@ -97,8 +112,8 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
 
     // Atomic transaction: Soft delete + Queue entry
     await _database.transaction<void>(() async {
-      await _database.expensesDao.softDeleteExpense(id);
-      await _database.syncDao.enqueueOperation(
+      await _expensesDao.softDeleteExpense(id);
+      await _syncDao.enqueueOperation(
         ownerId: ownerId,
         entityType: EntityType.expense,
         entityId: id,
@@ -116,20 +131,20 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
 
   @override
   Stream<List<ExpenseEntity>> watchExpensesByGroup(String groupId) {
-    return _database.expensesDao.watchExpensesByGroup(groupId);
+    return _expensesDao.watchExpensesByGroup(groupId);
   }
 
   @override
   Stream<List<ExpenseEntity>> watchAllExpenses() {
-    return _database.expensesDao.watchAllExpenses();
+    return _expensesDao.watchAllExpenses();
   }
 
   Future<Result<void>> addExpenseShare(ExpenseShareEntity share) async {
     try {
       // Atomic transaction: Add share + Queue entry
       await _database.transaction<void>(() async {
-        await _database.expenseSharesDao.insertExpenseShare(share);
-        await _database.syncDao.enqueueOperation(
+        await _expenseSharesDao.insertExpenseShare(share);
+        await _syncDao.enqueueOperation(
           ownerId: ownerId,
           entityType: EntityType.expenseShare,
           entityId: '${share.expenseId}_${share.userId}',
@@ -154,9 +169,7 @@ class SyncedExpenseRepository with LoggerMixin implements ExpenseRepository {
     String expenseId,
   ) async {
     try {
-      final shares = await _database.expenseSharesDao.getExpenseShares(
-        expenseId,
-      );
+      final shares = await _expenseSharesDao.getExpenseShares(expenseId);
       return Success(shares);
     } catch (e) {
       log.e('Failed to get shares for expense $expenseId: $e');

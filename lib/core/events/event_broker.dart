@@ -1,14 +1,14 @@
 import 'dart:async';
 
 import 'package:fairshare_app/core/events/app_event.dart';
+import 'package:fairshare_app/core/events/event_broker_interface.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 
-/// Singleton event broker for broadcasting domain events.
-class EventBroker with LoggerMixin {
-  static final EventBroker _instance = EventBroker._internal();
-  factory EventBroker() => _instance;
-
-  EventBroker._internal() {
+/// Event broker for broadcasting domain events.
+///
+/// Lifecycle managed by Riverpod providers, not a singleton.
+class EventBroker with LoggerMixin implements IEventBroker {
+  EventBroker() {
     log.i('EventBroker initialized');
   }
 

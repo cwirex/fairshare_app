@@ -1,11 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fairshare_app/core/constants/firestore_collections.dart';
+import 'package:fairshare_app/features/auth/domain/entities/user.dart';
+import 'package:fairshare_app/features/auth/domain/services/remote_user_service.dart';
 import 'package:result_dart/result_dart.dart';
 
-import 'package:fairshare_app/features/auth/domain/entities/user.dart';
-
-/// Firestore service for syncing users with remote database.
-class FirestoreUserService {
+/// Firestore implementation of RemoteUserService.
+///
+/// Handles all remote user operations using Cloud Firestore.
+class FirestoreUserService implements RemoteUserService {
   final FirebaseFirestore _firestore;
 
   FirestoreUserService(this._firestore);

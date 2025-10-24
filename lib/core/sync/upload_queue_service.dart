@@ -6,26 +6,27 @@ import 'package:fairshare_app/core/constants/firestore_collections.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/core/monitoring/sync_metrics.dart';
+import 'package:fairshare_app/core/sync/sync_service_interfaces.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
-import 'package:fairshare_app/features/expenses/data/services/firestore_expense_service.dart';
+import 'package:fairshare_app/features/expenses/domain/services/remote_expense_service.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
-import 'package:fairshare_app/features/groups/data/services/firestore_group_service.dart';
+import 'package:fairshare_app/features/groups/domain/services/remote_group_service.dart';
 
 /// Service responsible for processing the upload queue.
 ///
 /// Processes queued operations, handles retries, server timestamps, and hard deletes.
 /// User-scoped: Only processes operations for the specified owner.
-class UploadQueueService with LoggerMixin {
+class UploadQueueService with LoggerMixin implements IUploadQueueService {
   final AppDatabase _database;
-  final FirestoreExpenseService _expenseService;
-  final FirestoreGroupService _groupService;
+  final RemoteExpenseService _expenseService;
+  final RemoteGroupService _groupService;
   final FirebaseFirestore _firestore;
   final String ownerId; // ID of the user whose queue to process
 
   UploadQueueService({
     required AppDatabase database,
-    required FirestoreExpenseService expenseService,
-    required FirestoreGroupService groupService,
+    required RemoteExpenseService expenseService,
+    required RemoteGroupService groupService,
     required FirebaseFirestore firestore,
     required this.ownerId,
   }) : _database = database,
@@ -34,6 +35,7 @@ class UploadQueueService with LoggerMixin {
        _firestore = firestore;
 
   /// Process all pending operations in the queue for this user
+  @override
   Future<UploadQueueResult> processQueue() async {
     final operations = await _database.syncDao.getPendingOperations(
       ownerId: ownerId,
@@ -82,7 +84,9 @@ class UploadQueueService with LoggerMixin {
     final remaining = await _database.syncDao.getPendingOperationCount(ownerId);
     SyncMetrics.instance.updateQueueDepth(remaining);
 
-    log.i('✅ Queue processed for user $ownerId: $successCount succeeded, $failureCount failed');
+    log.i(
+      '✅ Queue processed for user $ownerId: $successCount succeeded, $failureCount failed',
+    );
 
     return UploadQueueResult(
       totalProcessed: operations.length,
@@ -142,7 +146,8 @@ class UploadQueueService with LoggerMixin {
 
         if (doc.exists) {
           final data = doc.data()!;
-          final serverTimestamp = (data[ExpenseFields.updatedAt] as Timestamp).toDate();
+          final serverTimestamp =
+              (data[ExpenseFields.updatedAt] as Timestamp).toDate();
           await _database.expensesDao.updateExpenseTimestamp(
             expense.id,
             serverTimestamp,
@@ -201,11 +206,16 @@ class UploadQueueService with LoggerMixin {
         uploadResult.fold((_) => null, (error) => throw error);
 
         // Fetch server timestamp and update local DB
-        final doc = await _firestore.collection(FirestoreCollections.groups).doc(group.id).get();
+        final doc =
+            await _firestore
+                .collection(FirestoreCollections.groups)
+                .doc(group.id)
+                .get();
 
         if (doc.exists) {
           final data = doc.data()!;
-          final serverTimestamp = (data[GroupFields.updatedAt] as Timestamp).toDate();
+          final serverTimestamp =
+              (data[GroupFields.updatedAt] as Timestamp).toDate();
           await _database.groupsDao.updateGroupTimestamp(
             group.id,
             serverTimestamp,
@@ -308,23 +318,8 @@ class UploadQueueService with LoggerMixin {
   }
 
   /// Get count of pending operations for this user
+  @override
   Future<int> getPendingCount() async {
     return _database.syncDao.getPendingOperationCount(ownerId);
   }
-}
-
-/// Result of processing the upload queue
-class UploadQueueResult {
-  final int totalProcessed;
-  final int successCount;
-  final int failureCount;
-
-  UploadQueueResult({
-    required this.totalProcessed,
-    required this.successCount,
-    required this.failureCount,
-  });
-
-  bool get hasFailures => failureCount > 0;
-  bool get allSucceeded => failureCount == 0 && totalProcessed > 0;
 }

@@ -1,6 +1,7 @@
 import 'package:fairshare_app/core/constants/entity_type.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
-import 'package:fairshare_app/core/events/event_broker.dart';
+import 'package:fairshare_app/core/database/interfaces/dao_interfaces.dart';
+import 'package:fairshare_app/core/events/event_broker_interface.dart';
 import 'package:fairshare_app/core/events/group_events.dart';
 import 'package:fairshare_app/core/events/sync_events.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
@@ -19,22 +20,33 @@ import 'package:fairshare_app/features/groups/domain/repositories/group_reposito
 /// - User-scoped: ownerId is injected at construction time
 class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   final AppDatabase _database;
-  final EventBroker _eventBroker;
+  final IGroupsDao _groupsDao;
+  final ISyncDao _syncDao;
+  final IEventBroker _eventBroker;
   final String ownerId; // ID of the user who owns this repository instance
 
-  SyncedGroupRepository(this._database, this._eventBroker, this.ownerId);
+  SyncedGroupRepository({
+    required AppDatabase database,
+    required IGroupsDao groupsDao,
+    required ISyncDao syncDao,
+    required IEventBroker eventBroker,
+    required this.ownerId,
+  }) : _database = database,
+       _groupsDao = groupsDao,
+       _syncDao = syncDao,
+       _eventBroker = eventBroker;
 
   @override
   Future<GroupEntity> createGroup(GroupEntity group) async {
     try {
       // Atomic transaction: DB write + Queue entry (all or nothing)
       await _database.transaction<void>(() async {
-        await _database.groupsDao.insertGroup(group);
+        await _groupsDao.insertGroup(group);
 
         // Only enqueue non-personal groups for sync
         // Personal groups are local-only and don't need Firestore sync
         if (!group.isPersonal) {
-          await _database.syncDao.enqueueOperation(
+          await _syncDao.enqueueOperation(
             ownerId: ownerId,
             entityType: EntityType.group,
             entityId: group.id,
@@ -61,7 +73,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   @override
   Future<GroupEntity> getGroupById(String id) async {
     try {
-      final group = await _database.groupsDao.getGroupById(id);
+      final group = await _groupsDao.getGroupById(id);
       if (group != null) {
         return group;
       }
@@ -75,7 +87,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   @override
   Future<List<GroupEntity>> getAllGroups() async {
     try {
-      final groups = await _database.groupsDao.getAllGroups();
+      final groups = await _groupsDao.getAllGroups();
       return groups;
     } catch (e) {
       log.e('Failed to get all groups: $e');
@@ -88,11 +100,11 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
     try {
       // Atomic transaction: DB update + Queue entry
       await _database.transaction<void>(() async {
-        await _database.groupsDao.updateGroup(group);
+        await _groupsDao.updateGroup(group);
 
         // Only enqueue non-personal groups for sync
         if (!group.isPersonal) {
-          await _database.syncDao.enqueueOperation(
+          await _syncDao.enqueueOperation(
             ownerId: ownerId,
             entityType: EntityType.group,
             entityId: group.id,
@@ -120,16 +132,16 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   Future<void> deleteGroup(String id) async {
     try {
       // Check if group is personal before enqueueing
-      final group = await _database.groupsDao.getGroupById(id);
+      final group = await _groupsDao.getGroupById(id);
       final isPersonal = group?.isPersonal ?? false;
 
       // Atomic transaction: Soft delete + Queue entry
       await _database.transaction<void>(() async {
-        await _database.groupsDao.softDeleteGroup(id);
+        await _groupsDao.softDeleteGroup(id);
 
         // Only enqueue non-personal groups for sync
         if (!isPersonal) {
-          await _database.syncDao.enqueueOperation(
+          await _syncDao.enqueueOperation(
             ownerId: ownerId,
             entityType: EntityType.group,
             entityId: id,
@@ -155,8 +167,8 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
     try {
       // Atomic transaction: Add member + Queue entry
       await _database.transaction<void>(() async {
-        await _database.groupsDao.addGroupMember(member);
-        await _database.syncDao.enqueueOperation(
+        await _groupsDao.addGroupMember(member);
+        await _syncDao.enqueueOperation(
           ownerId: ownerId,
           entityType: EntityType.groupMember,
           entityId: '${member.groupId}_${member.userId}',
@@ -182,8 +194,8 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
     try {
       // Atomic transaction: Remove member + Queue entry
       await _database.transaction<void>(() async {
-        await _database.groupsDao.removeGroupMember(groupId, userId);
-        await _database.syncDao.enqueueOperation(
+        await _groupsDao.removeGroupMember(groupId, userId);
+        await _syncDao.enqueueOperation(
           ownerId: ownerId,
           entityType: EntityType.groupMember,
           entityId: '${groupId}_$userId',
@@ -205,7 +217,7 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
   @override
   Future<List<GroupEntity>> getUserGroups(String userId) async {
     try {
-      final groups = await _database.groupsDao.getUserGroups(userId);
+      final groups = await _groupsDao.getUserGroups(userId);
       return groups;
     } catch (e) {
       log.e('Failed to get user groups: $e');
@@ -215,18 +227,18 @@ class SyncedGroupRepository with LoggerMixin implements GroupRepository {
 
   @override
   Stream<List<GroupEntity>> watchUserGroups(String userId) {
-    return _database.groupsDao.watchUserGroups(userId);
+    return _groupsDao.watchUserGroups(userId);
   }
 
   @override
   Stream<List<GroupEntity>> watchAllGroups() {
-    return _database.groupsDao.watchAllGroups();
+    return _groupsDao.watchAllGroups();
   }
 
   @override
   Future<List<String>> getGroupMembers(String groupId) async {
     try {
-      final members = await _database.groupsDao.getGroupMembers(groupId);
+      final members = await _groupsDao.getGroupMembers(groupId);
       return members;
     } catch (e) {
       log.e('Failed to get group members: $e');

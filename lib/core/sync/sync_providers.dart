@@ -3,11 +3,13 @@ import 'package:fairshare_app/core/database/database_provider.dart';
 import 'package:fairshare_app/core/events/event_providers.dart';
 import 'package:fairshare_app/core/sync/realtime_sync_service.dart';
 import 'package:fairshare_app/core/sync/sync_service.dart';
+import 'package:fairshare_app/core/sync/sync_service_interfaces.dart';
 import 'package:fairshare_app/core/sync/upload_queue_service.dart';
 import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:fairshare_app/features/expenses/data/repositories/synced_expense_repository.dart';
 import 'package:fairshare_app/features/expenses/data/services/firestore_expense_service.dart';
 import 'package:fairshare_app/features/expenses/domain/repositories/expense_repository.dart';
+import 'package:fairshare_app/features/expenses/domain/services/remote_expense_service.dart';
 import 'package:fairshare_app/features/groups/data/repositories/synced_group_repository.dart';
 import 'package:fairshare_app/features/groups/data/services/firestore_group_service.dart';
 import 'package:fairshare_app/features/groups/domain/repositories/group_repository.dart';
@@ -42,7 +44,7 @@ FirestoreGroupService firestoreGroupService(Ref ref) {
 
 /// Firestore expense service provider
 @riverpod
-FirestoreExpenseService firestoreExpenseService(Ref ref) {
+RemoteExpenseService firestoreExpenseService(Ref ref) {
   final firestore = ref.watch(firestoreProvider);
   return FirestoreExpenseService(firestore);
 }
@@ -62,7 +64,13 @@ GroupRepository groupRepository(Ref ref) {
     );
   }
 
-  return SyncedGroupRepository(database, eventBroker, userId);
+  return SyncedGroupRepository(
+    database: database,
+    groupsDao: database.groupsDao,
+    syncDao: database.syncDao,
+    eventBroker: eventBroker,
+    ownerId: userId,
+  );
 }
 
 /// Synced expense repository provider (clean architecture - DB + Queue only)
@@ -80,13 +88,20 @@ ExpenseRepository expenseRepository(Ref ref) {
     );
   }
 
-  return SyncedExpenseRepository(database, eventBroker, userId);
+  return SyncedExpenseRepository(
+    database: database,
+    expensesDao: database.expensesDao,
+    expenseSharesDao: database.expenseSharesDao,
+    syncDao: database.syncDao,
+    eventBroker: eventBroker,
+    ownerId: userId,
+  );
 }
 
 /// Upload queue service provider
 /// User-scoped: Automatically recreated when user changes
 @riverpod
-UploadQueueService uploadQueueService(Ref ref) {
+IUploadQueueService uploadQueueService(Ref ref) {
   final database = ref.watch(appDatabaseProvider);
   final expenseService = ref.watch(firestoreExpenseServiceProvider);
   final groupService = ref.watch(firestoreGroupServiceProvider);
@@ -112,7 +127,7 @@ UploadQueueService uploadQueueService(Ref ref) {
 /// Realtime sync service provider
 /// User-scoped: Automatically recreated when user changes
 @riverpod
-RealtimeSyncService realtimeSyncService(Ref ref) {
+IRealtimeSyncService realtimeSyncService(Ref ref) {
   final currentUser = ref.watch(currentUserProvider);
 
   if (currentUser == null) {
@@ -137,7 +152,7 @@ RealtimeSyncService realtimeSyncService(Ref ref) {
 /// Sync service provider (orchestrator)
 /// User-scoped: Automatically recreated when user changes
 @riverpod
-SyncService syncService(Ref ref) {
+ISyncService syncService(Ref ref) {
   final currentUser = ref.watch(currentUserProvider);
 
   if (currentUser == null) {

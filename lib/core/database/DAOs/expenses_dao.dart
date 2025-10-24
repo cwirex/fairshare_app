@@ -2,7 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/core/database/interfaces/dao_interfaces.dart';
 import 'package:fairshare_app/core/database/tables/expenses_table.dart';
-import 'package:fairshare_app/core/events/event_broker.dart';
+import 'package:fairshare_app/core/events/event_broker_interface.dart';
 import 'package:fairshare_app/core/events/expense_events.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
@@ -142,7 +142,7 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
   @override
   Future<void> upsertExpenseFromSync(
     ExpenseEntity expense,
-    EventBroker eventBroker,
+    IEventBroker eventBroker,
   ) async {
     final existing = await getExpenseById(expense.id, includeDeleted: true);
 

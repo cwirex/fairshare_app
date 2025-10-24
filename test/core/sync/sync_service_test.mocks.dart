@@ -5,9 +5,9 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _i10;
 
-import 'package:connectivity_plus/connectivity_plus.dart' as _i18;
+import 'package:connectivity_plus/connectivity_plus.dart' as _i19;
 import 'package:connectivity_plus_platform_interface/connectivity_plus_platform_interface.dart'
-    as _i19;
+    as _i20;
 import 'package:drift/drift.dart' as _i2;
 import 'package:drift/src/runtime/executor/stream_queries.dart' as _i9;
 import 'package:fairshare_app/core/database/app_database.dart' as _i3;
@@ -17,13 +17,14 @@ import 'package:fairshare_app/core/database/DAOs/expenses_dao.dart' as _i6;
 import 'package:fairshare_app/core/database/DAOs/groups_dao.dart' as _i5;
 import 'package:fairshare_app/core/database/DAOs/sync_dao.dart' as _i8;
 import 'package:fairshare_app/core/database/DAOs/user_dao.dart' as _i4;
-import 'package:fairshare_app/core/events/app_event.dart' as _i17;
-import 'package:fairshare_app/core/events/event_broker.dart' as _i16;
+import 'package:fairshare_app/core/events/app_event.dart' as _i18;
+import 'package:fairshare_app/core/events/event_broker.dart' as _i17;
 import 'package:fairshare_app/core/logging/app_logger.dart' as _i11;
-import 'package:fairshare_app/core/sync/realtime_sync_service.dart' as _i14;
-import 'package:fairshare_app/core/sync/upload_queue_service.dart' as _i12;
+import 'package:fairshare_app/core/sync/realtime_sync_service.dart' as _i15;
+import 'package:fairshare_app/core/sync/sync_service_interfaces.dart' as _i12;
+import 'package:fairshare_app/core/sync/upload_queue_service.dart' as _i14;
 import 'package:fairshare_app/features/groups/data/services/group_initialization_service.dart'
-    as _i15;
+    as _i16;
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:mockito/src/dummies.dart' as _i13;
 
@@ -1562,7 +1563,7 @@ class MockSyncDao extends _i1.Mock implements _i8.SyncDao {
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockUploadQueueService extends _i1.Mock
-    implements _i12.UploadQueueService {
+    implements _i14.UploadQueueService {
   MockUploadQueueService() {
     _i1.throwOnMissingStub(this);
   }
@@ -1612,7 +1613,7 @@ class MockUploadQueueService extends _i1.Mock
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockRealtimeSyncService extends _i1.Mock
-    implements _i14.RealtimeSyncService {
+    implements _i15.RealtimeSyncService {
   MockRealtimeSyncService() {
     _i1.throwOnMissingStub(this);
   }
@@ -1668,7 +1669,7 @@ class MockRealtimeSyncService extends _i1.Mock
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockGroupInitializationService extends _i1.Mock
-    implements _i15.GroupInitializationService {
+    implements _i16.GroupInitializationService {
   MockGroupInitializationService() {
     _i1.throwOnMissingStub(this);
   }
@@ -1694,18 +1695,18 @@ class MockGroupInitializationService extends _i1.Mock
 /// A class which mocks [EventBroker].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockEventBroker extends _i1.Mock implements _i16.EventBroker {
+class MockEventBroker extends _i1.Mock implements _i17.EventBroker {
   MockEventBroker() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i10.Stream<_i17.AppEvent> get stream =>
+  _i10.Stream<_i18.AppEvent> get stream =>
       (super.noSuchMethod(
             Invocation.getter(#stream),
-            returnValue: _i10.Stream<_i17.AppEvent>.empty(),
+            returnValue: _i10.Stream<_i18.AppEvent>.empty(),
           )
-          as _i10.Stream<_i17.AppEvent>);
+          as _i10.Stream<_i18.AppEvent>);
 
   @override
   bool get isClosed =>
@@ -1726,13 +1727,13 @@ class MockEventBroker extends _i1.Mock implements _i16.EventBroker {
           as _i11.AppLogger);
 
   @override
-  void fire(_i17.AppEvent? event) => super.noSuchMethod(
+  void fire(_i18.AppEvent? event) => super.noSuchMethod(
     Invocation.method(#fire, [event]),
     returnValueForMissingStub: null,
   );
 
   @override
-  _i10.Stream<T> on<T extends _i17.AppEvent>() =>
+  _i10.Stream<T> on<T extends _i18.AppEvent>() =>
       (super.noSuchMethod(
             Invocation.method(#on, []),
             returnValue: _i10.Stream<T>.empty(),
@@ -1749,26 +1750,26 @@ class MockEventBroker extends _i1.Mock implements _i16.EventBroker {
 /// A class which mocks [Connectivity].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockConnectivity extends _i1.Mock implements _i18.Connectivity {
+class MockConnectivity extends _i1.Mock implements _i19.Connectivity {
   MockConnectivity() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i10.Stream<List<_i19.ConnectivityResult>> get onConnectivityChanged =>
+  _i10.Stream<List<_i20.ConnectivityResult>> get onConnectivityChanged =>
       (super.noSuchMethod(
             Invocation.getter(#onConnectivityChanged),
-            returnValue: _i10.Stream<List<_i19.ConnectivityResult>>.empty(),
+            returnValue: _i10.Stream<List<_i20.ConnectivityResult>>.empty(),
           )
-          as _i10.Stream<List<_i19.ConnectivityResult>>);
+          as _i10.Stream<List<_i20.ConnectivityResult>>);
 
   @override
-  _i10.Future<List<_i19.ConnectivityResult>> checkConnectivity() =>
+  _i10.Future<List<_i20.ConnectivityResult>> checkConnectivity() =>
       (super.noSuchMethod(
             Invocation.method(#checkConnectivity, []),
-            returnValue: _i10.Future<List<_i19.ConnectivityResult>>.value(
-              <_i19.ConnectivityResult>[],
+            returnValue: _i10.Future<List<_i20.ConnectivityResult>>.value(
+              <_i20.ConnectivityResult>[],
             ),
           )
-          as _i10.Future<List<_i19.ConnectivityResult>>);
+          as _i10.Future<List<_i20.ConnectivityResult>>);
 }

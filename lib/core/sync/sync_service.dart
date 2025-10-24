@@ -2,11 +2,12 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
-import 'package:fairshare_app/core/events/event_broker.dart';
+import 'package:fairshare_app/core/events/event_broker_interface.dart';
 import 'package:fairshare_app/core/events/sync_events.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/core/monitoring/sync_metrics.dart';
 import 'package:fairshare_app/core/sync/realtime_sync_service.dart';
+import 'package:fairshare_app/core/sync/sync_service_interfaces.dart';
 import 'package:fairshare_app/core/sync/upload_queue_service.dart';
 import 'package:fairshare_app/features/groups/data/services/group_initialization_service.dart';
 import 'package:flutter/widgets.dart';
@@ -25,12 +26,14 @@ import 'package:result_dart/result_dart.dart';
 /// - [GroupInitializationService]: Ensures personal group exists
 /// - Connectivity monitoring: Start/stop sync based on network
 /// - App lifecycle: Start/stop listeners based on foreground/background
-class SyncService with LoggerMixin, WidgetsBindingObserver {
+class SyncService
+    with LoggerMixin, WidgetsBindingObserver
+    implements ISyncService {
   final AppDatabase _database;
-  final UploadQueueService _uploadQueueService;
-  final RealtimeSyncService _realtimeSyncService;
+  final IUploadQueueService _uploadQueueService;
+  final IRealtimeSyncService _realtimeSyncService;
   final GroupInitializationService _groupInitializationService;
-  final EventBroker _eventBroker;
+  final IEventBroker _eventBroker;
   final Connectivity _connectivity;
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
@@ -41,10 +44,10 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
 
   SyncService({
     required AppDatabase database,
-    required UploadQueueService uploadQueueService,
-    required RealtimeSyncService realtimeSyncService,
+    required IUploadQueueService uploadQueueService,
+    required IRealtimeSyncService realtimeSyncService,
     required GroupInitializationService groupInitializationService,
-    required EventBroker eventBroker,
+    required IEventBroker eventBroker,
     Connectivity? connectivity,
   }) : _database = database,
        _uploadQueueService = uploadQueueService,
@@ -54,6 +57,7 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
        _connectivity = connectivity ?? Connectivity();
 
   /// Start auto-sync monitoring
+  @override
   void startAutoSync(String? userId) {
     if (userId == null) {
       log.w('Cannot start sync: no user ID provided');
@@ -119,6 +123,7 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
   }
 
   /// Stop auto-sync monitoring
+  @override
   void stopAutoSync() {
     log.i('🛑 Stopping auto-sync');
 
@@ -191,6 +196,7 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
   }
 
   /// Manual sync trigger (for pull-to-refresh)
+  @override
   Future<Result<void>> syncAll(String userId) async {
     log.i('🔄 Manual sync triggered');
 
@@ -214,6 +220,7 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
   }
 
   /// Get pending upload count (for UI badges)
+  @override
   Future<int> getPendingUploadCount() async {
     if (_currentUserId == null) return 0;
     return await _database.syncDao.getPendingOperationCount(_currentUserId!);
@@ -225,12 +232,12 @@ class SyncService with LoggerMixin, WidgetsBindingObserver {
       'isOnline': _isOnline,
       'isAppInForeground': _isAppInForeground,
       'currentUserId': _currentUserId,
-      'realtimeSyncStatus': _realtimeSyncService.getStatus(),
       'metrics': SyncMetrics.instance.getSnapshot(),
     };
   }
 
   /// Dispose resources
+  @override
   void dispose() {
     stopAutoSync();
   }

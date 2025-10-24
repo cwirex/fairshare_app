@@ -4,6 +4,7 @@ import 'package:fairshare_app/core/database/DAOs/expenses_dao.dart';
 import 'package:fairshare_app/core/database/DAOs/groups_dao.dart';
 import 'package:fairshare_app/core/database/DAOs/sync_dao.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
+import 'package:fairshare_app/core/sync/sync_service_interfaces.dart';
 import 'package:fairshare_app/core/sync/upload_queue_service.dart';
 import 'package:fairshare_app/features/expenses/data/services/firestore_expense_service.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';

@@ -12,6 +12,7 @@ import '../../data/services/firebase_auth_service.dart';
 import '../../data/services/firestore_user_service.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../domain/services/remote_user_service.dart';
 
 part 'auth_providers.g.dart';
 
@@ -35,7 +36,7 @@ Connectivity connectivity(Ref ref) {
 
 /// Provider for Firestore User Service
 @riverpod
-FirestoreUserService firestoreUserService(Ref ref) {
+RemoteUserService firestoreUserService(Ref ref) {
   return FirestoreUserService(FirebaseFirestore.instance);
 }
 
@@ -47,7 +48,6 @@ AuthRepository authRepository(Ref ref) {
     googleSignIn: ref.watch(googleSignInProvider),
     database: ref.watch(appDatabaseProvider),
     userService: ref.watch(firestoreUserServiceProvider),
-    connectivity: ref.watch(connectivityProvider),
   );
 }
 

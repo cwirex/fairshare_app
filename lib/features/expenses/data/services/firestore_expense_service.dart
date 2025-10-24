@@ -1,15 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fairshare_app/core/constants/firestore_collections.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
+import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
+import 'package:fairshare_app/features/expenses/domain/entities/expense_share_entity.dart';
+import 'package:fairshare_app/features/expenses/domain/services/remote_expense_service.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
 import 'package:result_dart/result_dart.dart';
 
-import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
-import 'package:fairshare_app/features/expenses/domain/entities/expense_share_entity.dart';
-
-/// Firestore service for syncing expenses with remote database.
+/// Firestore implementation of RemoteExpenseService.
+///
+/// Handles all remote expense operations using Cloud Firestore.
 /// Expenses are stored as subcollection under groups: groups/{groupId}/expenses/{expenseId}
-class FirestoreExpenseService with LoggerMixin {
+class FirestoreExpenseService with LoggerMixin implements RemoteExpenseService {
   final FirebaseFirestore _firestore;
 
   FirestoreExpenseService(this._firestore);

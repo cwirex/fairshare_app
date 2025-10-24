@@ -1,7 +1,7 @@
 // lib/features/auth/data/services/firebase_auth_service.dart
 import 'dart:async';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:fairshare_app/features/auth/domain/services/remote_user_service.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:result_dart/result_dart.dart';
@@ -9,7 +9,6 @@ import 'package:result_dart/result_dart.dart';
 import '../../../../core/database/app_database.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
-import 'firestore_user_service.dart';
 
 /// Detailed sync status information for risk assessment
 class SyncStatusInfo {
@@ -76,20 +75,17 @@ class FirebaseAuthService implements AuthRepository {
   final firebase_auth.FirebaseAuth _firebaseAuth;
   final GoogleSignIn _googleSignIn;
   final AppDatabase _database;
-  final FirestoreUserService _userService;
-  final Connectivity _connectivity;
+  final RemoteUserService _userService;
 
   FirebaseAuthService({
     firebase_auth.FirebaseAuth? firebaseAuth,
     GoogleSignIn? googleSignIn,
     required AppDatabase database,
-    required FirestoreUserService userService,
-    Connectivity? connectivity,
+    required RemoteUserService userService,
   }) : _firebaseAuth = firebaseAuth ?? firebase_auth.FirebaseAuth.instance,
        _googleSignIn = googleSignIn ?? GoogleSignIn(),
        _database = database,
-       _userService = userService,
-       _connectivity = connectivity ?? Connectivity();
+       _userService = userService;
 
   @override
   Future<Result<User>> signInWithGoogle() async {

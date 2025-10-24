@@ -1,13 +1,14 @@
 import 'dart:async';
 
 import 'package:fairshare_app/core/database/app_database.dart';
-import 'package:fairshare_app/core/events/event_broker.dart';
+import 'package:fairshare_app/core/events/event_broker_interface.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/core/monitoring/sync_metrics.dart';
-import 'package:fairshare_app/features/expenses/data/services/firestore_expense_service.dart';
+import 'package:fairshare_app/core/sync/sync_service_interfaces.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
-import 'package:fairshare_app/features/groups/data/services/firestore_group_service.dart';
+import 'package:fairshare_app/features/expenses/domain/services/remote_expense_service.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
+import 'package:fairshare_app/features/groups/domain/services/remote_group_service.dart';
 
 /// Manages real-time Firestore listeners for sync with hybrid strategy.
 ///
@@ -18,11 +19,11 @@ import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart'
 ///
 /// This strategy minimizes Firestore listener count (1-2 max) while providing
 /// premium real-time experience for the active view and smart refresh for others.
-class RealtimeSyncService with LoggerMixin {
+class RealtimeSyncService with LoggerMixin implements IRealtimeSyncService {
   final AppDatabase _database;
-  final FirestoreGroupService _groupService;
-  final FirestoreExpenseService _expenseService;
-  final EventBroker _eventBroker;
+  final RemoteGroupService _groupService;
+  final RemoteExpenseService _expenseService;
+  final IEventBroker _eventBroker;
 
   String? _currentUserId;
 
@@ -38,15 +39,16 @@ class RealtimeSyncService with LoggerMixin {
 
   RealtimeSyncService({
     required AppDatabase database,
-    required FirestoreGroupService groupService,
-    required FirestoreExpenseService expenseService,
-    required EventBroker eventBroker,
+    required RemoteGroupService groupService,
+    required RemoteExpenseService expenseService,
+    required IEventBroker eventBroker,
   }) : _database = database,
        _groupService = groupService,
        _expenseService = expenseService,
        _eventBroker = eventBroker;
 
   /// Start real-time sync for user (Tier 1 - Global Listener)
+  @override
   Future<void> startRealtimeSync(String userId) async {
     if (_currentUserId == userId && _globalGroupsListener != null) {
       log.d('Already syncing for user $userId');
@@ -75,6 +77,7 @@ class RealtimeSyncService with LoggerMixin {
   }
 
   /// Stop all listeners
+  @override
   Future<void> stopRealtimeSync() async {
     if (_currentUserId == null) return;
 
@@ -97,6 +100,7 @@ class RealtimeSyncService with LoggerMixin {
   }
 
   /// Start listening to specific group (Tier 2 - Active Group Listener)
+  @override
   void listenToActiveGroup(String groupId) {
     if (_activeGroupId == groupId && _activeGroupExpensesListener != null) {
       log.d('Already listening to group $groupId');
@@ -130,6 +134,7 @@ class RealtimeSyncService with LoggerMixin {
   }
 
   /// Stop listening to active group
+  @override
   void stopListeningToActiveGroup() {
     if (_activeGroupExpensesListener == null) return;
 
@@ -152,30 +157,36 @@ class RealtimeSyncService with LoggerMixin {
       // Fetch all groups the user is a member of
       final groupsResult = await _groupService.downloadUserGroups(userId);
 
-      await groupsResult.fold((groups) async {
-        log.i('Initial sync: Found ${groups.length} groups');
+      await groupsResult.fold(
+        (groups) async {
+          log.i('Initial sync: Found ${groups.length} groups');
 
-        for (final group in groups) {
-          try {
-            // Upsert group to local DB
-            await _database.groupsDao.upsertGroupFromSync(group, _eventBroker);
+          for (final group in groups) {
+            try {
+              // Upsert group to local DB
+              await _database.groupsDao.upsertGroupFromSync(
+                group,
+                _eventBroker,
+              );
 
-            // Sync members for this group
-            await _syncGroupMembers(group.id);
+              // Sync members for this group
+              await _syncGroupMembers(group.id);
 
-            // Fetch all expenses for this group
-            await _fetchGroupExpenses(group.id);
+              // Fetch all expenses for this group
+              await _fetchGroupExpenses(group.id);
 
-            log.d('Initial sync completed for group: ${group.displayName}');
-          } catch (e) {
-            log.e('Failed to sync group ${group.id} during initial sync: $e');
+              log.d('Initial sync completed for group: ${group.displayName}');
+            } catch (e) {
+              log.e('Failed to sync group ${group.id} during initial sync: $e');
+            }
           }
-        }
 
-        log.i('✅ Initial sync completed: ${groups.length} groups synced');
-      }, (error) {
-        log.e('Initial sync failed: $error');
-      });
+          log.i('✅ Initial sync completed: ${groups.length} groups synced');
+        },
+        (error) {
+          log.e('Initial sync failed: $error');
+        },
+      );
     } catch (e) {
       log.e('Initial sync error: $e');
     }
@@ -205,7 +216,10 @@ class RealtimeSyncService with LoggerMixin {
         }
 
         // Upsert group (bypasses queue) and fire event
-        await _database.groupsDao.upsertGroupFromSync(remoteGroup, _eventBroker);
+        await _database.groupsDao.upsertGroupFromSync(
+          remoteGroup,
+          _eventBroker,
+        );
 
         // Sync members
         await _syncGroupMembers(remoteGroup.id);
@@ -232,7 +246,10 @@ class RealtimeSyncService with LoggerMixin {
 
     for (final expense in remoteExpenses) {
       try {
-        await _database.expensesDao.upsertExpenseFromSync(expense, _eventBroker);
+        await _database.expensesDao.upsertExpenseFromSync(
+          expense,
+          _eventBroker,
+        );
         await _syncExpenseShares(groupId, expense.id);
         SyncMetrics.instance.recordSyncSuccess();
       } catch (e) {
@@ -247,7 +264,10 @@ class RealtimeSyncService with LoggerMixin {
     final result = await _groupService.downloadGroupMembers(groupId);
     result.fold((members) async {
       for (final member in members) {
-        await _database.groupsDao.upsertGroupMemberFromSync(member, _eventBroker);
+        await _database.groupsDao.upsertGroupMemberFromSync(
+          member,
+          _eventBroker,
+        );
       }
       log.d('Synced ${members.length} members for group $groupId');
     }, (error) => log.w('Failed to sync members for $groupId: $error'));
@@ -275,21 +295,13 @@ class RealtimeSyncService with LoggerMixin {
     final result = await _expenseService.downloadGroupExpenses(groupId);
     result.fold((expenses) async {
       for (final expense in expenses) {
-        await _database.expensesDao.upsertExpenseFromSync(expense, _eventBroker);
+        await _database.expensesDao.upsertExpenseFromSync(
+          expense,
+          _eventBroker,
+        );
         await _syncExpenseShares(groupId, expense.id);
       }
       log.i('Fetched ${expenses.length} expenses for group $groupId');
     }, (error) => log.w('Failed to fetch expenses for $groupId: $error'));
-  }
-
-  /// Get current listener status (for debugging)
-  Map<String, dynamic> getStatus() {
-    return {
-      'userId': _currentUserId,
-      'globalListenerActive': _globalGroupsListener != null,
-      'activeGroupId': _activeGroupId,
-      'activeGroupListenerActive': _activeGroupExpensesListener != null,
-      'groupsNeedingRefresh': _groupsNeedingRefresh.length,
-    };
   }
 }

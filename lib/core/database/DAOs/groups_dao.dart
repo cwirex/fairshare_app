@@ -3,7 +3,7 @@ import 'package:fairshare_app/core/database/app_database.dart';
 import 'package:fairshare_app/core/database/interfaces/dao_interfaces.dart';
 import 'package:fairshare_app/core/database/tables/groups_table.dart';
 import 'package:fairshare_app/core/database/tables/members_table.dart';
-import 'package:fairshare_app/core/events/event_broker.dart';
+import 'package:fairshare_app/core/events/event_broker_interface.dart';
 import 'package:fairshare_app/core/events/group_events.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 import 'package:fairshare_app/features/groups/domain/entities/group_entity.dart';
@@ -212,7 +212,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
   @override
   Future<void> upsertGroupMemberFromSync(
     GroupMemberEntity member,
-    EventBroker eventBroker,
+    IEventBroker eventBroker,
   ) async {
     final existingMembers = await getGroupMembers(member.groupId);
     final alreadyExists = existingMembers.contains(member.userId);
@@ -240,7 +240,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
   @override
   Future<void> upsertGroupFromSync(
     GroupEntity group,
-    EventBroker eventBroker,
+    IEventBroker eventBroker,
   ) async {
     final existing = await getGroupById(group.id, includeDeleted: true);
 
