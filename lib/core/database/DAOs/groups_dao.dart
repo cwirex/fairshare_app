@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
+import 'package:fairshare_app/core/database/interfaces/dao_interfaces.dart';
 import 'package:fairshare_app/core/database/tables/groups_table.dart';
 import 'package:fairshare_app/core/database/tables/members_table.dart';
 import 'package:fairshare_app/core/events/event_broker.dart';
@@ -12,12 +13,14 @@ part 'groups_dao.g.dart';
 
 @DriftAccessor(tables: [AppGroups, AppGroupMembers])
 class GroupsDao extends DatabaseAccessor<AppDatabase>
-    with _$GroupsDaoMixin, LoggerMixin {
+    with _$GroupsDaoMixin, LoggerMixin
+    implements IGroupsDao {
   final AppDatabase db;
 
   GroupsDao(this.db) : super(db);
 
   // Add your group-related database methods here
+  @override
   Future<void> insertGroup(GroupEntity group) async {
     await into(appGroups).insert(
       AppGroupsCompanion(
@@ -38,6 +41,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
 
   /// Get group by ID
   /// Set [includeDeleted] to true to also query soft-deleted groups
+  @override
   Future<GroupEntity?> getGroupById(
     String id, {
     bool includeDeleted = false,
@@ -50,6 +54,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
     return result != null ? _groupFromDb(result) : null;
   }
 
+  @override
   Future<List<GroupEntity>> getAllGroups() async {
     final query =
         select(appGroups)
@@ -59,6 +64,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
     return results.map(_groupFromDb).toList();
   }
 
+  @override
   Future<void> updateGroup(GroupEntity group) async {
     final now = DateTime.now();
     await update(appGroups).replace(
@@ -78,10 +84,12 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
+  @override
   Future<void> deleteGroup(String id) async {
     await (delete(appGroups)..where((g) => g.id.equals(id))).go();
   }
 
+  @override
   Future<void> addGroupMember(GroupMemberEntity member) async {
     await into(appGroupMembers).insert(
       AppGroupMembersCompanion(
@@ -94,11 +102,13 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
     log.d('✅ Added member: ${member.userId} to group ${member.groupId}');
   }
 
+  @override
   Future<void> removeGroupMember(String groupId, String userId) async {
     await (delete(appGroupMembers)
       ..where((m) => m.groupId.equals(groupId) & m.userId.equals(userId))).go();
   }
 
+  @override
   Future<List<String>> getGroupMembers(String groupId) async {
     final query = select(appGroupMembers)
       ..where((m) => m.groupId.equals(groupId));
@@ -106,6 +116,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
     return results.map((m) => m.userId).toList();
   }
 
+  @override
   Future<List<GroupEntity>> getUserGroups(String userId) async {
     final query =
         select(appGroups).join([
@@ -132,6 +143,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
     return groups;
   }
 
+  @override
   Stream<List<GroupEntity>> watchAllGroups() {
     final query =
         select(appGroups)
@@ -140,6 +152,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
     return query.watch().map((rows) => rows.map(_groupFromDb).toList());
   }
 
+  @override
   Stream<List<GroupEntity>> watchUserGroups(String userId) {
     log.d('🔄 watchUserGroups($userId): Starting stream');
 
@@ -168,6 +181,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Get all group members as entities
+  @override
   Future<List<GroupMemberEntity>> getAllGroupMembers(String groupId) async {
     final query = select(appGroupMembers)
       ..where((m) => m.groupId.equals(groupId));
@@ -176,6 +190,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Update group timestamp after server upload
+  @override
   Future<void> updateGroupTimestamp(String id, DateTime serverTimestamp) async {
     await (update(appGroups)..where(
       (g) => g.id.equals(id),
@@ -183,6 +198,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Update group's lastActivityAt timestamp
+  @override
   Future<void> updateGroupActivity(String groupId) async {
     await (update(appGroups)..where(
       (g) => g.id.equals(groupId),
@@ -193,6 +209,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
   /// Fires events to update UI when remote changes arrive
   ///
   /// [eventBroker] is passed in to maintain clean DAO architecture
+  @override
   Future<void> upsertGroupMemberFromSync(
     GroupMemberEntity member,
     EventBroker eventBroker,
@@ -220,6 +237,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
   /// Fires events to update UI when remote changes arrive
   ///
   /// [eventBroker] is passed in to maintain clean DAO architecture
+  @override
   Future<void> upsertGroupFromSync(
     GroupEntity group,
     EventBroker eventBroker,
@@ -286,6 +304,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Soft delete a group (sets deletedAt timestamp)
+  @override
   Future<void> softDeleteGroup(String id) async {
     await (update(appGroups)..where((g) => g.id.equals(id))).write(
       AppGroupsCompanion(
@@ -296,6 +315,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Restore a soft-deleted group (clears deletedAt)
+  @override
   Future<void> restoreGroup(String id) async {
     await (update(appGroups)..where((g) => g.id.equals(id))).write(
       AppGroupsCompanion(
@@ -307,6 +327,7 @@ class GroupsDao extends DatabaseAccessor<AppDatabase>
 
   /// Hard delete a group (permanent deletion).
   /// Call after successful server deletion.
+  @override
   Future<void> hardDeleteGroup(String id) async {
     await (delete(appGroups)..where((g) => g.id.equals(id))).go();
   }

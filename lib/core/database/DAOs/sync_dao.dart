@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
+import 'package:fairshare_app/core/database/interfaces/dao_interfaces.dart';
 import 'package:fairshare_app/core/database/tables/sync_table.dart';
 import 'package:fairshare_app/core/logging/app_logger.dart';
 
@@ -7,7 +8,8 @@ part 'sync_dao.g.dart';
 
 @DriftAccessor(tables: [SyncQueue])
 class SyncDao extends DatabaseAccessor<AppDatabase>
-    with _$SyncDaoMixin, LoggerMixin {
+    with _$SyncDaoMixin, LoggerMixin
+    implements ISyncDao {
   final AppDatabase db;
 
   SyncDao(this.db) : super(db);
@@ -16,6 +18,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
   /// Uses INSERT OR REPLACE to ensure only one operation per entity per user
   ///
   /// [ownerId] is the ID of the user who initiated this sync operation
+  @override
   Future<void> enqueueOperation({
     required String ownerId,
     required String entityType,
@@ -23,7 +26,9 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
     required String operationType,
     String? metadata,
   }) async {
-    log.d('📤 Enqueueing: $entityType/$entityId ($operationType) for user $ownerId');
+    log.d(
+      '📤 Enqueueing: $entityType/$entityId ($operationType) for user $ownerId',
+    );
 
     // Check if already exists for this user
     final existing =
@@ -72,13 +77,15 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
   /// Get all pending operations from the upload queue for a specific user
   ///
   /// [ownerId] is the ID of the user whose operations to retrieve
+  @override
   Future<List<SyncQueueData>> getPendingOperations({
     required String ownerId,
     int? limit,
   }) async {
-    final query = select(syncQueue)
-      ..where((s) => s.ownerId.equals(ownerId))
-      ..orderBy([(s) => OrderingTerm.asc(s.createdAt)]);
+    final query =
+        select(syncQueue)
+          ..where((s) => s.ownerId.equals(ownerId))
+          ..orderBy([(s) => OrderingTerm.asc(s.createdAt)]);
     if (limit != null) {
       query.limit(limit);
     }
@@ -86,11 +93,13 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Remove an operation from the queue after successful upload
+  @override
   Future<void> removeQueuedOperation(int id) async {
     await (delete(syncQueue)..where((s) => s.id.equals(id))).go();
   }
 
   /// Increment retry count and update error message for failed operation
+  @override
   Future<void> markOperationFailed(int id, String errorMessage) async {
     final current =
         await (select(syncQueue)..where((s) => s.id.equals(id))).getSingle();
@@ -105,10 +114,12 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
   /// Get count of pending operations for a specific user
   ///
   /// [ownerId] is the ID of the user whose operation count to retrieve
+  @override
   Future<int> getPendingOperationCount(String ownerId) async {
-    final query = selectOnly(syncQueue)
-      ..addColumns([syncQueue.id.count()])
-      ..where(syncQueue.ownerId.equals(ownerId));
+    final query =
+        selectOnly(syncQueue)
+          ..addColumns([syncQueue.id.count()])
+          ..where(syncQueue.ownerId.equals(ownerId));
     final result = await query.getSingle();
     return result.read(syncQueue.id.count()) ?? 0;
   }

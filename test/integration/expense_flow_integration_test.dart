@@ -37,7 +37,14 @@ void main() {
     database = AppDatabase.forTesting(NativeDatabase.memory());
 
     // Create user-scoped repository with test user ID
-    repository = SyncedExpenseRepository(database, eventBroker, testUserId);
+    repository = SyncedExpenseRepository(
+      database: database,
+      expensesDao: database.expensesDao,
+      expenseSharesDao: database.expenseSharesDao,
+      syncDao: database.syncDao,
+      eventBroker: eventBroker,
+      ownerId: testUserId,
+    );
 
     // Create use cases
     createUseCase = CreateExpenseUseCase(repository);

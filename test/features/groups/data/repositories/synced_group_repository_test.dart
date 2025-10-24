@@ -26,14 +26,12 @@ void main() {
     mockEventBroker = MockEventBroker();
     const testUserId = 'testUserId';
 
-    // Wire up the DAOs to the mock database
-    when(mockDatabase.groupsDao).thenReturn(mockGroupsDao);
-    when(mockDatabase.syncDao).thenReturn(mockSyncDao);
-
     repository = SyncedGroupRepository(
-      mockDatabase,
-      mockEventBroker,
-      testUserId,
+      database: mockDatabase,
+      groupsDao: mockGroupsDao,
+      syncDao: mockSyncDao,
+      eventBroker: mockEventBroker,
+      ownerId: testUserId,
     );
   });
 

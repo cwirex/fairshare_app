@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
+import 'package:fairshare_app/core/database/interfaces/dao_interfaces.dart';
 import 'package:fairshare_app/core/database/tables/expenses_table.dart';
 import 'package:fairshare_app/core/events/event_broker.dart';
 import 'package:fairshare_app/core/events/expense_events.dart';
@@ -10,12 +11,14 @@ part 'expenses_dao.g.dart';
 
 @DriftAccessor(tables: [Expenses])
 class ExpensesDao extends DatabaseAccessor<AppDatabase>
-    with _$ExpensesDaoMixin, LoggerMixin {
+    with _$ExpensesDaoMixin, LoggerMixin
+    implements IExpensesDao {
   final AppDatabase db;
 
   ExpensesDao(this.db) : super(db);
 
   /// Insert a new expense into the database
+  @override
   Future<void> insertExpense(ExpenseEntity expense) async {
     await into(expenses).insert(
       ExpensesCompanion(
@@ -38,6 +41,7 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
 
   /// Get expense by ID
   /// Set [includeDeleted] to true to also query soft-deleted expenses
+  @override
   Future<ExpenseEntity?> getExpenseById(
     String id, {
     bool includeDeleted = false,
@@ -51,6 +55,7 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Get all expenses for a specific group
+  @override
   Future<List<ExpenseEntity>> getExpensesByGroup(String groupId) async {
     final query =
         select(expenses)
@@ -61,6 +66,7 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Get all expenses across all groups
+  @override
   Future<List<ExpenseEntity>> getAllExpenses() async {
     final query =
         select(expenses)
@@ -71,6 +77,7 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Update expense timestamp after server upload
+  @override
   Future<void> updateExpenseTimestamp(
     String id,
     DateTime serverTimestamp,
@@ -81,6 +88,7 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Update existing expense
+  @override
   Future<void> updateExpense(ExpenseEntity expense) async {
     await update(expenses).replace(
       ExpensesCompanion(
@@ -102,11 +110,13 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Delete expense by ID
+  @override
   Future<void> deleteExpense(String id) async {
     await (delete(expenses)..where((e) => e.id.equals(id))).go();
   }
 
   /// Watch expenses for a specific group (stream)
+  @override
   Stream<List<ExpenseEntity>> watchExpensesByGroup(String groupId) {
     final query =
         select(expenses)
@@ -116,6 +126,7 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Watch all expenses (stream)
+  @override
   Stream<List<ExpenseEntity>> watchAllExpenses() {
     final query =
         select(expenses)
@@ -128,6 +139,7 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
   /// Fires events to update UI when remote changes arrive
   ///
   /// [eventBroker] is passed in to maintain clean DAO architecture
+  @override
   Future<void> upsertExpenseFromSync(
     ExpenseEntity expense,
     EventBroker eventBroker,
@@ -181,6 +193,7 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Soft delete an expense (sets deletedAt timestamp)
+  @override
   Future<void> softDeleteExpense(String id) async {
     await (update(expenses)..where((e) => e.id.equals(id))).write(
       ExpensesCompanion(
@@ -191,6 +204,7 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Restore a soft-deleted expense (clears deletedAt)
+  @override
   Future<void> restoreExpense(String id) async {
     await (update(expenses)..where((e) => e.id.equals(id))).write(
       ExpensesCompanion(
@@ -202,6 +216,7 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
 
   /// Hard delete an expense (permanent deletion).
   /// Call after successful server deletion.
+  @override
   Future<void> hardDeleteExpense(String id) async {
     // Delete shares first
     await (delete(db.expenseShares)..where((s) => s.expenseId.equals(id))).go();

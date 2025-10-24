@@ -41,7 +41,13 @@ void main() {
     database = AppDatabase.forTesting(NativeDatabase.memory());
 
     // Create repository
-    repository = SyncedGroupRepository(database, eventBroker, testUserId);
+    repository = SyncedGroupRepository(
+      database: database,
+      groupsDao: database.groupsDao,
+      syncDao: database.syncDao,
+      eventBroker: eventBroker,
+      ownerId: testUserId,
+    );
 
     // Create use cases
     createUseCase = CreateGroupUseCase(repository);

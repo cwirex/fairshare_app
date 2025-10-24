@@ -1,17 +1,21 @@
 import 'package:drift/drift.dart';
 import 'package:fairshare_app/core/database/app_database.dart';
+import 'package:fairshare_app/core/database/interfaces/dao_interfaces.dart';
 import 'package:fairshare_app/core/database/tables/users_table.dart';
 import 'package:fairshare_app/features/auth/domain/entities/user.dart';
 
 part 'user_dao.g.dart';
 
 @DriftAccessor(tables: [AppUsers])
-class UserDao extends DatabaseAccessor<AppDatabase> with _$UserDaoMixin {
+class UserDao extends DatabaseAccessor<AppDatabase>
+    with _$UserDaoMixin
+    implements IUserDao {
   final AppDatabase db;
 
   UserDao(this.db) : super(db);
 
   /// Insert or update a user in the database (UPSERT)
+  @override
   Future<void> insertUser(User user) async {
     await into(appUsers).insert(
       AppUsersCompanion(
@@ -29,6 +33,7 @@ class UserDao extends DatabaseAccessor<AppDatabase> with _$UserDaoMixin {
   }
 
   /// Get user by ID
+  @override
   Future<User?> getUserById(String id) async {
     final query = select(appUsers)..where((u) => u.id.equals(id));
     final result = await query.getSingleOrNull();
@@ -36,6 +41,7 @@ class UserDao extends DatabaseAccessor<AppDatabase> with _$UserDaoMixin {
   }
 
   /// Update existing user
+  @override
   Future<void> updateUser(User user) async {
     await update(appUsers).replace(
       AppUsersCompanion(
@@ -52,6 +58,7 @@ class UserDao extends DatabaseAccessor<AppDatabase> with _$UserDaoMixin {
   }
 
   /// Delete user by ID
+  @override
   Future<void> deleteUser(String id) async {
     await (delete(appUsers)..where((u) => u.id.equals(id))).go();
   }
