@@ -6,8 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/logging/app_logger.dart';
 import '../../../../shared/routes/routes.dart';
-import '../../../auth/presentation/providers/auth_providers.dart';
-import '../../../auth/presentation/widgets/sign_out_dialog.dart';
+import '../providers/auth_providers.dart';
+import '../widgets/sign_out_dialog.dart';
 
 class ProfileScreen extends ConsumerWidget with LoggerMixin {
   const ProfileScreen({super.key});
