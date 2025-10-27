@@ -221,14 +221,14 @@ class MockRemoteGroupService extends _i1.Mock
   downloadUserGroups(String? userId) =>
       (super.noSuchMethod(
             Invocation.method(#downloadUserGroups, [userId]),
-            returnValue: _i4.Future<
-              _i7.ResultDart<List<_i2.GroupEntity>, Exception>
-            >.value(
-              _i8.dummyValue<_i7.ResultDart<List<_i2.GroupEntity>, Exception>>(
-                this,
-                Invocation.method(#downloadUserGroups, [userId]),
-              ),
-            ),
+            returnValue:
+                _i4.Future<
+                  _i7.ResultDart<List<_i2.GroupEntity>, Exception>
+                >.value(
+                  _i8.dummyValue<
+                    _i7.ResultDart<List<_i2.GroupEntity>, Exception>
+                  >(this, Invocation.method(#downloadUserGroups, [userId])),
+                ),
           )
           as _i4.Future<_i7.ResultDart<List<_i2.GroupEntity>, Exception>>);
 
@@ -237,13 +237,14 @@ class MockRemoteGroupService extends _i1.Mock
   downloadGroupMembers(String? groupId) =>
       (super.noSuchMethod(
             Invocation.method(#downloadGroupMembers, [groupId]),
-            returnValue: _i4.Future<
-              _i7.ResultDart<List<_i5.GroupMemberEntity>, Exception>
-            >.value(
-              _i8.dummyValue<
-                _i7.ResultDart<List<_i5.GroupMemberEntity>, Exception>
-              >(this, Invocation.method(#downloadGroupMembers, [groupId])),
-            ),
+            returnValue:
+                _i4.Future<
+                  _i7.ResultDart<List<_i5.GroupMemberEntity>, Exception>
+                >.value(
+                  _i8.dummyValue<
+                    _i7.ResultDart<List<_i5.GroupMemberEntity>, Exception>
+                  >(this, Invocation.method(#downloadGroupMembers, [groupId])),
+                ),
           )
           as _i4.Future<
             _i7.ResultDart<List<_i5.GroupMemberEntity>, Exception>

@@ -42,6 +42,24 @@ class ExpenseSharesDao extends DatabaseAccessor<AppDatabase>
       ..where((s) => s.expenseId.equals(expenseId))).go();
   }
 
+  /// Get all shares for expenses in a group
+  /// Useful for balance calculations
+  Future<List<ExpenseShareEntity>> getSharesByGroup(String groupId) async {
+    // Join with expenses table to filter by groupId
+    final query = select(expenseShares).join([
+      innerJoin(
+        db.expenses,
+        db.expenses.id.equalsExp(expenseShares.expenseId),
+      ),
+    ])
+      ..where(db.expenses.groupId.equals(groupId));
+
+    final results = await query.get();
+    return results
+        .map((row) => _expenseShareFromDb(row.readTable(expenseShares)))
+        .toList();
+  }
+
   ExpenseShareEntity _expenseShareFromDb(ExpenseShare dbShare) {
     return ExpenseShareEntity(
       expenseId: dbShare.expenseId,

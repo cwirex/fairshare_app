@@ -1026,13 +1026,14 @@ class MockFirestoreGroupService extends _i1.Mock
   downloadUserGroups(String? userId) =>
       (super.noSuchMethod(
             Invocation.method(#downloadUserGroups, [userId]),
-            returnValue: _i10.Future<
-              _i14.ResultDart<List<_i15.GroupEntity>, Exception>
-            >.value(
-              _i12.dummyValue<
-                _i14.ResultDart<List<_i15.GroupEntity>, Exception>
-              >(this, Invocation.method(#downloadUserGroups, [userId])),
-            ),
+            returnValue:
+                _i10.Future<
+                  _i14.ResultDart<List<_i15.GroupEntity>, Exception>
+                >.value(
+                  _i12.dummyValue<
+                    _i14.ResultDart<List<_i15.GroupEntity>, Exception>
+                  >(this, Invocation.method(#downloadUserGroups, [userId])),
+                ),
           )
           as _i10.Future<_i14.ResultDart<List<_i15.GroupEntity>, Exception>>);
 
@@ -1041,13 +1042,14 @@ class MockFirestoreGroupService extends _i1.Mock
   downloadGroupMembers(String? groupId) =>
       (super.noSuchMethod(
             Invocation.method(#downloadGroupMembers, [groupId]),
-            returnValue: _i10.Future<
-              _i14.ResultDart<List<_i16.GroupMemberEntity>, Exception>
-            >.value(
-              _i12.dummyValue<
-                _i14.ResultDart<List<_i16.GroupMemberEntity>, Exception>
-              >(this, Invocation.method(#downloadGroupMembers, [groupId])),
-            ),
+            returnValue:
+                _i10.Future<
+                  _i14.ResultDart<List<_i16.GroupMemberEntity>, Exception>
+                >.value(
+                  _i12.dummyValue<
+                    _i14.ResultDart<List<_i16.GroupMemberEntity>, Exception>
+                  >(this, Invocation.method(#downloadGroupMembers, [groupId])),
+                ),
           )
           as _i10.Future<
             _i14.ResultDart<List<_i16.GroupMemberEntity>, Exception>
@@ -1153,14 +1155,17 @@ class MockFirestoreExpenseService extends _i1.Mock
   ) =>
       (super.noSuchMethod(
             Invocation.method(#downloadExpense, [groupId, expenseId]),
-            returnValue: _i10.Future<
-              _i14.ResultDart<_i18.ExpenseEntity, Exception>
-            >.value(
-              _i12.dummyValue<_i14.ResultDart<_i18.ExpenseEntity, Exception>>(
-                this,
-                Invocation.method(#downloadExpense, [groupId, expenseId]),
-              ),
-            ),
+            returnValue:
+                _i10.Future<
+                  _i14.ResultDart<_i18.ExpenseEntity, Exception>
+                >.value(
+                  _i12.dummyValue<
+                    _i14.ResultDart<_i18.ExpenseEntity, Exception>
+                  >(
+                    this,
+                    Invocation.method(#downloadExpense, [groupId, expenseId]),
+                  ),
+                ),
           )
           as _i10.Future<_i14.ResultDart<_i18.ExpenseEntity, Exception>>);
 
@@ -1169,13 +1174,14 @@ class MockFirestoreExpenseService extends _i1.Mock
   downloadGroupExpenses(String? groupId) =>
       (super.noSuchMethod(
             Invocation.method(#downloadGroupExpenses, [groupId]),
-            returnValue: _i10.Future<
-              _i14.ResultDart<List<_i18.ExpenseEntity>, Exception>
-            >.value(
-              _i12.dummyValue<
-                _i14.ResultDart<List<_i18.ExpenseEntity>, Exception>
-              >(this, Invocation.method(#downloadGroupExpenses, [groupId])),
-            ),
+            returnValue:
+                _i10.Future<
+                  _i14.ResultDart<List<_i18.ExpenseEntity>, Exception>
+                >.value(
+                  _i12.dummyValue<
+                    _i14.ResultDart<List<_i18.ExpenseEntity>, Exception>
+                  >(this, Invocation.method(#downloadGroupExpenses, [groupId])),
+                ),
           )
           as _i10.Future<_i14.ResultDart<List<_i18.ExpenseEntity>, Exception>>);
 
@@ -1184,16 +1190,20 @@ class MockFirestoreExpenseService extends _i1.Mock
   downloadExpenseShares(String? groupId, String? expenseId) =>
       (super.noSuchMethod(
             Invocation.method(#downloadExpenseShares, [groupId, expenseId]),
-            returnValue: _i10.Future<
-              _i14.ResultDart<List<_i19.ExpenseShareEntity>, Exception>
-            >.value(
-              _i12.dummyValue<
-                _i14.ResultDart<List<_i19.ExpenseShareEntity>, Exception>
-              >(
-                this,
-                Invocation.method(#downloadExpenseShares, [groupId, expenseId]),
-              ),
-            ),
+            returnValue:
+                _i10.Future<
+                  _i14.ResultDart<List<_i19.ExpenseShareEntity>, Exception>
+                >.value(
+                  _i12.dummyValue<
+                    _i14.ResultDart<List<_i19.ExpenseShareEntity>, Exception>
+                  >(
+                    this,
+                    Invocation.method(#downloadExpenseShares, [
+                      groupId,
+                      expenseId,
+                    ]),
+                  ),
+                ),
           )
           as _i10.Future<
             _i14.ResultDart<List<_i19.ExpenseShareEntity>, Exception>
@@ -2839,6 +2849,18 @@ class MockExpenseSharesDao extends _i1.Mock implements _i7.ExpenseSharesDao {
             returnValueForMissingStub: _i10.Future<void>.value(),
           )
           as _i10.Future<void>);
+
+  @override
+  _i10.Future<List<_i19.ExpenseShareEntity>> getSharesByGroup(
+    String? groupId,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#getSharesByGroup, [groupId]),
+            returnValue: _i10.Future<List<_i19.ExpenseShareEntity>>.value(
+              <_i19.ExpenseShareEntity>[],
+            ),
+          )
+          as _i10.Future<List<_i19.ExpenseShareEntity>>);
 
   @override
   _i10.Stream<T> createStream<T extends Object>(

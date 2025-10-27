@@ -43,7 +43,7 @@ FairShare makes group expense management effortless by combining the best of mod
 
 ## Key Features
 
-### Current (Phase 2.4 - Event-Driven Architecture)
+### Current (Phase 2.5 - Event-Driven Providers & Testing)
 - ✅ **Authentication:** Google Sign-In with Firebase Auth
 - ✅ **Offline-First:** SQLite database via Drift as source of truth
 - ✅ **Expense Tracking:** Create, view, edit, and delete expenses
@@ -52,14 +52,17 @@ FairShare makes group expense management effortless by combining the best of mod
 - ✅ **Real-Time Sync:** Firestore integration with upload queue and event-driven updates
 - ✅ **Use Case Layer:** Business logic isolated with validation
 - ✅ **Event System:** Domain events for reactive UI updates
+- ✅ **Event-Driven Providers:** 11 reactive providers for balances, stats, and dashboard
+- ✅ **Balance Calculations:** Net balances and optimal settlement algorithms
+- ✅ **Comprehensive Testing:** 230 tests passing (use cases, repositories, providers, integration)
 - ✅ **Data Integrity:** Foreign key constraints and soft delete support
 - ✅ **Modern UI:** Material 3 design with dark/light themes
 
-### Next (Phase 2.5 - Testing & Polish)
-- 🚧 Comprehensive testing (unit, integration, E2E)
-- 🚧 Event-driven computed providers (dashboard stats, totals)
+### Next (Phase 3 - UI Integration & Core Features)
+- 🚧 Balance UI (display who owes whom with settlement suggestions)
+- 🚧 Group statistics display (spending, expense count, member count)
+- 🚧 Dashboard enhancements (total spending, recent activity)
 - 🚧 Performance optimization and profiling
-- 🚧 Balance calculations (who owes whom)
 
 ### Future (Full Feature Set)
 - 📋 Advanced split options (percentage, exact amounts, unequal)
@@ -175,28 +178,46 @@ flutter run
 
 ## Project Status
 
-Currently in **Phase 2.4** - Event-Driven Architecture implementation complete! 🎉
+Currently in **Phase 2.5** - Event-Driven Providers & Testing complete! 🎉
 
 ### What's Working:
-- ✅ **Complete Use Case Layer:** All 10 use cases with validation (expenses + groups)
+- ✅ **Complete Use Case Layer:** All 11 use cases with validation (expenses + groups)
 - ✅ **Event System:** EventBroker fires domain events for local & remote changes
+- ✅ **Event-Driven Providers:** 11 reactive providers for UI updates
+  - Balance providers (3): net balances, settlements, settled status
+  - Group stats providers (5): total spending, expense count, member count, averages, aggregates
+  - Dashboard providers (3): app-wide stats, total spending, activity feed
+- ✅ **Balance Calculations:** Net balance algorithm + optimal settlement minimization
 - ✅ **Repository Integration:** Atomic transactions (DB + Queue + Events)
 - ✅ **Real-Time Sync:** Firestore listeners with hybrid strategy (global + active group)
+- ✅ **Comprehensive Testing:** 230 tests passing (use cases, repositories, providers, integration)
 - ✅ **Clean Architecture:** Repositories throw exceptions, Use Cases return `Result<T>`
 - ✅ **Offline-First:** Local SQLite as source of truth with upload queue
 - ✅ **Join Groups:** 6-digit code system working end-to-end
 - ✅ **Personal Groups:** Auto-created, metadata stays local, expenses sync for backup
 
-### Recent Architecture Improvements:
-- ✅ **Use Cases:** Business logic isolated with validation (Phase 2.1)
-- ✅ **Events:** Repositories and DAOs fire events after operations (Phase 2.2)
-- ✅ **Sync Integration:** Real-time sync fires events for reactive UI (Phase 2.3)
-- ✅ **Testing:** 137 repository tests + 12 sync service tests passing
-- ✅ **Multi-User Schema:** User-scoped data with foreign key constraints (schema v1)
+### Phase 2 Journey:
+- ✅ **Phase 2.1:** Use Case Layer - Business logic isolated with validation
+- ✅ **Phase 2.2:** Repository Integration - Events fire after operations
+- ✅ **Phase 2.3:** Real-Time Sync - Sync operations fire events for reactive UI
+- ✅ **Phase 2.4:** Event-Driven Architecture - Providers use events, dashboard stats
+- ✅ **Phase 2.5:** Providers & Testing - Balance calculations, 230 tests passing
 
-**Next**: Phase 2.5 - Event-driven computed providers, comprehensive testing, and balance calculations.
+### Test Coverage:
+```
+✓ 230/230 tests passing (100%)
+├─ Event System: 8 tests
+├─ Use Cases: 11 test suites (expenses + groups)
+├─ Repositories: 137+ tests (event firing, transactions)
+├─ Sync Services: 12+ tests (realtime + upload queue)
+├─ Balance Services: 14 tests (calculations + settlements)
+├─ Balance Providers: 10 tests (event-driven updates)
+└─ Integration: 2 flows (expense + group end-to-end)
+```
 
-See [docs/PLAN.md](docs/PLAN.md) for detailed roadmap and [docs/DATA_SCHEMA_COMPLETE.md](docs/DATA_SCHEMA_COMPLETE.md) for complete schema documentation.
+**Next**: Phase 3 - UI Integration (Balance Tab, Group Stats, Dashboard enhancements)
+
+See [docs/current/PLAN.md](docs/current/PLAN.md) for detailed roadmap and [docs/current/DATA_SCHEMA_COMPLETE.md](docs/current/DATA_SCHEMA_COMPLETE.md) for complete schema documentation.
 
 ## License
 

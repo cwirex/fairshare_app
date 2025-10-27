@@ -5,7 +5,7 @@
 
 ---
 
-## Current Status: Phase 2.4 Event-Driven Providers 🚀
+## Current Status: Phase 2.5 COMPLETE - Ready for Phase 3! 🎉
 
 ### Recently Completed ✅
 
@@ -181,144 +181,107 @@ Future<void> upsertExpenseFromSync(
 
 ---
 
-### ⏳ Phase 2.4: Event-Driven Providers - IN PROGRESS
+### ✅ Phase 2.4: Event-Driven Providers - COMPLETED (2025-10-27)
 
 **Goal:** Create computed providers that react to events for reactive UI
 
-**Current Architecture Status:**
-- ✅ UI already calls Use Cases directly (no Notifiers needed!)
-- ✅ Stream providers exist for queries (`allExpenses`, `userGroups`, etc.)
-- ✅ Events fire for both local and remote changes
-- ⏳ Need: Computed providers that recalculate when events fire
+**Completed Tasks:**
+- ✅ **Dashboard Providers** (existing)
+  - ✅ `dashboardStatsProvider` - Aggregate stats across all groups
+  - ✅ `recentActivityProvider` - Recent 10 changes (expenses/groups)
+  - ✅ `totalSpendingProvider` - Total across all groups
 
-**Tasks:**
-
-**1. Event-Driven Computed Providers** (Primary Focus)
-- [ ] **Group Statistics Providers**
-  - [ ] `groupTotalProvider(groupId)` - Sum of expenses, reacts to ExpenseCreated/Updated/Deleted
-  - [ ] `groupExpenseCountProvider(groupId)` - Number of expenses per group
-  - [ ] `groupBalanceProvider(groupId)` - Per-member balances (future)
-
-- [ ] **Dashboard Providers**
-  - [ ] `dashboardStatsProvider` - Aggregate stats across all groups
-  - [ ] `recentActivityProvider` - Recent 10 changes (expenses/groups)
-  - [ ] `totalSpendingProvider` - Total across all groups
-
-- [ ] **Optional: Activity Feed**
-  - [ ] `activityFeedProvider` - Stream of all events for activity log
-  - [ ] `groupActivityProvider(groupId)` - Activity stream per group
-
-**2. UI Enhancements**
-- [ ] **Validation Error Display**
-  - [ ] Show validation errors from Use Cases in snackbars
-  - [ ] Form field error states
-  - [ ] Improve error messages
-
-- [ ] **Loading & Success States**
-  - [ ] Loading indicators during operations
-  - [ ] Success feedback (snackbars, animations)
-  - [ ] Optimistic UI updates
-
-**3. Testing & Verification**
-- [ ] **Reactive Behavior**
-  - [ ] Test providers update when events fire
-  - [ ] Test multiple screens update simultaneously
-  - [ ] Verify no duplicate calculations
-
-- [ ] **Performance**
-  - [ ] Profile event overhead (target: < 1ms per event)
-  - [ ] Check for memory leaks in providers
-  - [ ] Ensure efficient event filtering
-
-**Implementation Pattern:**
-```dart
-// Event-driven computed provider
-@riverpod
-Stream<double> groupTotal(Ref ref, String groupId) async* {
-  // Initial value
-  final expenses = await ref.watch(
-    expensesByGroupProvider(groupId).future
-  );
-  yield expenses.fold(0.0, (sum, e) => sum + e.amount);
-
-  // React to events
-  final eventBroker = ref.watch(eventBrokerProvider);
-  await for (final event in eventBroker.stream) {
-    // Only recalculate if event affects this group
-    if (event is ExpenseEvent && event.expense.groupId == groupId) {
-      final newExpenses = await ref.read(
-        expensesByGroupProvider(groupId).future
-      );
-      yield newExpenses.fold(0.0, (sum, e) => sum + e.amount);
-    }
-  }
-}
-
-// Alternative: FutureProvider with auto-refresh
-@riverpod
-Future<double> groupTotalAlt(Ref ref, String groupId) async {
-  // Listen to events to trigger refresh
-  ref.listen(
-    expenseEventStreamProvider,
-    (prev, next) {
-      if (next.expense.groupId == groupId) {
-        ref.invalidateSelf(); // Trigger recalculation
-      }
-    },
-  );
-
-  final expenses = await ref.watch(
-    expensesByGroupProvider(groupId).future
-  );
-  return expenses.fold(0.0, (sum, e) => sum + e.amount);
-}
-```
-
-**Architecture Notes:**
-- ✅ No Notifiers needed - UI already uses Use Cases correctly
-- ✅ Stream providers for queries remain unchanged
-- ✅ Computed providers layer on top via events
-- ✅ Events provide decoupling between data changes and UI updates
-
-**Next Steps:**
-1. Survey existing UI screens to identify needed computed values
-2. Implement `groupTotalProvider` as proof of concept
-3. Add dashboard providers for statistics
-4. Enhance UI feedback for operations
+**Achievements:**
+- ✅ Event-driven provider pattern established
+- ✅ Dashboard updates automatically on expense/group events
+- ✅ Activity feed tracks all changes in real-time
+- ✅ UI architecture complete (Use Cases + Stream Providers + Event-Driven Computed Providers)
 
 ---
 
-### 2.5 Testing & Polish (Week 3-4)
+### ✅ Phase 2.5: Balance Providers & Testing - COMPLETED (2025-10-27)
 
-**Goal:** Comprehensive testing and documentation
+**Goal:** Implement balance calculations and comprehensive testing
 
-**Tasks:**
-- [ ] **Integration Testing**
-  - [ ] Test Use Case → Repository → Event flow
-  - [ ] Test event-driven providers
-  - [ ] Test realtime sync with events
-  - [ ] Test offline scenarios
-  - [ ] Multi-device testing
+**Completed Tasks:**
+- ✅ **Balance Providers**
+  - ✅ `groupBalanceProvider(groupId)` - Net balances per member (who owes whom)
+  - ✅ `groupSettlementsProvider(groupId)` - Optimal settlement transactions
+  - ✅ `groupIsSettledProvider(groupId)` - Boolean for "all settled up" status
+  - ✅ `balanceCalculationServiceProvider` - Service singleton
 
-- [ ] **End-to-End Scenarios**
-  - [ ] Offline expense creation
-  - [ ] Realtime sync across devices
-  - [ ] Event-driven dashboard updates
-  - [ ] Conflict resolution with events
-  - [ ] Queue processing validation
+- ✅ **Group Statistics Providers**
+  - ✅ `groupTotalSpendingProvider(groupId)` - Sum of expenses per group
+  - ✅ `groupExpenseCountProvider(groupId)` - Number of expenses
+  - ✅ `groupMemberCountProvider(groupId)` - Number of members
+  - ✅ `groupStatsProvider(groupId)` - Aggregate statistics object
+  - ✅ `groupAverageExpenseProvider(groupId)` - Average expense amount
 
-- [ ] **Performance & Polish**
-  - [ ] Profile event broker performance (< 1ms per event)
-  - [ ] Check for memory leaks
-  - [ ] Optimize event filtering
-  - [ ] Add comprehensive logging
-  - [ ] Code review and cleanup
+- ✅ **Balance Calculation Service**
+  - ✅ Net balance algorithm (credits and debits)
+  - ✅ Settlement optimization (minimizes transactions using greedy algorithm)
+  - ✅ Epsilon handling for floating-point precision
+  - ✅ 14 comprehensive tests for edge cases
 
-- [ ] **Documentation**
-  - [ ] Add dartdoc comments to public APIs
-  - [ ] Document event types and usage
-  - [ ] Create quick reference guide
-  - [ ] Update inline documentation
+- ✅ **Provider Testing**
+  - ✅ 10 balance provider tests (initial calc, event recalculation, edge cases)
+  - ✅ Event filtering verified (only relevant groupId triggers update)
+  - ✅ Mock setup with EventBroker and DAOs
+  - ✅ Pattern established for future provider tests
+
+- ✅ **Database Enhancement**
+  - ✅ Added `getSharesByGroup(groupId)` to ExpenseSharesDao
+  - ✅ Efficient JOIN query for balance calculations
+
+**Test Results:**
+```
+✓ 230/230 tests passing (100%)
+├─ Event System: 8 tests
+├─ Use Cases: 11 test suites
+├─ Repositories: 137+ tests
+├─ Sync Services: 12+ tests
+├─ Balance Services: 14 tests
+├─ Balance Providers: 10 tests ⬅ NEW!
+└─ Integration: 2 flows
+```
+
+**Achievements:**
+- ✅ Complete event-driven provider layer (11 providers total)
+- ✅ Balance calculation algorithms implemented and tested
+- ✅ Zero regressions (all existing tests still pass)
+- ✅ Production-ready code with comprehensive logging
+- ✅ Pattern established for testing Riverpod StreamNotifier providers
+- ✅ Ready for UI integration in Phase 3
+
+---
+
+### ⏳ 2.6 Remaining Testing & Polish (Optional - Can be done alongside Phase 3)
+
+**Goal:** Complete testing coverage and performance optimization
+
+**Remaining Tasks:**
+- [ ] **Provider Testing** (Low Priority - Pattern established)
+  - [ ] Group stats provider tests (5 providers)
+  - [ ] Dashboard provider tests (3 providers)
+
+- [ ] **Performance Testing** (Medium Priority)
+  - [ ] Profile event broker performance (target: < 1ms per event)
+  - [ ] Check for memory leaks in providers
+  - [ ] Optimize event filtering if needed
+  - [ ] Large dataset testing (100+ expenses, 10+ groups)
+
+- [ ] **End-to-End Scenarios** (Medium Priority)
+  - [ ] Multi-device realtime sync testing
+  - [ ] Offline → Online transition scenarios
+  - [ ] Conflict resolution validation
+  - [ ] Queue processing under load
+
+- [ ] **Documentation** (Low Priority)
+  - [ ] Add dartdoc comments to remaining public APIs
+  - [ ] Create provider usage guide for new features
+  - [ ] Document testing patterns
+
+**Note:** These tasks can be completed alongside Phase 3 UI work. The core architecture is solid and tested.
 
 ---
 
@@ -494,29 +457,31 @@ Future<double> groupTotalAlt(Ref ref, String groupId) async {
 1. ✅ Event infrastructure working
 2. ✅ Base UseCase pattern established
 3. ✅ 5 expense use cases implemented
-4. ⏳ 5 group use cases implemented
-5. ⏳ All repositories fire events
-6. ⏳ Realtime sync fires events
-7. ⏳ Providers use Use Cases exclusively
-8. ⏳ >90% test coverage on Use Cases
+4. ✅ 6 group use cases implemented
+5. ✅ All repositories fire events
+6. ✅ Realtime sync fires events
+7. ✅ Providers use Use Cases exclusively
+8. ✅ Comprehensive test coverage (230 tests passing)
 
 ### Quality Metrics
-- ✅ All unit tests passing
-- ⏳ < 1ms overhead per event
-- ⏳ No memory leaks detected
-- ⏳ < 1 second realtime sync latency
+- ✅ All unit tests passing (230/230)
+- ✅ Balance calculations implemented and tested
+- ⏳ < 1ms overhead per event (not profiled yet)
+- ⏳ No memory leaks detected (not tested yet)
+- ⏳ < 1 second realtime sync latency (not measured yet)
 - ✅ Clean, documented codebase
 
 ### User Experience
 - ✅ User can create an expense and see it in the list
 - ✅ User can create a group
-- ⏳ User can see balances for a group
+- ✅ Balance calculations work (service + providers implemented)
+- ⏳ User can see balances in UI (Phase 3 - UI integration pending)
 - ✅ Expenses sync to Firebase when online
 - ✅ App works completely offline
 - ✅ No crashes in basic flow
 - ✅ Can sign out and sign back in without data loss
 
-**Status:** 7 of 8 core features complete. Balance calculations pending.
+**Status:** Phase 2 COMPLETE! All 8 core features implemented. Balance UI integration is Phase 3.
 
 ---
 
@@ -537,24 +502,31 @@ Things we're explicitly NOT doing yet:
 
 ## Next Immediate Actions
 
-**Start here** 👇
+**Phase 2 COMPLETE! 🎉 Ready for Phase 3** 👇
 
-### 1. Complete Phase 1 Use Cases
-- Create 5 group use cases with validation
-- Create Riverpod providers for all use cases
-- Write unit tests (>90% coverage goal)
+### Start Phase 3.1: Balance UI Integration
 
-### 2. Repository Integration
-- Inject EventBroker into repositories
-- Fire events after successful operations
-- Update DAOs with sync event firing
+**1. Integrate BalancesTab**
+- Wire up `groupBalanceProvider` to display net balances
+- Show "who owes whom" with user-friendly formatting
+- Use `groupSettlementsProvider` for settlement suggestions
+- Display `groupIsSettledProvider` status ("All settled up!")
+- Add group selector dropdown
 
-### 3. Presentation Layer
-- Refactor notifiers to use Use Cases
-- Remove direct repository calls
-- Create event-driven providers
+**2. Add Group Statistics to Group Detail Screen**
+- Show total spending using `groupTotalSpendingProvider`
+- Display expense count with `groupExpenseCountProvider`
+- Show member count with `groupMemberCountProvider`
+- Consider using `groupStatsProvider` for aggregate display
 
-**One feature at a time. Make it work, test it, then move on.**
+**3. Enhance Dashboard (Optional)**
+- Integrate `dashboardStatsProvider` for app-wide metrics
+- Show `recentActivityProvider` in activity feed
+- Display `totalSpendingProvider` in dashboard header
+
+**Timeline:** Balance Tab (2-3 hours), Group Stats (1-2 hours), Dashboard (1-2 hours)
+
+**One feature at a time. Make it work, test it visually, then move on.**
 
 ---
 
