@@ -80,7 +80,6 @@ void main() {
       mockRealtimeSyncService.startRealtimeSync(any),
     ).thenAnswer((_) async {});
     when(mockRealtimeSyncService.stopRealtimeSync()).thenAnswer((_) async {});
-    when(mockRealtimeSyncService.getStatus()).thenReturn({});
     when(mockUploadQueueService.processQueue()).thenAnswer(
       (_) async => UploadQueueResult(
         totalProcessed: 0,

@@ -14,8 +14,9 @@ import 'package:fairshare_app/core/database/DAOs/expenses_dao.dart' as _i6;
 import 'package:fairshare_app/core/database/DAOs/groups_dao.dart' as _i5;
 import 'package:fairshare_app/core/database/DAOs/sync_dao.dart' as _i8;
 import 'package:fairshare_app/core/database/DAOs/user_dao.dart' as _i4;
-import 'package:fairshare_app/core/events/app_event.dart' as _i22;
-import 'package:fairshare_app/core/events/event_broker.dart' as _i20;
+import 'package:fairshare_app/core/events/app_event.dart' as _i23;
+import 'package:fairshare_app/core/events/event_broker.dart' as _i22;
+import 'package:fairshare_app/core/events/event_broker_interface.dart' as _i20;
 import 'package:fairshare_app/core/logging/app_logger.dart' as _i11;
 import 'package:fairshare_app/features/auth/domain/entities/user.dart' as _i21;
 import 'package:fairshare_app/features/expenses/data/services/firestore_expense_service.dart'
@@ -1519,7 +1520,7 @@ class MockGroupsDao extends _i1.Mock implements _i5.GroupsDao {
   @override
   _i10.Future<void> upsertGroupMemberFromSync(
     _i16.GroupMemberEntity? member,
-    _i20.EventBroker? eventBroker,
+    _i20.IEventBroker? eventBroker,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsertGroupMemberFromSync, [
@@ -1534,7 +1535,7 @@ class MockGroupsDao extends _i1.Mock implements _i5.GroupsDao {
   @override
   _i10.Future<void> upsertGroupFromSync(
     _i15.GroupEntity? group,
-    _i20.EventBroker? eventBroker,
+    _i20.IEventBroker? eventBroker,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsertGroupFromSync, [group, eventBroker]),
@@ -2211,7 +2212,7 @@ class MockExpensesDao extends _i1.Mock implements _i6.ExpensesDao {
   @override
   _i10.Future<void> upsertExpenseFromSync(
     _i18.ExpenseEntity? expense,
-    _i20.EventBroker? eventBroker,
+    _i20.IEventBroker? eventBroker,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsertExpenseFromSync, [expense, eventBroker]),
@@ -3831,18 +3832,18 @@ class MockUserDao extends _i1.Mock implements _i4.UserDao {
 /// A class which mocks [EventBroker].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockEventBroker extends _i1.Mock implements _i20.EventBroker {
+class MockEventBroker extends _i1.Mock implements _i22.EventBroker {
   MockEventBroker() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i10.Stream<_i22.AppEvent> get stream =>
+  _i10.Stream<_i23.AppEvent> get stream =>
       (super.noSuchMethod(
             Invocation.getter(#stream),
-            returnValue: _i10.Stream<_i22.AppEvent>.empty(),
+            returnValue: _i10.Stream<_i23.AppEvent>.empty(),
           )
-          as _i10.Stream<_i22.AppEvent>);
+          as _i10.Stream<_i23.AppEvent>);
 
   @override
   bool get isClosed =>
@@ -3863,13 +3864,13 @@ class MockEventBroker extends _i1.Mock implements _i20.EventBroker {
           as _i11.AppLogger);
 
   @override
-  void fire(_i22.AppEvent? event) => super.noSuchMethod(
+  void fire(_i23.AppEvent? event) => super.noSuchMethod(
     Invocation.method(#fire, [event]),
     returnValueForMissingStub: null,
   );
 
   @override
-  _i10.Stream<T> on<T extends _i22.AppEvent>() =>
+  _i10.Stream<T> on<T extends _i23.AppEvent>() =>
       (super.noSuchMethod(
             Invocation.method(#on, []),
             returnValue: _i10.Stream<T>.empty(),

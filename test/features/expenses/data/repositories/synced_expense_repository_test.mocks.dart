@@ -14,8 +14,9 @@ import 'package:fairshare_app/core/database/DAOs/expenses_dao.dart' as _i6;
 import 'package:fairshare_app/core/database/DAOs/groups_dao.dart' as _i5;
 import 'package:fairshare_app/core/database/DAOs/sync_dao.dart' as _i8;
 import 'package:fairshare_app/core/database/DAOs/user_dao.dart' as _i4;
-import 'package:fairshare_app/core/events/app_event.dart' as _i16;
-import 'package:fairshare_app/core/events/event_broker.dart' as _i14;
+import 'package:fairshare_app/core/events/app_event.dart' as _i17;
+import 'package:fairshare_app/core/events/event_broker.dart' as _i16;
+import 'package:fairshare_app/core/events/event_broker_interface.dart' as _i14;
 import 'package:fairshare_app/core/logging/app_logger.dart' as _i11;
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart'
     as _i13;
@@ -1154,7 +1155,7 @@ class MockExpensesDao extends _i1.Mock implements _i6.ExpensesDao {
   @override
   _i10.Future<void> upsertExpenseFromSync(
     _i13.ExpenseEntity? expense,
-    _i14.EventBroker? eventBroker,
+    _i14.IEventBroker? eventBroker,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsertExpenseFromSync, [expense, eventBroker]),
@@ -2821,18 +2822,18 @@ class MockSyncDao extends _i1.Mock implements _i8.SyncDao {
 /// A class which mocks [EventBroker].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockEventBroker extends _i1.Mock implements _i14.EventBroker {
+class MockEventBroker extends _i1.Mock implements _i16.EventBroker {
   MockEventBroker() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i10.Stream<_i16.AppEvent> get stream =>
+  _i10.Stream<_i17.AppEvent> get stream =>
       (super.noSuchMethod(
             Invocation.getter(#stream),
-            returnValue: _i10.Stream<_i16.AppEvent>.empty(),
+            returnValue: _i10.Stream<_i17.AppEvent>.empty(),
           )
-          as _i10.Stream<_i16.AppEvent>);
+          as _i10.Stream<_i17.AppEvent>);
 
   @override
   bool get isClosed =>
@@ -2853,13 +2854,13 @@ class MockEventBroker extends _i1.Mock implements _i14.EventBroker {
           as _i11.AppLogger);
 
   @override
-  void fire(_i16.AppEvent? event) => super.noSuchMethod(
+  void fire(_i17.AppEvent? event) => super.noSuchMethod(
     Invocation.method(#fire, [event]),
     returnValueForMissingStub: null,
   );
 
   @override
-  _i10.Stream<T> on<T extends _i16.AppEvent>() =>
+  _i10.Stream<T> on<T extends _i17.AppEvent>() =>
       (super.noSuchMethod(
             Invocation.method(#on, []),
             returnValue: _i10.Stream<T>.empty(),

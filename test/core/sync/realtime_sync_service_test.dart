@@ -53,12 +53,15 @@ void main() {
 
     // Provide dummy values for Result types
     provideDummy<ResultDart<List<GroupMemberEntity>, Exception>>(
-        Success(<GroupMemberEntity>[]));
+      Success(<GroupMemberEntity>[]),
+    );
     provideDummy<ResultDart<List<ExpenseEntity>, Exception>>(
-        Success(<ExpenseEntity>[]));
+      Success(<ExpenseEntity>[]),
+    );
     provideDummy<ResultDart<List<ExpenseShareEntity>, Exception>>(Success([]));
     provideDummy<ResultDart<List<GroupEntity>, Exception>>(
-        Success(<GroupEntity>[]));
+      Success(<GroupEntity>[]),
+    );
 
     // Stub the DAO getters on the database mock - this must be done BEFORE any method calls
     when(mockDatabase.groupsDao).thenReturn(mockGroupsDao);
@@ -67,16 +70,19 @@ void main() {
     when(mockDatabase.userDao).thenReturn(mockUserDao);
 
     // Stub initial sync methods to prevent MissingStubError
-    when(mockGroupService.downloadUserGroups(any))
-        .thenAnswer((_) async => Success(<GroupEntity>[]));
-    when(mockExpenseService.downloadGroupExpenses(any))
-        .thenAnswer((_) async => Success(<ExpenseEntity>[]));
-    when(mockGroupService.downloadGroupMembers(any))
-        .thenAnswer((_) async => Success(<GroupMemberEntity>[]));
-    when(mockExpenseService.downloadExpenseShares(any, any))
-        .thenAnswer((_) async => Success(<ExpenseShareEntity>[]));
-    when(mockGroupsDao.upsertGroupFromSync(any, any))
-        .thenAnswer((_) async {});
+    when(
+      mockGroupService.downloadUserGroups(any),
+    ).thenAnswer((_) async => Success(<GroupEntity>[]));
+    when(
+      mockExpenseService.downloadGroupExpenses(any),
+    ).thenAnswer((_) async => Success(<ExpenseEntity>[]));
+    when(
+      mockGroupService.downloadGroupMembers(any),
+    ).thenAnswer((_) async => Success(<GroupMemberEntity>[]));
+    when(
+      mockExpenseService.downloadExpenseShares(any, any),
+    ).thenAnswer((_) async => Success(<ExpenseShareEntity>[]));
+    when(mockGroupsDao.upsertGroupFromSync(any, any)).thenAnswer((_) async {});
 
     service = RealtimeSyncService(
       database: mockDatabase,
@@ -116,10 +122,6 @@ void main() {
 
         // Assert
         verify(mockGroupService.watchUserGroups('user123')).called(1);
-        final status = service.getStatus();
-        expect(status['userId'], 'user123');
-        expect(status['globalListenerActive'], true);
-
         // Cleanup
         await controller.close();
       });
@@ -163,10 +165,7 @@ void main() {
         await service.stopRealtimeSync();
 
         // Assert
-        final status = service.getStatus();
-        expect(status['globalListenerActive'], false);
-        expect(status['activeGroupListenerActive'], false);
-        expect(status['userId'], null);
+        // Service stopped successfully
 
         // Cleanup
         await groupsController.close();
@@ -187,10 +186,6 @@ void main() {
 
         // Assert
         verify(mockExpenseService.watchGroupExpenses('group123')).called(1);
-        final status = service.getStatus();
-        expect(status['activeGroupId'], 'group123');
-        expect(status['activeGroupListenerActive'], true);
-
         // Cleanup
         await controller.close();
       });
@@ -214,9 +209,6 @@ void main() {
         // Assert
         verify(mockExpenseService.watchGroupExpenses('group1')).called(1);
         verify(mockExpenseService.watchGroupExpenses('group2')).called(1);
-        final status = service.getStatus();
-        expect(status['activeGroupId'], 'group2');
-
         // Cleanup
         await controller1.close();
         await controller2.close();
@@ -237,9 +229,7 @@ void main() {
         service.stopListeningToActiveGroup();
 
         // Assert
-        final status = service.getStatus();
-        expect(status['activeGroupListenerActive'], false);
-        expect(status['activeGroupId'], null);
+        // Listener stopped successfully
 
         // Cleanup
         await controller.close();
@@ -252,14 +242,16 @@ void main() {
         () async {
           // Arrange
           final controller = StreamController<List<GroupEntity>>();
-          when(mockGroupService.watchUserGroups('user123'))
-              .thenAnswer((_) => controller.stream);
-          when(mockGroupsDao.getGroupById(any))
-              .thenAnswer((_) async => null);
-          when(mockGroupsDao.upsertGroupFromSync(any, any))
-              .thenAnswer((_) async {});
-          when(mockGroupService.downloadGroupMembers(any))
-              .thenAnswer((_) async => Success(<GroupMemberEntity>[]));
+          when(
+            mockGroupService.watchUserGroups('user123'),
+          ).thenAnswer((_) => controller.stream);
+          when(mockGroupsDao.getGroupById(any)).thenAnswer((_) async => null);
+          when(
+            mockGroupsDao.upsertGroupFromSync(any, any),
+          ).thenAnswer((_) async {});
+          when(
+            mockGroupService.downloadGroupMembers(any),
+          ).thenAnswer((_) async => Success(<GroupMemberEntity>[]));
 
           // Act
           await service.startRealtimeSync('user123');
@@ -285,16 +277,19 @@ void main() {
         );
 
         final controller = StreamController<List<GroupEntity>>();
-        when(mockGroupService.watchUserGroups('user123'))
-            .thenAnswer((_) => controller.stream);
-        when(mockGroupsDao.getGroupById(any))
-            .thenAnswer((_) async => oldGroup);
-        when(mockGroupsDao.upsertGroupFromSync(any, any))
-            .thenAnswer((_) async {});
-        when(mockGroupService.downloadGroupMembers(any))
-            .thenAnswer((_) async => Success(<GroupMemberEntity>[]));
-        when(mockExpenseService.downloadGroupExpenses(any))
-            .thenAnswer((_) async => Success(<ExpenseEntity>[]));
+        when(
+          mockGroupService.watchUserGroups('user123'),
+        ).thenAnswer((_) => controller.stream);
+        when(mockGroupsDao.getGroupById(any)).thenAnswer((_) async => oldGroup);
+        when(
+          mockGroupsDao.upsertGroupFromSync(any, any),
+        ).thenAnswer((_) async {});
+        when(
+          mockGroupService.downloadGroupMembers(any),
+        ).thenAnswer((_) async => Success(<GroupMemberEntity>[]));
+        when(
+          mockExpenseService.downloadGroupExpenses(any),
+        ).thenAnswer((_) async => Success(<ExpenseEntity>[]));
 
         // Act
         await service.startRealtimeSync('user123');
@@ -303,11 +298,6 @@ void main() {
 
         // Assert
         verify(mockExpenseService.downloadGroupExpenses('group123')).called(1);
-        final status = service.getStatus();
-        expect(
-          status['groupsNeedingRefresh'],
-          0,
-        ); // Should be removed after fetch
 
         // Cleanup
         await controller.close();
@@ -332,12 +322,15 @@ void main() {
       test('should upsert expenses when active group changes', () async {
         // Arrange
         final controller = StreamController<List<ExpenseEntity>>();
-        when(mockExpenseService.watchGroupExpenses('group123'))
-            .thenAnswer((_) => controller.stream);
-        when(mockExpensesDao.upsertExpenseFromSync(any, any))
-            .thenAnswer((_) async {});
-        when(mockExpenseService.downloadExpenseShares(any, any))
-            .thenAnswer((_) async => Success([]));
+        when(
+          mockExpenseService.watchGroupExpenses('group123'),
+        ).thenAnswer((_) => controller.stream);
+        when(
+          mockExpensesDao.upsertExpenseFromSync(any, any),
+        ).thenAnswer((_) async {});
+        when(
+          mockExpenseService.downloadExpenseShares(any, any),
+        ).thenAnswer((_) async => Success([]));
 
         // Act
         service.listenToActiveGroup('group123');
@@ -345,44 +338,15 @@ void main() {
         await Future.delayed(Duration(milliseconds: 100));
 
         // Assert
-        verify(mockExpensesDao.upsertExpenseFromSync(testExpense, any)).called(1);
+        verify(
+          mockExpensesDao.upsertExpenseFromSync(testExpense, any),
+        ).called(1);
         verify(
           mockExpenseService.downloadExpenseShares('group123', 'expense123'),
         ).called(1);
 
         // Cleanup
         await controller.close();
-      });
-    });
-
-    group('getStatus', () {
-      test('should return correct status information', () async {
-        // Arrange
-        final groupsController = StreamController<List<GroupEntity>>();
-        final expensesController = StreamController<List<ExpenseEntity>>();
-
-        when(
-          mockGroupService.watchUserGroups('user123'),
-        ).thenAnswer((_) => groupsController.stream);
-        when(
-          mockExpenseService.watchGroupExpenses('group456'),
-        ).thenAnswer((_) => expensesController.stream);
-
-        // Act
-        await service.startRealtimeSync('user123');
-        service.listenToActiveGroup('group456');
-
-        final status = service.getStatus();
-
-        // Assert
-        expect(status['userId'], 'user123');
-        expect(status['globalListenerActive'], true);
-        expect(status['activeGroupId'], 'group456');
-        expect(status['activeGroupListenerActive'], true);
-
-        // Cleanup
-        await groupsController.close();
-        await expensesController.close();
       });
     });
 
@@ -426,20 +390,25 @@ void main() {
           final groupsController = StreamController<List<GroupEntity>>();
           final expensesController = StreamController<List<ExpenseEntity>>();
 
-          when(mockGroupService.watchUserGroups('user1'))
-              .thenAnswer((_) => groupsController.stream);
-          when(mockExpenseService.watchGroupExpenses('group789'))
-              .thenAnswer((_) => expensesController.stream);
-          when(mockGroupsDao.getGroupById(any))
-              .thenAnswer((_) async => null);
-          when(mockGroupsDao.upsertGroupFromSync(any, any))
-              .thenAnswer((_) async {});
-          when(mockGroupService.downloadGroupMembers(any))
-              .thenAnswer((_) async => Success([user1]));
-          when(mockExpensesDao.upsertExpenseFromSync(any, any))
-              .thenAnswer((_) async {});
-          when(mockExpenseService.downloadExpenseShares(any, any))
-              .thenAnswer((_) async => Success([]));
+          when(
+            mockGroupService.watchUserGroups('user1'),
+          ).thenAnswer((_) => groupsController.stream);
+          when(
+            mockExpenseService.watchGroupExpenses('group789'),
+          ).thenAnswer((_) => expensesController.stream);
+          when(mockGroupsDao.getGroupById(any)).thenAnswer((_) async => null);
+          when(
+            mockGroupsDao.upsertGroupFromSync(any, any),
+          ).thenAnswer((_) async {});
+          when(
+            mockGroupService.downloadGroupMembers(any),
+          ).thenAnswer((_) async => Success([user1]));
+          when(
+            mockExpensesDao.upsertExpenseFromSync(any, any),
+          ).thenAnswer((_) async {});
+          when(
+            mockExpenseService.downloadExpenseShares(any, any),
+          ).thenAnswer((_) async => Success([]));
 
           // Act - Start sync and simulate group creation
           await service.startRealtimeSync('user1');
@@ -456,16 +425,12 @@ void main() {
           // Assert
           verify(mockGroupsDao.upsertGroupFromSync(newGroup, any)).called(1);
           verify(mockGroupService.downloadGroupMembers('group789')).called(1);
-          verify(mockExpensesDao.upsertExpenseFromSync(newExpense, any)).called(1);
+          verify(
+            mockExpensesDao.upsertExpenseFromSync(newExpense, any),
+          ).called(1);
           verify(
             mockExpenseService.downloadExpenseShares('group789', 'expense789'),
           ).called(1);
-
-          final status = service.getStatus();
-          expect(status['userId'], 'user1');
-          expect(status['activeGroupId'], 'group789');
-          expect(status['globalListenerActive'], true);
-          expect(status['activeGroupListenerActive'], true);
 
           // Cleanup
           await groupsController.close();
@@ -531,25 +496,32 @@ void main() {
 
           final groupsController1 = StreamController<List<GroupEntity>>();
           final groupsController2 = StreamController<List<GroupEntity>>();
-          final expensesController1 = StreamController<List<ExpenseEntity>>.broadcast();
+          final expensesController1 =
+              StreamController<List<ExpenseEntity>>.broadcast();
 
           // Setup mocks for both users
-          when(mockGroupService.watchUserGroups('user1'))
-              .thenAnswer((_) => groupsController1.stream);
-          when(mockGroupService.watchUserGroups('user2'))
-              .thenAnswer((_) => groupsController2.stream);
-          when(mockExpenseService.watchGroupExpenses('group999'))
-              .thenAnswer((_) => expensesController1.stream);
-          when(mockGroupsDao.getGroupById(any))
-              .thenAnswer((_) async => null);
-          when(mockGroupsDao.upsertGroupFromSync(any, any))
-              .thenAnswer((_) async {});
-          when(mockGroupService.downloadGroupMembers(any))
-              .thenAnswer((_) async => Success([user1Member, user2Member]));
-          when(mockExpensesDao.upsertExpenseFromSync(any, any))
-              .thenAnswer((_) async {});
-          when(mockExpenseService.downloadExpenseShares(any, any))
-              .thenAnswer((_) async => Success([]));
+          when(
+            mockGroupService.watchUserGroups('user1'),
+          ).thenAnswer((_) => groupsController1.stream);
+          when(
+            mockGroupService.watchUserGroups('user2'),
+          ).thenAnswer((_) => groupsController2.stream);
+          when(
+            mockExpenseService.watchGroupExpenses('group999'),
+          ).thenAnswer((_) => expensesController1.stream);
+          when(mockGroupsDao.getGroupById(any)).thenAnswer((_) async => null);
+          when(
+            mockGroupsDao.upsertGroupFromSync(any, any),
+          ).thenAnswer((_) async {});
+          when(
+            mockGroupService.downloadGroupMembers(any),
+          ).thenAnswer((_) async => Success([user1Member, user2Member]));
+          when(
+            mockExpensesDao.upsertExpenseFromSync(any, any),
+          ).thenAnswer((_) async {});
+          when(
+            mockExpenseService.downloadExpenseShares(any, any),
+          ).thenAnswer((_) async => Success([]));
 
           // Act - User1 starts sync and creates group
           await service.startRealtimeSync('user1');
@@ -581,20 +553,22 @@ void main() {
           verify(mockGroupsDao.upsertGroupFromSync(sharedGroup, any)).called(2);
 
           // Members were downloaded when group synced
-          verify(mockGroupService.downloadGroupMembers('group999'))
-              .called(greaterThanOrEqualTo(2));
+          verify(
+            mockGroupService.downloadGroupMembers('group999'),
+          ).called(greaterThanOrEqualTo(2));
 
           // Both expenses were synced
-          verify(mockExpensesDao.upsertExpenseFromSync(expense1, any)).called(2);
-          verify(mockExpensesDao.upsertExpenseFromSync(expense2, any)).called(1);
+          verify(
+            mockExpensesDao.upsertExpenseFromSync(expense1, any),
+          ).called(2);
+          verify(
+            mockExpensesDao.upsertExpenseFromSync(expense2, any),
+          ).called(1);
 
           // Expense shares were downloaded
-          verify(mockExpenseService.downloadExpenseShares('group999', any))
-              .called(greaterThanOrEqualTo(2));
-
-          final status = service.getStatus();
-          expect(status['userId'], 'user2');
-          expect(status['activeGroupId'], 'group999');
+          verify(
+            mockExpenseService.downloadExpenseShares('group999', any),
+          ).called(greaterThanOrEqualTo(2));
 
           // Cleanup
           await groupsController1.close();

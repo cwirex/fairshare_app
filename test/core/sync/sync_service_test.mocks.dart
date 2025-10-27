@@ -1655,14 +1655,6 @@ class MockRealtimeSyncService extends _i1.Mock
     Invocation.method(#stopListeningToActiveGroup, []),
     returnValueForMissingStub: null,
   );
-
-  @override
-  Map<String, dynamic> getStatus() =>
-      (super.noSuchMethod(
-            Invocation.method(#getStatus, []),
-            returnValue: <String, dynamic>{},
-          )
-          as Map<String, dynamic>);
 }
 
 /// A class which mocks [GroupInitializationService].

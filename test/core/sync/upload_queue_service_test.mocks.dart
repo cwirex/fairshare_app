@@ -18,7 +18,7 @@ import 'package:fairshare_app/core/database/DAOs/expenses_dao.dart' as _i6;
 import 'package:fairshare_app/core/database/DAOs/groups_dao.dart' as _i5;
 import 'package:fairshare_app/core/database/DAOs/sync_dao.dart' as _i8;
 import 'package:fairshare_app/core/database/DAOs/user_dao.dart' as _i4;
-import 'package:fairshare_app/core/events/event_broker.dart' as _i17;
+import 'package:fairshare_app/core/events/event_broker_interface.dart' as _i17;
 import 'package:fairshare_app/core/logging/app_logger.dart' as _i11;
 import 'package:fairshare_app/features/expenses/data/services/firestore_expense_service.dart'
     as _i22;
@@ -1847,7 +1847,7 @@ class MockExpensesDao extends _i1.Mock implements _i6.ExpensesDao {
   @override
   _i10.Future<void> upsertExpenseFromSync(
     _i16.ExpenseEntity? expense,
-    _i17.EventBroker? eventBroker,
+    _i17.IEventBroker? eventBroker,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsertExpenseFromSync, [expense, eventBroker]),
@@ -2582,7 +2582,7 @@ class MockGroupsDao extends _i1.Mock implements _i5.GroupsDao {
   @override
   _i10.Future<void> upsertGroupMemberFromSync(
     _i19.GroupMemberEntity? member,
-    _i17.EventBroker? eventBroker,
+    _i17.IEventBroker? eventBroker,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsertGroupMemberFromSync, [
@@ -2597,7 +2597,7 @@ class MockGroupsDao extends _i1.Mock implements _i5.GroupsDao {
   @override
   _i10.Future<void> upsertGroupFromSync(
     _i18.GroupEntity? group,
-    _i17.EventBroker? eventBroker,
+    _i17.IEventBroker? eventBroker,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#upsertGroupFromSync, [group, eventBroker]),
