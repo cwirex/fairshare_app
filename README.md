@@ -1,36 +1,43 @@
 # FairShare
 
-An offline-first group expense sharing app for splitting costs and settling up with friends.
+A group expense sharing app built to explore offline-first architecture, real-time sync, and Clean Architecture patterns in Flutter.
 
-## Vision
+## What This Project Demonstrates
 
-FairShare makes group expense management effortless by combining the best of modern mobile development with thoughtful offline-first design. Track expenses anywhere, sync when connected, and always know who owes what.
+This is a working expense tracker with a focus on **engineering over features**. The app handles the common problem of splitting costs among friends (trips, shared apartments, group dinners), but the real value of this repository is in how it's built:
 
-## Core Principles
+- **Offline-first architecture** with SQLite + Firestore sync
+- **Complete dependency inversion** across all critical layers (data access, business logic, sync services, event system)
+- **Event-driven reactive UI** via domain events
+- **200+ tests** covering repositories, use cases, sync logic, and balance calculations
+- **Clean Architecture** with strict layer separation
 
-### 1. Offline-First Architecture
-- **Local database as source of truth** - All data stored in SQLite via Drift
-- **Work without internet** - Create expenses, groups, and calculate balances offline
-- **Automatic sync** - Changes sync to Firebase when connection is available
-- **Conflict resolution** - Smart merging of changes from multiple devices
+While the UI is still being built out, the core engine—sync, database, business logic, balance calculations—is production-ready and tested.
 
-### 2. Simple & Intuitive UX
-- **Minimal friction** - Add expenses in 3 taps
-- **Clear visibility** - Always know who owes what at a glance
-- **Smart defaults** - Equal splits, sensible categories, today's date
-- **Progressive complexity** - Advanced features don't clutter basic flows
+## Project Evolution
 
-### 3. Fair & Transparent
-- **Clear calculations** - Obvious math, no hidden formulas
-- **Minimal settlements** - Optimize transactions to reduce number of payments
-- **Audit trail** - Complete history of all expenses and changes
-- **No lock-in** - Export your data anytime
+**Phase 1 (June 2025):** Basic MVP with Firebase sync
+- Google authentication, basic expense/group CRUD
+- Direct Firestore writes (no offline support)
 
-### 4. Privacy & Data Ownership
-- **Your data, your control** - Firebase only stores what you create
-- **No ads, no tracking** - Built for users, not advertisers
-- **Secure authentication** - Google Sign-In via Firebase Auth
-- **Data portability** - Export to standard formats
+**Phase 2 (Oct 2025):** Offline-first rewrite
+- Migrated to Drift (SQLite) as source of truth
+- Implemented upload queue for offline changes
+- Added Use Case layer for business logic
+- Built real-time sync with hybrid listener strategy
+
+**Phase 2.5 (Oct 2025):** Architectural refactoring
+- Identified dependency inversion violations (DAOs, use cases, sync services, event broker)
+- Refactored to interface-based design across all layers
+- Added comprehensive test coverage for core business logic
+- Removed singleton anti-patterns
+
+**Phase 3 (Current):** UI integration
+- Building out balance display, group stats, dashboard
+- Integrating event-driven providers with UI
+- Performance optimization
+
+See [docs/current/PLAN.md](docs/current/PLAN.md) for the full development roadmap.
 
 ## Technical Stack
 
@@ -41,50 +48,88 @@ FairShare makes group expense management effortless by combining the best of mod
 - **Go Router** - Declarative routing with deep linking support
 - **Material 3** - Modern design with light/dark themes
 
-## Key Features
+## Current Features
 
-### Current (Phase 2.5 - Event-Driven Providers & Testing)
-- ✅ **Authentication:** Google Sign-In with Firebase Auth
-- ✅ **Offline-First:** SQLite database via Drift as source of truth
-- ✅ **Expense Tracking:** Create, view, edit, and delete expenses
-- ✅ **Group Management:** Create shared groups and join via 6-digit code
-- ✅ **Personal Groups:** Auto-created private group for individual expenses
-- ✅ **Real-Time Sync:** Firestore integration with upload queue and event-driven updates
-- ✅ **Use Case Layer:** Business logic isolated with validation
-- ✅ **Event System:** Domain events for reactive UI updates
-- ✅ **Event-Driven Providers:** 11 reactive providers for balances, stats, and dashboard
-- ✅ **Balance Calculations:** Net balances and optimal settlement algorithms
-- ✅ **Comprehensive Testing:** 230 tests passing (use cases, repositories, providers, integration)
-- ✅ **Data Integrity:** Foreign key constraints and soft delete support
-- ✅ **Modern UI:** Material 3 design with dark/light themes
+**Core Functionality (Complete & Tested):**
+- Google Sign-In authentication
+- Expense CRUD (create, read, update, delete)
+- Group management with 6-digit invite codes
+- Personal groups for individual expense tracking
+- Balance calculations (net balances, optimal settlements)
+- Real-time sync with Firestore (hybrid listener strategy)
+- Offline-first with automatic sync queue
 
-### Next (Phase 3 - UI Integration & Core Features)
-- 🚧 Balance UI (display who owes whom with settlement suggestions)
-- 🚧 Group statistics display (spending, expense count, member count)
-- 🚧 Dashboard enhancements (total spending, recent activity)
-- 🚧 Performance optimization and profiling
+**Architecture (Complete):**
+- Interface abstractions across data access, business logic, sync services, and events
+- Event-driven reactive providers (balance calculations, group stats, dashboard)
+- 200+ tests covering critical business logic
+- Clean Architecture with strict layer separation
+- Atomic transactions (DB + Queue + Events)
 
-### Future (Full Feature Set)
-- 📋 Advanced split options (percentage, exact amounts, unequal)
-- 📋 Group invitations and member management
-- 📋 Expense categories and tags
-- 📋 Receipt photos
-- 📋 Multi-currency support with conversion
-- 📋 Settlement suggestions and payment tracking
-- 📋 Data export and reports
-- 📋 Notifications for new expenses
+**UI (In Progress):**
+- Basic expense list and group list views
+- ⏳ Balance display with settlement suggestions
+- ⏳ Group statistics dashboard
+- ⏳ Recent activity feed
 
-## Architecture
+## Future Ideas
+
+**Near-term (Phase 3+):**
+- Advanced split options (unequal splits, percentages, itemized bills)
+- Receipt photo attachments
+- Expense categories and filtering
+- Multi-currency support with live conversion rates
+- Export data (CSV, PDF reports)
+
+**Long-term (Exploration):**
+- **Bluetooth/Local Network Sync** - P2P sync when devices are nearby, no internet required
+- **Auto-payment Integration** - Connect to payment gateways (Stripe, PayPal) for one-tap settlements
+- **Smart Expense Recognition** - OCR for receipt scanning, auto-populate expense details
+- **Recurring Expenses** - Subscriptions, monthly rent, scheduled bills
+- **Debt Graph Visualization** - Interactive network graph showing all balances in a group
+- **Smart Notifications** - Remind users when balances exceed thresholds or settlements are due
+
+## Architecture Overview
+
+The app follows Clean Architecture with three distinct layers:
+
+**Presentation Layer (UI)**
+- Flutter widgets and Riverpod providers
+- Depends only on use case interfaces (`ICreateExpenseUseCase`, etc.)
+- Event-driven: Listens to `IEventBroker` for reactive updates
+
+**Domain Layer (Business Logic)**
+- 11 use cases with validation (implements use case interfaces)
+- Entities (ExpenseEntity, GroupEntity)
+- Repository interfaces define contracts
+
+**Data Layer (Persistence & Sync)**
+- Repositories implement domain interfaces, coordinate DB + sync queue
+- 5 DAO interfaces abstract SQLite operations (Drift)
+- 3 sync service interfaces manage Firestore communication
+- EventBroker fires domain events on all state changes
+
+All dependencies point inward—the domain layer has zero outward dependencies. This enables:
+- Complete unit testing with mocked dependencies
+- Swapping implementations without touching business logic
+- Clean separation of concerns
+
+For a detailed breakdown of the dependency inversion refactor, see [docs/current/ARCHITECTURE_ANALYSIS.md](docs/current/ARCHITECTURE_ANALYSIS.md).
 
 ```
 lib/
 ├── core/              # Shared infrastructure
-│   ├── database/      # Drift database, tables, providers
+│   ├── database/      # Drift database, DAOs, DAO interfaces
+│   ├── events/        # EventBroker interface + implementation
+│   ├── sync/          # Sync service interfaces + implementations
 │   └── logging/       # Logging (LoggerMixin + AppLogger)
-├── features/          # Feature modules
-│   ├── auth/          # Authentication (domain, data, presentation)
+├── features/          # Feature modules (Clean Architecture)
+│   ├── auth/          # Authentication
 │   ├── expenses/      # Expense management
-│   ├── groups/        # Group management
+│   │   ├── domain/    # Use case interfaces, entities, repository interfaces
+│   │   ├── data/      # Repository + Firestore service implementations
+│   │   └── presentation/  # Providers, UI widgets
+│   ├── groups/        # Group management (same structure)
 │   ├── balances/      # Balance calculations
 │   └── profile/       # User profile
 └── shared/            # Shared UI components
@@ -115,12 +160,15 @@ class MyClass with LoggerMixin {
 - Simple implementation using Flutter's `debugPrint` for better IDE integration
 - Timestamps and log levels included automatically
 
-### Design Patterns
-- **Clean Architecture** - Separation of domain, data, and presentation layers
-- **Repository Pattern** - Abstract data sources behind interfaces
-- **Provider Pattern** - Riverpod for dependency injection and state
-- **Immutable Models** - Freezed for data classes
-- **Result Types** - Explicit error handling with result_dart
+### Key Patterns
+
+- **Clean Architecture** - Strict layer separation (presentation → domain → data)
+- **Dependency Inversion** - All cross-layer dependencies use interfaces
+- **Repository Pattern** - Data sources abstracted behind interfaces
+- **Use Case Pattern** - Single-responsibility business operations
+- **Event-Driven Architecture** - Domain events for reactive UI updates
+- **Result Types** - Explicit error handling (`Result<T>` from use cases)
+- **Immutable Entities** - Freezed data classes throughout
 
 ## Development Philosophy
 
@@ -176,48 +224,35 @@ flutter run
 3. Download and place `google-services.json` (Android) and `GoogleService-Info.plist` (iOS)
 4. Enable Google Sign-In in Firebase Console
 
-## Project Status
+## Test Coverage
 
-Currently in **Phase 2.5** - Event-Driven Providers & Testing complete! 🎉
+The core business logic and data layer are tested in isolation:
 
-### What's Working:
-- ✅ **Complete Use Case Layer:** All 11 use cases with validation (expenses + groups)
-- ✅ **Event System:** EventBroker fires domain events for local & remote changes
-- ✅ **Event-Driven Providers:** 11 reactive providers for UI updates
-  - Balance providers (3): net balances, settlements, settled status
-  - Group stats providers (5): total spending, expense count, member count, averages, aggregates
-  - Dashboard providers (3): app-wide stats, total spending, activity feed
-- ✅ **Balance Calculations:** Net balance algorithm + optimal settlement minimization
-- ✅ **Repository Integration:** Atomic transactions (DB + Queue + Events)
-- ✅ **Real-Time Sync:** Firestore listeners with hybrid strategy (global + active group)
-- ✅ **Comprehensive Testing:** 230 tests passing (use cases, repositories, providers, integration)
-- ✅ **Clean Architecture:** Repositories throw exceptions, Use Cases return `Result<T>`
-- ✅ **Offline-First:** Local SQLite as source of truth with upload queue
-- ✅ **Join Groups:** 6-digit code system working end-to-end
-- ✅ **Personal Groups:** Auto-created, metadata stays local, expenses sync for backup
-
-### Phase 2 Journey:
-- ✅ **Phase 2.1:** Use Case Layer - Business logic isolated with validation
-- ✅ **Phase 2.2:** Repository Integration - Events fire after operations
-- ✅ **Phase 2.3:** Real-Time Sync - Sync operations fire events for reactive UI
-- ✅ **Phase 2.4:** Event-Driven Architecture - Providers use events, dashboard stats
-- ✅ **Phase 2.5:** Providers & Testing - Balance calculations, 230 tests passing
-
-### Test Coverage:
 ```
-✓ 230/230 tests passing (100%)
-├─ Event System: 8 tests
-├─ Use Cases: 11 test suites (expenses + groups)
-├─ Repositories: 137+ tests (event firing, transactions)
-├─ Sync Services: 12+ tests (realtime + upload queue)
-├─ Balance Services: 14 tests (calculations + settlements)
-├─ Balance Providers: 10 tests (event-driven updates)
-└─ Integration: 2 flows (expense + group end-to-end)
+✓ 200+ tests passing
+├─ Use Cases: 11 test suites (business logic validation)
+├─ Repositories: 137 tests (transactions, events, queue coordination)
+├─ Sync Services: 12 tests (upload queue, real-time listeners)
+├─ Balance Services: 14 tests (net balances, optimal settlements)
+├─ Balance Providers: 10 tests (event-driven reactive updates)
+├─ Event System: 8 tests (domain event broadcasting)
+└─ Integration: 2 flows (end-to-end expense + group flows)
 ```
 
-**Next**: Phase 3 - UI Integration (Balance Tab, Group Stats, Dashboard enhancements)
+**Test Strategy:**
+- Repository tests use mocked DAOs (no database required)
+- Use case tests use mocked repositories
+- Sync tests use mocked Firestore services
+- Focus on critical business logic paths
 
-See [docs/current/PLAN.md](docs/current/PLAN.md) for detailed roadmap and [docs/current/DATA_SCHEMA_COMPLETE.md](docs/current/DATA_SCHEMA_COMPLETE.md) for complete schema documentation.
+**Coverage:** ~32% overall, but core business logic (repositories, use cases, sync) has higher coverage. UI layer testing is planned for Phase 3.
+
+## Documentation
+
+- **[PLAN.md](docs/current/PLAN.md)** - Full development roadmap and phase breakdown
+- **[ARCHITECTURE_ANALYSIS.md](docs/current/ARCHITECTURE_ANALYSIS.md)** - Technical deep-dive into the dependency inversion refactor
+- **[DATA_SCHEMA_COMPLETE.md](docs/current/DATA_SCHEMA_COMPLETE.md)** - Complete SQLite and Firestore schema documentation
+- **[CURRENT_ARCHITECTURE.md](docs/current/CURRENT_ARCHITECTURE.md)** - High-level architecture overview
 
 ## License
 
