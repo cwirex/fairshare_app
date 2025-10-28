@@ -18,6 +18,7 @@ class FirestoreExpenseService with LoggerMixin implements RemoteExpenseService {
 
   /// Upload an expense to Firestore under its group with server timestamp.
   /// Personal expenses ARE synced for backup, but personal groups are NOT synced.
+  @override
   Future<Result<void>> uploadExpense(ExpenseEntity expense) async {
     try {
       final expenseData = expense.toJson();
@@ -46,6 +47,7 @@ class FirestoreExpenseService with LoggerMixin implements RemoteExpenseService {
   }
 
   /// Upload an expense share to Firestore.
+  @override
   Future<Result<void>> uploadExpenseShare(ExpenseShareEntity share) async {
     try {
       final shareData = share.toJson();
@@ -59,7 +61,8 @@ class FirestoreExpenseService with LoggerMixin implements RemoteExpenseService {
 
       if (expenseQuery.docs.isEmpty) {
         return Failure(
-            Exception('Expense not found for share: ${share.expenseId}'));
+          Exception('Expense not found for share: ${share.expenseId}'),
+        );
       }
 
       final expenseDoc = expenseQuery.docs.first;
@@ -81,8 +84,11 @@ class FirestoreExpenseService with LoggerMixin implements RemoteExpenseService {
   }
 
   /// Download an expense from Firestore.
+  @override
   Future<Result<ExpenseEntity>> downloadExpense(
-      String groupId, String expenseId) async {
+    String groupId,
+    String expenseId,
+  ) async {
     try {
       final doc = await _firestore
           .collection(FirestoreCollections.groups)
@@ -104,8 +110,10 @@ class FirestoreExpenseService with LoggerMixin implements RemoteExpenseService {
   }
 
   /// Download all expenses for a group.
+  @override
   Future<Result<List<ExpenseEntity>>> downloadGroupExpenses(
-      String groupId) async {
+    String groupId,
+  ) async {
     try {
       final querySnapshot = await _firestore
           .collection(FirestoreCollections.groups)
@@ -125,8 +133,11 @@ class FirestoreExpenseService with LoggerMixin implements RemoteExpenseService {
   }
 
   /// Download all shares for an expense.
+  @override
   Future<Result<List<ExpenseShareEntity>>> downloadExpenseShares(
-      String groupId, String expenseId) async {
+    String groupId,
+    String expenseId,
+  ) async {
     try {
       final querySnapshot = await _firestore
           .collection(FirestoreCollections.groups)
@@ -147,6 +158,7 @@ class FirestoreExpenseService with LoggerMixin implements RemoteExpenseService {
   }
 
   /// Delete an expense from Firestore.
+  @override
   Future<Result<void>> deleteExpense(String groupId, String expenseId) async {
     try {
       // Delete all shares first
@@ -177,6 +189,7 @@ class FirestoreExpenseService with LoggerMixin implements RemoteExpenseService {
   }
 
   /// Listen to changes in a group's expenses.
+  @override
   Stream<List<ExpenseEntity>> watchGroupExpenses(String groupId) {
     return _firestore
         .collection(FirestoreCollections.groups)
@@ -184,14 +197,15 @@ class FirestoreExpenseService with LoggerMixin implements RemoteExpenseService {
         .collection(FirestoreCollections.expenses)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        return ExpenseEntity.fromJson(data);
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            final data = doc.data();
+            return ExpenseEntity.fromJson(data);
+          }).toList();
+        });
   }
 
   /// Listen to changes in an expense.
+  @override
   Stream<ExpenseEntity> watchExpense(String groupId, String expenseId) {
     return _firestore
         .collection(FirestoreCollections.groups)
@@ -201,14 +215,17 @@ class FirestoreExpenseService with LoggerMixin implements RemoteExpenseService {
         .snapshots()
         .where((doc) => doc.exists)
         .map((doc) {
-      final data = doc.data()!;
-      return ExpenseEntity.fromJson(data);
-    });
+          final data = doc.data()!;
+          return ExpenseEntity.fromJson(data);
+        });
   }
 
   /// Listen to changes in an expense's shares.
+  @override
   Stream<List<ExpenseShareEntity>> watchExpenseShares(
-      String groupId, String expenseId) {
+    String groupId,
+    String expenseId,
+  ) {
     return _firestore
         .collection(FirestoreCollections.groups)
         .doc(groupId)
@@ -217,9 +234,9 @@ class FirestoreExpenseService with LoggerMixin implements RemoteExpenseService {
         .collection(FirestoreCollections.shares)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => ExpenseShareEntity.fromJson(doc.data()))
-          .toList();
-    });
+          return snapshot.docs
+              .map((doc) => ExpenseShareEntity.fromJson(doc.data()))
+              .toList();
+        });
   }
 }

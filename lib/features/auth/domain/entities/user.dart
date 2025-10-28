@@ -49,8 +49,9 @@ extension UserX on User {
 
   /// User initials for avatar fallback
   String get initials {
+    if (displayName.isEmpty) return '?';
     final words = displayName.split(' ');
-    if (words.isEmpty) return '?';
+    if (words.isEmpty || words[0].isEmpty) return '?';
     if (words.length == 1) return words[0][0].toUpperCase();
     return '${words[0][0]}${words[1][0]}'.toUpperCase();
   }
