@@ -1,10 +1,13 @@
-# Architecture Analysis: Dependency Inversion Refactor
+# Architecture Analysis: Dependency Inversion Refactor (v2.4)
 
+**Status:** ✅ COMPLETED
 **Date:** October 2025
 **Context:** Phase 2.5 - Architectural Refactoring
 **Problem:** Concrete dependencies blocking testability
 **Solution:** Interface abstraction across data access, business logic, sync services, and event system
-**Result:** Isolated unit tests for core business logic
+**Result:** Isolated unit tests for core business logic + 302 tests passing
+
+> This refactoring is now complete. All 24 interfaces have been implemented, tested (44 DAO tests, 13 use case test files), and entity serialization is covered. See [PLAN.md](../current/PLAN.md) for current Phase 3 progress.
 
 ---
 
@@ -56,7 +59,7 @@ final container = ProviderContainer(
 - Sync Services (Firestore coordination) without interfaces → blocking sync tests
 - EventBroker as singleton → hard to mock/reset in tests
 
-For the original analysis, see [dependency-inversion-analysis.md](./dependency-inversion-analysis.md).
+For the original analysis, see [dependency-inversion-analysis.md](../current/dependency-inversion-analysis.md).
 
 ---
 
@@ -303,10 +306,12 @@ test('repository creates expense', () async {
 ### Test Suite Results
 
 ```
-✓ 200+ tests passing
+✓ 302 tests passing
 
 Breakdown by layer:
-├─ Use Cases: 11 test suites
+├─ DAO Tests: 44 tests
+│  └─ ExpensesDao (14), GroupsDao (11), SyncDao (9), others (10)
+├─ Use Case Tests: 13 test files
 │  └─ All use mocked repositories
 ├─ Repositories: 137 tests
 │  └─ All use mocked DAOs (no database required)
@@ -316,6 +321,8 @@ Breakdown by layer:
 │  └─ Algorithm correctness, settlement optimization
 ├─ Balance Providers: 10 tests
 │  └─ Event-driven reactive updates
+├─ Entity Serialization: 24 tests
+│  └─ User, ExpenseShareEntity, GroupMemberEntity, schema validation
 └─ Integration: 2 flows
    └─ End-to-end with real implementations
 ```
@@ -424,16 +431,16 @@ ICreateExpenseUseCase createExpenseUseCase(Ref ref) { ... }
 | Repository testing | Required full database | Mocked DAOs only |
 | Use case testing | Required repositories | Mocked repositories only |
 | Singleton anti-patterns | 1 (EventBroker) | 0 |
-| Test coverage | ~32% (200+ tests) | ~32% (same tests, now isolated) |
+| Test coverage | ~32% (200+ tests) | ~32% (302 tests, now isolated) |
 
 ---
 
 ## References
 
-- **[Original Analysis](./dependency-inversion-analysis.md)** - The document that identified the 24 components needing interfaces
-- **[Project Plan](./PLAN.md)** - Overall development roadmap
-- **[Current Architecture](./CURRENT_ARCHITECTURE.md)** - High-level architectural overview
-- **[Data Schema](./DATA_SCHEMA_COMPLETE.md)** - Database schema documentation
+- **[Original Analysis](dependency-inversion-analysis.md)** - The document that identified the 24 components needing interfaces
+- **[Project Plan](../current/PLAN.md)** - Overall development roadmap
+- **[Current Architecture](../current/CURRENT_ARCHITECTURE.md)** - High-level architectural overview
+- **[Data Schema](../current/DATA_SCHEMA_COMPLETE.md)** - Database schema documentation
 
 ---
 
