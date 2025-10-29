@@ -18,6 +18,7 @@ abstract class ExpenseEntity with _$ExpenseEntity {
     required String currency,
     required String paidBy,
     @Default(true) bool shareWithEveryone,
+    @Default('Other') String category,
     @TimestampConverter() required DateTime expenseDate,
     @TimestampConverter() required DateTime createdAt,
     @TimestampConverter() required DateTime updatedAt,
@@ -48,6 +49,7 @@ abstract class ExpenseFields {
   static const String currency = 'currency';
   static const String paidBy = 'paid_by';
   static const String shareWithEveryone = 'share_with_everyone';
+  static const String category = 'category';
   static const String expenseDate = 'expense_date';
   static const String createdAt = 'created_at';
   static const String updatedAt = 'updated_at';

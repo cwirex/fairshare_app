@@ -43,9 +43,9 @@ class ProfileScreen extends ConsumerWidget with LoggerMixin {
             _buildProfileOptions(context, theme),
             const SizedBox(height: 32),
 
-            // App information
-            _buildAppInfo(context, theme),
-            const SizedBox(height: 32),
+            // // App information
+            // _buildAppInfo(context, theme),
+            // const SizedBox(height: 32),
 
             // Sign out section
             _buildSignOutSection(context, ref, theme),
@@ -61,19 +61,17 @@ class ProfileScreen extends ConsumerWidget with LoggerMixin {
         // Avatar
         CircleAvatar(
           radius: 50,
-          backgroundImage:
-              currentUser.avatarUrl.isNotEmpty == true
-                  ? NetworkImage(currentUser.avatarUrl)
-                  : null,
-          child:
-              currentUser.avatarUrl.isEmpty != false
-                  ? Text(
-                    currentUser.initials ?? '?',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  )
-                  : null,
+          backgroundImage: currentUser.avatarUrl.isNotEmpty == true
+              ? NetworkImage(currentUser.avatarUrl)
+              : null,
+          child: currentUser.avatarUrl.isEmpty != false
+              ? Text(
+                  currentUser.initials ?? '?',
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+              : null,
         ),
         const SizedBox(height: 16),
 
@@ -109,10 +107,9 @@ class ProfileScreen extends ConsumerWidget with LoggerMixin {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color:
-            isSynced
-                ? theme.colorScheme.primaryContainer
-                : theme.colorScheme.errorContainer,
+        color: isSynced
+            ? theme.colorScheme.primaryContainer
+            : theme.colorScheme.errorContainer,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -121,19 +118,17 @@ class ProfileScreen extends ConsumerWidget with LoggerMixin {
           Icon(
             isSynced ? Icons.cloud_done : Icons.cloud_off,
             size: 16,
-            color:
-                isSynced
-                    ? theme.colorScheme.onPrimaryContainer
-                    : theme.colorScheme.onErrorContainer,
+            color: isSynced
+                ? theme.colorScheme.onPrimaryContainer
+                : theme.colorScheme.onErrorContainer,
           ),
           const SizedBox(width: 4),
           Text(
             isSynced ? 'Synced' : 'Not synced',
             style: theme.textTheme.bodySmall?.copyWith(
-              color:
-                  isSynced
-                      ? theme.colorScheme.onPrimaryContainer
-                      : theme.colorScheme.onErrorContainer,
+              color: isSynced
+                  ? theme.colorScheme.onPrimaryContainer
+                  : theme.colorScheme.onErrorContainer,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -346,13 +341,9 @@ class ProfileScreen extends ConsumerWidget with LoggerMixin {
           color: theme.colorScheme.onSurfaceVariant,
         ),
       ),
-      trailing:
-          onTap != null
-              ? Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.onSurfaceVariant,
-              )
-              : null,
+      trailing: onTap != null
+          ? Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant)
+          : null,
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     );

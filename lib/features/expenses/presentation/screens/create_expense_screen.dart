@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:fairshare_app/features/auth/presentation/providers/auth_providers.dart';
+import 'package:fairshare_app/features/expenses/domain/constants/expense_categories.dart';
 import 'package:fairshare_app/features/expenses/domain/entities/expense_entity.dart';
 import 'package:fairshare_app/features/expenses/presentation/providers/expense_use_case_providers.dart';
 import 'package:flutter/material.dart';
@@ -26,10 +29,62 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen>
   String _selectedCurrency = 'USD';
   String? _selectedGroupId;
   DateTime? _selectedDate;
+  String _selectedCategory = 'Other';
   bool _isLoading = false;
+  bool _isSuggestingCategory = false;
+  Timer? _debounceTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController.addListener(_onTitleChanged);
+  }
+
+  void _onTitleChanged() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      final title = _titleController.text.trim();
+      if (title.isEmpty) return;
+
+      // Only suggest if category is still at default 'Other'
+      // This prevents unnecessary API calls when user has already accepted a suggestion
+      if (_selectedCategory != 'Other') {
+        return;
+      }
+
+      setState(() => _isSuggestingCategory = true);
+
+      try {
+        final useCase = ref.read(suggestCategoryUseCaseProvider);
+        final result = await useCase.call(title);
+
+        if (!mounted) return;
+
+        result.fold(
+          (categoryResult) {
+            if (categoryResult.category != null &&
+                _selectedCategory == 'Other') {
+              setState(() {
+                _selectedCategory = categoryResult.category!;
+              });
+            }
+          },
+          (error) {
+            log.w('Category suggestion failed: $error');
+          },
+        );
+      } finally {
+        if (mounted) {
+          setState(() => _isSuggestingCategory = false);
+        }
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _titleController.removeListener(_onTitleChanged);
     _titleController.dispose();
     _amountController.dispose();
     super.dispose();
@@ -64,6 +119,7 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen>
         currency: _selectedCurrency,
         paidBy: currentUser.id,
         shareWithEveryone: true,
+        category: _selectedCategory,
         expenseDate: _selectedDate ?? now,
         createdAt: now,
         updatedAt: now,
@@ -237,6 +293,50 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen>
               },
               loading: () => const LinearProgressIndicator(),
               error: (error, stack) => Text('Error loading groups: $error'),
+            ),
+            const SizedBox(height: 24),
+
+            // Category selector with AI suggestion
+            DropdownButtonFormField<String>(
+              initialValue: _selectedCategory,
+              decoration: InputDecoration(
+                labelText: 'Category',
+                prefixIcon: const Icon(Icons.category),
+                suffixIcon: _isSuggestingCategory
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: Padding(
+                        padding: EdgeInsets.all(12.0),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                    : null,
+                helperText: _isSuggestingCategory
+                    ? 'Getting AI suggestion...'
+                    : _selectedCategory != 'Other'
+                        ? 'AI Suggested'
+                        : null,
+              ),
+              items: ExpenseCategories.allCategories.map((category) {
+                return DropdownMenuItem(
+                  value: category,
+                  child: Row(
+                    children: [
+                      Text(ExpenseCategories.getEmoji(category)),
+                      const SizedBox(width: 8),
+                      Text(category),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedCategory = value;
+                  });
+                }
+              },
             ),
             const SizedBox(height: 24),
 

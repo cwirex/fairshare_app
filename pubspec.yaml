@@ -42,6 +42,9 @@ dependencies:
   meta: ^1.15.0
   collection: ^1.19.1
 
+  # AI & ML
+  flutter_gemini: ^3.0.0
+
 dev_dependencies:
   # Code Generation
   build_runner: ^2.4.15

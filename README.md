@@ -49,6 +49,7 @@ See [docs/current/PLAN.md](docs/current/PLAN.md) for the full development roadma
 - **Riverpod** - State management with code generation
 - **Drift** - Type-safe SQLite database for offline storage
 - **Firebase** - Authentication (Auth) and cloud sync (Firestore)
+- **Google Gemini** - AI-powered expense categorization (Phase 1)
 - **Go Router** - Declarative routing with deep linking support
 - **Material 3** - Modern design with light/dark themes
 
@@ -58,6 +59,7 @@ See [docs/current/PLAN.md](docs/current/PLAN.md) for the full development roadma
 
 - Google Sign-In authentication
 - Expense CRUD (create, read, update, delete)
+- **AI-powered expense categorization** (Google Gemini) with auto-suggestions
 - Group management with 6-digit invite codes
 - Personal groups for individual expense tracking
 - Balance calculations (net balances, optimal settlements)
@@ -216,6 +218,38 @@ class MyClass with LoggerMixin {
 - Accessibility from the start
 - Clear error messages and loading states
 
+## Screenshots
+
+See the app in action (still in development):
+
+<table>
+  <tr>
+    <td width="33%" align="center">
+      <b>Create Expense (AI Suggestion)</b><br/>
+      <img src="docs/screenshots/Screenshot_createExpense.png" width="100%" alt="Create Expense"/>
+      <br/>Add expense with auto-filled category by AI
+    </td>
+    <td width="33%" align="center">
+      <b>Group Expenses</b><br/>
+      <img src="docs/screenshots/Screenshot_groupExpenses.png" width="100%" alt="Group Expenses"/>
+      <br/>Group expense view
+    </td>
+    <td width="33%" align="center">
+      <b>Profile Screen</b><br/>
+      <img src="docs/screenshots/Screenshot_profileScreen.png" width="100%" alt="Profile"/>
+      <br/>User profile / Settings
+    </td>
+  </tr>
+</table>
+
+**AI Feature Highlight:**
+
+- Type expense title (e.g., "Starbucks coffee")
+- After 500ms, Google Gemini AI suggests category
+- Category dropdown auto-fills with suggestion
+
+See [AI_CATEGORY_FEATURE_COMPLETE.md](docs/archive/AI_CATEGORY_FEATURE_COMPLETE.md)
+
 ## Getting Started
 
 ### Prerequisites
@@ -265,6 +299,7 @@ The core business logic and data layer are tested in isolation:
 - **[PLAN.md](docs/current/PLAN.md)** - Full development roadmap and phase breakdown
 - **[DATA_SCHEMA_COMPLETE.md](docs/current/DATA_SCHEMA_COMPLETE.md)** - Complete SQLite and Firestore schema documentation
 - **[CURRENT_ARCHITECTURE.md](docs/current/CURRENT_ARCHITECTURE.md)** - High-level architecture overview
+- **[CATEGORY_FEATURE_SUMMARY.md](docs/CATEGORY_FEATURE_SUMMARY.md)** - AI-powered expense categorization feature (Gemini integration)
 
 ## License
 
