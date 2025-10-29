@@ -83,34 +83,26 @@ User creates expense:
 
 ### Core Implementation
 
-- ✅ [lib/features/expenses/domain/constants/expense_categories.dart](../lib/features/expenses/domain/constants/expense_categories.dart) - Category definitions
-- ✅ [lib/features/expenses/domain/entities/expense_entity.dart](../lib/features/expenses/domain/entities/expense_entity.dart) - Added category field
-- ✅ [lib/features/expenses/domain/repositories/category_suggestion_repository.dart](../lib/features/expenses/domain/repositories/category_suggestion_repository.dart) - Repository interface
-- ✅ [lib/features/expenses/domain/use_cases/suggest_category_use_case.dart](../lib/features/expenses/domain/use_cases/suggest_category_use_case.dart) - Use case
-- ✅ [lib/features/expenses/data/repositories/online_ai_category_repository.dart](../lib/features/expenses/data/repositories/online_ai_category_repository.dart) - Gemini API implementation
-- ✅ [lib/features/expenses/presentation/screens/create_expense_screen.dart](../lib/features/expenses/presentation/screens/create_expense_screen.dart) - UI integration
-- ✅ [lib/features/expenses/presentation/providers/expense_use_case_providers.dart](../lib/features/expenses/presentation/providers/expense_use_case_providers.dart) - DI setup
+- ✅ [\*/domain/constants/expense_categories.dart](../../lib/features/expenses/domain/constants/expense_categories.dart) - Category definitions
+- ✅ [\*/domain/entities/expense_entity.dart](../lib/features/expenses/domain/entities/expense_entity.dart) - Added category field
+- ✅ [\*/domain/repositories/category_suggestion_repository.dart](../../lib/features/expenses/domain/repositories/category_suggestion_repository.dart) - Repository interface
+- ✅ [\*domain/use_cases/suggest_category_use_case.dart](../../lib/features/expenses/domain/use_cases/suggest_category_use_case.dart) - Use case
+- ✅ [\*/data/repositories/online_ai_category_repository.dart](../../lib/features/expenses/data/repositories/online_ai_category_repository.dart) - Gemini API implementation
+- ✅ [\*/presentation/screens/create_expense_screen.dart](../../lib/features/expenses/presentation/screens/create_expense_screen.dart) - UI integration
+- ✅ [\*/presentation/providers/expense_use_case_providers.dart](../../lib/features/expenses/presentation/providers/expense_use_case_providers.dart) - DI setup
 
 ### Configuration & Initialization
 
-- ✅ [lib/core/config/gemini_config.dart](../lib/core/config/gemini_config.dart) - Gemini API configuration
-- ✅ [lib/main.dart](../lib/main.dart) - Gemini initialization
+- ✅ [lib/core/config/gemini_config.dart](../../lib/core/config/gemini_config.dart) - Gemini API configuration
+- ✅ [lib/main.dart](../../lib/main.dart) - Gemini initialization
 
 ### Testing
 
-- ✅ [test/features/expenses/data/repositories/online_ai_category_repository_test.dart](../test/features/expenses/data/repositories/online_ai_category_repository_test.dart) - Integration tests (all passing)
+- ✅ [test/features/expenses/data/repositories/online_ai_category_repository_test.dart](../../test/features/expenses/data/repositories/online_ai_category_repository_test.dart) - Integration tests (all passing)
 
 ### Dependencies
 
-- ✅ [pubspec.yaml](../pubspec.yaml) - Added `flutter_gemini: ^3.0.0`
-
-### Documentation
-
-- ✅ [docs/CATEGORY_FEATURE_SUMMARY.md](./CATEGORY_FEATURE_SUMMARY.md) - Feature overview (updated)
-- ✅ [docs/GEMINI_SETUP_GUIDE.md](./GEMINI_SETUP_GUIDE.md) - Detailed setup guide
-- ✅ [docs/CATEGORY_UI_INTEGRATION_GUIDE.md](./CATEGORY_UI_INTEGRATION_GUIDE.md) - UI integration steps
-- ✅ [docs/CATEGORY_SUGGESTION_IMPLEMENTATION.md](./CATEGORY_SUGGESTION_IMPLEMENTATION.md) - Architecture guide
-- ✅ [README.md](../README.md) - Updated with feature mention
+- ✅ [pubspec.yaml](../../pubspec.yaml) - Added `flutter_gemini: ^3.0.0`
 
 ---
 
